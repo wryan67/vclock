@@ -31,6 +31,11 @@
 
 namespace {
 
+// How often the hands are re-examined. Stepping, this only has to be short
+// enough that a new second shows up promptly; sweeping, it is the frame rate.
+constexpr int kSteppedIntervalMs = 200;
+constexpr int kSmoothIntervalMs = 17;  // ~60 fps
+
 #if defined(Q_OS_MACOS)
 // macOS users expect Cmd; Qt already maps Qt::ControlModifier onto it.
 const char *kCmdLabel = "Cmd";
@@ -164,16 +169,21 @@ ClockWindow::ClockWindow()
     });
 
     // Polled rather than fired once a second, so the hands land on the new
-    // second promptly however far the timer has drifted.
+    // second promptly however far the timer has drifted. In smooth mode it runs
+    // at 60 fps and every tick repaints, since the minute hand is always moving.
     m_tick = new QTimer(this);
-    m_tick->setInterval(200);
     connect(m_tick, &QTimer::timeout, this, [this] {
+        if (m_cfg.smoothSweep) {
+            update();
+            return;
+        }
         const int second = QTime::currentTime().second();
         if (second != m_lastSecond) {
             m_lastSecond = second;
             update();
         }
     });
+    applyTickRate();
     m_tick->start();
 
     connect(qApp, &QGuiApplication::screenRemoved, this,
@@ -866,8 +876,18 @@ void ClockWindow::paintEvent(QPaintEvent *)
     drawMarks(painter, m_cfg, center.x(), center.y(), radius, width(), height());
 
     const QTime now = QTime::currentTime();
+    // Stepping, the hands sit on whole seconds and whole minutes. Sweeping,
+    // each takes the exact angle for this instant: the millisecond folds into a
+    // fractional second, which folds into a fractional minute, which the hour
+    // hand already trails. So one flag sweeps all three.
+    double seconds = now.second();
+    double minutes = now.minute();
+    if (m_cfg.smoothSweep) {
+        seconds = now.second() + now.msec() / 1000.0;
+        minutes = now.minute() + seconds / 60.0;
+    }
     drawHands(painter, m_cfg, center.x(), center.y(), radius, width(), height(),
-              now.hour() % 12, now.minute(), now.second());
+              now.hour() % 12, minutes, seconds);
 
     if (m_picking)
         drawPickHint(painter, center.x(), center.y(), radius);
@@ -942,9 +962,21 @@ void ClockWindow::applyAlwaysOnTop()
     }
 }
 
-// Keep the check mark in step when the setting changes elsewhere.
-void ClockWindow::syncAlwaysOnTop()
+// A sweeping minute hand has to be redrawn continuously; a stepping one only
+// needs to be checked often enough to land on the new second promptly.
+void ClockWindow::applyTickRate()
 {
+    const int interval = m_cfg.smoothSweep ? kSmoothIntervalMs : kSteppedIntervalMs;
+    if (m_tick->interval() == interval)
+        return;
+    m_tick->setInterval(interval);
+    // Leaving smooth mode, the cached second is whatever the last sweep frame
+    // saw; clearing it makes the next poll repaint rather than wait a second.
+    m_lastSecond = -1;
+}
+
+// Keep the check mark in step when the setting changes elsewhere.
+void ClockWindow::syncAlwaysOnTop(){
     applyAlwaysOnTop();
     if (m_onTopAction && m_onTopAction->isChecked() != m_cfg.alwaysOnTop) {
         const QSignalBlocker blocker(m_onTopAction);
@@ -1108,10 +1140,13 @@ void ClockWindow::applySettings(const Config &values)
                               || values.faceTransparent != m_cfg.faceTransparent;
     const bool changedSize = values.size != m_cfg.size;
     const bool changedOnTop = values.alwaysOnTop != m_cfg.alwaysOnTop;
+    const bool changedSmooth = values.smoothSweep != m_cfg.smoothSweep;
 
     m_cfg = values;
     if (changedOnTop)
         syncAlwaysOnTop();
+    if (changedSmooth)
+        applyTickRate();
     if (newFace)
         m_face = openFace(m_cfg.facePath());
     if (newFace || changedColor) {

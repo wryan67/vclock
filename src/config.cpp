@@ -187,6 +187,10 @@ Config loadConfig()
     cfg.alwaysOnTop = readBool(o, "always_on_top", kDefaults.alwaysOnTop);
     cfg.faceDefault = readBool(o, "face_default", kDefaults.faceDefault);
     cfg.minuteSameAsHour = readBool(o, "minute_same_as_hour", kDefaults.minuteSameAsHour);
+    // "smooth_minute" was this option's name when it only swept the minute
+    // hand; honour it so an existing config keeps the setting.
+    cfg.smoothSweep = readBool(o, "smooth_sweep",
+                               readBool(o, "smooth_minute", kDefaults.smoothSweep));
     cfg.faceTransparent = readBool(o, "face_transparent", kDefaults.faceTransparent);
 
     cfg.faceSvg = readString(o, "face_svg", kDefaults.faceSvg);
@@ -252,6 +256,7 @@ void saveConfig(const Config &cfg)
     o.insert(QStringLiteral("hour_color"), cfg.hourColor);
     o.insert(QStringLiteral("minute_color"), cfg.minuteColor);
     o.insert(QStringLiteral("minute_same_as_hour"), cfg.minuteSameAsHour);
+    o.insert(QStringLiteral("smooth_sweep"), cfg.smoothSweep);
     o.insert(QStringLiteral("face_color"), cfg.faceColor);
     o.insert(QStringLiteral("face_transparent"), cfg.faceTransparent);
     o.insert(QStringLiteral("wire_color"), cfg.wireColor);
@@ -321,5 +326,6 @@ void copyResetKeys(const Config &from, Config &to)
     copyPresetKeys(from, to);
     to.size = from.size;
     to.alwaysOnTop = from.alwaysOnTop;
+    to.smoothSweep = from.smoothSweep;
     to.center = from.center;
 }

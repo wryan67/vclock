@@ -101,6 +101,26 @@ keeps only the line work and fades the body away.
 Two faces are built in and need no files: the plain default ring, and the app
 icon's gradient dial (stored in the config as `builtin:icon`).
 
+### Smooth sweep hands
+
+Off by default, the hands step once a second, the way a quartz movement does.
+Ticking **Smooth sweep hands** in Settings sweeps them instead: the clock
+repaints about every 17 ms (60 fps) and each hand takes the exact angle for the
+current millisecond rather than the nearest whole second.
+
+The visible difference is almost entirely the second hand, which travels about
+40 px a second on a large clock. The minute hand is correct either way but moves
+so slowly — roughly a hundredth of a pixel per frame, a whole pixel every 1.7
+seconds — that on its own it cannot look like anything but stationary.
+
+Sweeping means repainting the whole window sixty times a second, which is not
+free: on a 1080 px clock it costs roughly a fifth of a core, against almost
+nothing when stepping. The cost scales with the clock's area, so a small clock
+sweeps cheaply. That is why it is opt-in.
+
+Configs written while this option was briefly called `smooth_minute` are still
+read, so the setting survives the rename.
+
 ### Hand centre
 
 Settings ▸ *Pick on clock…* hands focus to the clock itself and shows a

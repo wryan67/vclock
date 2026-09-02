@@ -155,6 +155,14 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     grid->addWidget(m_quarterMarks, row, 1, 1, 2);
     ++row;
 
+    m_smoothSweep = new QCheckBox(QStringLiteral("Smooth sweep hands"), this);
+    m_smoothSweep->setChecked(cfg.smoothSweep);
+    m_smoothSweep->setToolTip(QStringLiteral(
+        "Sweep the hands at 60 fps, each at the exact angle for the current millisecond, "
+        "instead of stepping them once a second. Costs noticeably more CPU on a large clock."));
+    grid->addWidget(m_smoothSweep, row, 1, 1, 2);
+    ++row;
+
     // --------------------------------------------------------------- colours
     addLabel(grid, QStringLiteral("Second hand color"), row);
     m_second = new ColorButton(QColor(cfg.secondColor), false,
@@ -248,7 +256,8 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
                                 m_minuteMark}) {
         connect(button, &ColorButton::colorSet, this, [this, button] { onChanged(button); });
     }
-    for (QCheckBox *box : {m_minuteSame, m_faceTransparent, m_faceIsDefault, m_quarterMarks}) {
+    for (QCheckBox *box : {m_minuteSame, m_faceTransparent, m_faceIsDefault, m_quarterMarks,
+                           m_smoothSweep}) {
         connect(box, &QCheckBox::toggled, this, [this] { onChanged(); });
     }
 
@@ -499,6 +508,7 @@ Config SettingsDialog::values() const
     out.hourColor = hexOf(m_hour->color());
     out.minuteColor = m_minuteOwn;
     out.minuteSameAsHour = m_minuteSame->isChecked();
+    out.smoothSweep = m_smoothSweep->isChecked();
     out.faceColor = m_faceOwn;
     out.faceTransparent = m_faceTransparent->isChecked();
     out.wireColor = hexOf(m_wire->color());

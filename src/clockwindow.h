@@ -93,6 +93,7 @@ private:
     void flushSave();
     void applyAlwaysOnTop();
     void syncAlwaysOnTop();
+    void applyTickRate();
     void buildMenu();
     void placeDialog(QWidget *dialog);
     void closeSettings();

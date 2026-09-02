@@ -67,6 +67,7 @@ private:
     QSlider *m_markPosition = nullptr;
     QSlider *m_minuteMarkScale = nullptr;
     QCheckBox *m_quarterMarks = nullptr;
+    QCheckBox *m_smoothSweep = nullptr;
 
     ColorButton *m_second = nullptr;
     ColorButton *m_hour = nullptr;

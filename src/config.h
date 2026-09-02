@@ -60,6 +60,7 @@ struct Config
     QString hourColor = QStringLiteral("#363d45");         // charcoal
     QString minuteColor = QStringLiteral("#000000");
     bool minuteSameAsHour = false;
+    bool smoothSweep = false;                              // sweep the hands instead of stepping them
     QString faceColor = QStringLiteral("#ffffff");
     bool faceTransparent = false;
     QString wireColor = QStringLiteral("#000000");
