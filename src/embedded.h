@@ -1,0 +1,79 @@
+// Artwork and text that ship inside the program, so it has no external
+// dependency on files or an icon theme.
+#pragma once
+
+#include <QByteArray>
+
+// The built-in default face: used on first run, whenever no config exists,
+// and whenever the "default" box is ticked.
+inline QByteArray defaultFaceSvg()
+{
+    return QByteArrayLiteral(
+        R"SVG(<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+  <circle cx="50" cy="50" r="40" stroke="black" stroke-width="3" fill="white" />
+</svg>
+)SVG");
+}
+
+// A second built-in face: the app icon's dial with its painted hands, ticks
+// and pin removed, so vclock draws those itself from the settings.  It is
+// greyscale because recolor() maps brightness onto the wire/face colours;
+// a wide brightness range is what makes the gradient survive recolouring.
+inline QByteArray iconFaceSvg()
+{
+    return QByteArrayLiteral(
+        R"SVG(<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+  <defs>
+    <linearGradient id="clockGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a8a8a8" />
+      <stop offset="100%" stop-color="#101010" />
+    </linearGradient>
+  </defs>
+  <circle cx="50" cy="50" r="40" stroke="#e8e8e8" stroke-width="3" fill="url(#clockGradient)" />
+</svg>
+)SVG");
+}
+
+// The application icon, embedded so the program does not depend on a system
+// icon theme (which is often absent on Windows and macOS).
+inline QByteArray appIconSvg()
+{
+    return QByteArrayLiteral(
+        R"SVG(<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+  <defs>
+    <linearGradient id="clockGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8a959c" />
+      <stop offset="100%" stop-color="#00008b" />
+    </linearGradient>
+  </defs>
+
+  <circle cx="50" cy="50" r="40" stroke="#b0c4de" stroke-width="3" fill="url(#clockGradient)" />
+
+  <line x1="50" y1="15" x2="50" y2="20" stroke="#f0f0f0" stroke-width="2" transform="rotate(0 50 50)" />
+  <line x1="50" y1="15" x2="50" y2="20" stroke="#f0f0f0" stroke-width="2" transform="rotate(30 50 50)" />
+  <line x1="50" y1="15" x2="50" y2="20" stroke="#f0f0f0" stroke-width="2" transform="rotate(60 50 50)" />
+  <line x1="50" y1="15" x2="50" y2="20" stroke="#f0f0f0" stroke-width="2" transform="rotate(90 50 50)" />
+  <line x1="50" y1="15" x2="50" y2="20" stroke="#f0f0f0" stroke-width="2" transform="rotate(120 50 50)" />
+  <line x1="50" y1="15" x2="50" y2="20" stroke="#f0f0f0" stroke-width="2" transform="rotate(150 50 50)" />
+  <line x1="50" y1="15" x2="50" y2="20" stroke="#f0f0f0" stroke-width="2" transform="rotate(180 50 50)" />
+  <line x1="50" y1="15" x2="50" y2="20" stroke="#f0f0f0" stroke-width="2" transform="rotate(210 50 50)" />
+  <line x1="50" y1="15" x2="50" y2="20" stroke="#f0f0f0" stroke-width="2" transform="rotate(240 50 50)" />
+  <line x1="50" y1="15" x2="50" y2="20" stroke="#f0f0f0" stroke-width="2" transform="rotate(270 50 50)" />
+  <line x1="50" y1="15" x2="50" y2="20" stroke="#f0f0f0" stroke-width="2" transform="rotate(300 50 50)" />
+  <line x1="50" y1="15" x2="50" y2="20" stroke="#f0f0f0" stroke-width="2" transform="rotate(330 50 50)" />
+
+  <line x1="50" y1="50" x2="50" y2="30" stroke="#f0f0f0" stroke-width="3" stroke-linecap="round" transform="rotate(305 50 50)" />
+  <line x1="50" y1="50" x2="50" y2="18" stroke="#f0f0f0" stroke-width="2" stroke-linecap="round" transform="rotate(60 50 50)" />
+
+  <circle cx="50" cy="50" r="3" fill="#f0f0f0" />
+</svg>
+)SVG");
+}
+
+inline const char *aboutText()
+{
+    return "A transparent, borderless analog clock for the desktop.\n\n"
+           "The clock face can be any SVG. Within that artwork white is treated as "
+           "the face color and black as the wire color, and both can be recolored "
+           "from Settings.";
+}
