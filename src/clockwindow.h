@@ -46,6 +46,11 @@ public:
     void cancelPicking();
     void setCenter(const std::optional<QPointF> &center, bool save);
 
+    // Carry the clock on the pointer until a mouse button settles it.
+    void startMoveMode();
+    void stopMoveMode();
+    void cancelMoveMode();
+
     // Put the window back where it was last seen, once it has been shown.
     void restorePosition();
 
@@ -65,6 +70,7 @@ protected:
     void mouseReleaseEvent(QMouseEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
     void moveEvent(QMoveEvent *event) override;
+    void changeEvent(QEvent *event) override;
     void closeEvent(QCloseEvent *event) override;
 
 private:
@@ -79,6 +85,7 @@ private:
     QPoint clampToScreen(const QPoint &topLeft, const QScreen *screen) const;
     void rememberPlacement();         // record position/size against the current monitor
     void handleScreenRemoved();
+    void centerOnCursor();
 
     void rebuildRaster();
     void scheduleRebuild();
@@ -91,6 +98,8 @@ private:
     void closeSettings();
     void resetDefaults();
     void previewCenter(const QPointF &pos);
+    void commitPick();
+    void nudgeCenter(int dx, int dy);
     void drawPickHint(class QPainter &painter, double cx, double cy, double radius);
 
     Config m_cfg;
@@ -106,6 +115,12 @@ private:
 
     bool m_dragging = false;
     QPoint m_dragOffset;
+
+    // Ctrl+M move mode: the clock rides the pointer until a button settles it.
+    bool m_moveMode = false;
+    QPoint m_positionBeforeMove;
+    // Guards the minimize/maximize refusal against re-entering itself.
+    bool m_restoringState = false;
 
     QMenu *m_menu = nullptr;
     QAction *m_onTopAction = nullptr;

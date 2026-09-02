@@ -53,7 +53,7 @@ struct Config
     int markPosition = 100;                                // percent of the built-in index radius
     int minuteMarkScale = 50;                              // percent of the hour-index size
     bool quarterMarksOnly = false;                         // draw hour indices at 12/3/6/9 only
-    bool alwaysOnTop = false;                              // keep the widget above other windows
+    bool alwaysOnTop = true;                               // keep the widget above other windows
     QString faceSvg;                                       // path to a user-supplied face ("" = none)
     bool faceDefault = true;                               // ignore faceSvg and use the built-in face
     QString secondColor = QStringLiteral("#8b0000");       // dark red

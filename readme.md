@@ -7,7 +7,7 @@ The face is any SVG; its artwork is recoloured (line work → "wire" colour, bod
 crisp at any scale. The window is undecorated and painted onto a translucent
 surface, so everything outside the artwork is genuinely transparent.
 
-Left-drag moves the widget, right-click opens the menu, Escape quits. Settings
+Left-drag moves the widget, right-click opens the menu, `Ctrl`+Q quits. Settings
 live in a platform-native config directory, including the last position:
 `$XDG_CONFIG_HOME` (or `~/.config`) on Linux, `~/Library/Application Support`
 on macOS, and `%APPDATA%` on Windows.
@@ -64,12 +64,32 @@ cmake -S . -B build -DCMAKE_PREFIX_PATH=/path/to/Qt/6.5.3/gcc_64
 | Action | Result |
 | --- | --- |
 | Left drag | move the clock |
-| Right click | menu (Settings, Always on top, Reset defaults, Help, About, Quit) |
+| Right click | menu (Settings, Move, Always on top, Reset defaults, Help, About, Quit) |
 | `Ctrl`/`Cmd`+S | settings |
+| `Ctrl`/`Cmd`+M | move mode (see below) |
 | `Ctrl`/`Cmd`+H | help |
 | `Ctrl`/`Cmd`+A | about |
 | `Ctrl`/`Cmd`+R | reset defaults |
-| `Esc`, `Ctrl`+C, `Alt`+F4 (`Cmd`+Q / `Cmd`+W on macOS) | quit |
+| `Ctrl`/`Cmd`+Q | quit |
+| `Esc`, `Ctrl`+C, `Alt`+F4 (`Cmd`+W on macOS) | quit as well |
+
+Each menu entry shows its shortcut in a right-hand column.
+
+The clock refuses to be minimised, maximised, or made full screen, whether the
+request comes from the window manager, a "show desktop" key, or a tiling
+shortcut. Because it keeps out of the taskbar and the window switcher, being
+iconified would leave no way to get it back.
+
+The clock is kept above other windows by default; *Always on top* in the menu
+turns that off. Existing configs keep whatever they already had.
+
+### Move mode
+
+Dragging is awkward when the clock has ended up behind another window or off
+under the pointer's usual travel. *Move* — the menu entry or `Ctrl`+M — picks
+the clock up and centres it on the mouse, and from then on it follows the
+pointer with no button held. Any mouse button sets it down; `Esc` puts it back
+where it started. The clock is kept fully on the screen the pointer is on.
 
 ### Clock face
 
@@ -83,8 +103,19 @@ icon's gradient dial (stored in the config as `builtin:icon`).
 
 ### Hand centre
 
-Settings ▸ *Pick on clock…*, then drag on the face. The hands and marks follow
-the pointer and settle where you release the button; `Esc` cancels.
+Settings ▸ *Pick on clock…* hands focus to the clock itself and shows a
+crosshair at the current centre. Either drag on the face — the hands and marks
+follow the pointer and settle where the button is released — or use the
+keyboard: the arrow keys nudge the centre a pixel at a time, `Shift`+arrow moves
+ten, `Enter` accepts, and `Esc` cancels and restores the previous centre.
+Nothing is written to the config until the pick is accepted. Focus returns to
+the Settings window either way.
+
+### The Settings window
+
+If the screen is not tall or wide enough for the whole dialog, the controls
+scroll and the Save and Cancel buttons stay pinned below them, so they are
+always reachable. Scrollbars appear only when they are actually needed.
 
 ## Configuration
 

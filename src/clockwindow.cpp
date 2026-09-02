@@ -34,11 +34,23 @@ namespace {
 #if defined(Q_OS_MACOS)
 // macOS users expect Cmd; Qt already maps Qt::ControlModifier onto it.
 const char *kCmdLabel = "Cmd";
-const char *kQuitKeys = "Cmd+Q, Cmd+W, Esc";
+// The alternates listed in help alongside the primary Cmd+Q / Ctrl+Q.
+const char *kQuitKeys = "Cmd+W, Cmd+C, Esc";
 #else
 const char *kCmdLabel = "Ctrl";
 const char *kQuitKeys = "Ctrl+C, Alt+F4, Esc";
 #endif
+
+// The accelerator shown down the right-hand side of a menu entry. Qt renders
+// whatever follows a tab in an action's text as the shortcut column, which
+// keeps these labels purely cosmetic -- keyPressEvent below stays the one place
+// the keys are actually acted on, so the two can never disagree about what a
+// key does.
+QString menuHotkey(const QString &text, const char *keys)
+{
+    return text + QLatin1Char('\t') + QLatin1String(kCmdLabel) + QLatin1Char('+')
+           + QLatin1String(keys);
+}
 
 QPoint globalPosOf(const QMouseEvent *event)
 {
@@ -465,6 +477,36 @@ void ClockWindow::moveEvent(QMoveEvent *event)
     rememberPlacement();
 }
 
+// Refuse to be minimised, maximised or made full screen.
+//
+// The window has no title bar to offer those actions, but a window manager can
+// still impose them from outside -- "show desktop", a minimise-all shortcut, or
+// a tiling keybinding will happily iconify a utility window. Since the clock
+// keeps out of the taskbar and the window switcher, being iconified would leave
+// no way at all to get it back, and being maximised would stretch a fixed-size
+// circular face across the screen.
+void ClockWindow::changeEvent(QEvent *event)
+{
+    if (event->type() == QEvent::WindowStateChange && !m_restoringState) {
+        const Qt::WindowStates unwanted =
+            Qt::WindowMinimized | Qt::WindowMaximized | Qt::WindowFullScreen;
+        if (windowState() & unwanted) {
+            m_restoringState = true;
+            // Deferred: undoing the state while the window manager is still
+            // acting on it just gets overwritten.
+            QTimer::singleShot(0, this, [this] {
+                setWindowState(windowState() & ~(Qt::WindowMinimized | Qt::WindowMaximized
+                                                 | Qt::WindowFullScreen));
+                if (!isVisible())
+                    show();
+                raise();
+                m_restoringState = false;
+            });
+        }
+    }
+    QWidget::changeEvent(event);
+}
+
 void ClockWindow::closeEvent(QCloseEvent *event)
 {
     closeSettings();
@@ -475,6 +517,13 @@ void ClockWindow::closeEvent(QCloseEvent *event)
 
 void ClockWindow::mousePressEvent(QMouseEvent *event)
 {
+    // Any button settles a move in progress, and is swallowed so it cannot also
+    // start a drag or open the menu.
+    if (m_moveMode) {
+        stopMoveMode();
+        event->accept();
+        return;
+    }
     if (event->button() == Qt::LeftButton) {
         if (m_picking) {
             // Click and drag: the preview follows the pointer, nothing is
@@ -506,6 +555,11 @@ void ClockWindow::mousePressEvent(QMouseEvent *event)
 
 void ClockWindow::mouseMoveEvent(QMouseEvent *event)
 {
+    if (m_moveMode) {
+        centerOnCursor();
+        event->accept();
+        return;
+    }
     if (m_draggingCenter) {
         previewCenter(localPosOf(event));
         event->accept();
@@ -521,6 +575,11 @@ void ClockWindow::mouseMoveEvent(QMouseEvent *event)
 
 void ClockWindow::mouseReleaseEvent(QMouseEvent *event)
 {
+    // The release that follows the settling click has nothing left to do.
+    if (m_moveMode) {
+        event->accept();
+        return;
+    }
     if (event->button() != Qt::LeftButton) {
         QWidget::mouseReleaseEvent(event);
         return;
@@ -528,10 +587,7 @@ void ClockWindow::mouseReleaseEvent(QMouseEvent *event)
     if (m_draggingCenter) {
         m_draggingCenter = false;
         previewCenter(localPosOf(event));
-        m_centerBeforePick.reset();
-        m_hadCenterBeforePick = false;
-        queueSave();
-        stopPicking();
+        commitPick();
         event->accept();
         return;
     }
@@ -551,8 +607,38 @@ void ClockWindow::keyPressEvent(QKeyEvent *event)
     command = command || mods.testFlag(Qt::MetaModifier);
 #endif
 
+    // Keyboard pivot placement, while a pick is in progress. These come before
+    // everything else so the arrow keys cannot be taken for anything else.
+    if (m_picking && !m_draggingCenter) {
+        // A coarse step for crossing the face, a single pixel for settling on
+        // the exact spot.
+        const int step = mods.testFlag(Qt::ShiftModifier) ? 10 : 1;
+        switch (key) {
+        case Qt::Key_Left:
+            nudgeCenter(-step, 0);
+            return;
+        case Qt::Key_Right:
+            nudgeCenter(step, 0);
+            return;
+        case Qt::Key_Up:
+            nudgeCenter(0, -step);
+            return;
+        case Qt::Key_Down:
+            nudgeCenter(0, step);
+            return;
+        case Qt::Key_Return:
+        case Qt::Key_Enter:
+            commitPick();
+            return;
+        default:
+            break;
+        }
+    }
+
     if (key == Qt::Key_Escape) {
-        if (m_picking)
+        if (m_moveMode)
+            cancelMoveMode();
+        else if (m_picking)
             cancelPicking();
         else
             close();
@@ -572,6 +658,9 @@ void ClockWindow::keyPressEvent(QKeyEvent *event)
         case Qt::Key_S:
             openSettings();
             return;
+        case Qt::Key_M:
+            startMoveMode();
+            return;
         case Qt::Key_H:
             showHelp();
             return;
@@ -581,8 +670,12 @@ void ClockWindow::keyPressEvent(QKeyEvent *event)
         case Qt::Key_R:
             confirmReset();
             return;
-#if defined(Q_OS_MACOS)
         case Qt::Key_Q:
+            close();
+            return;
+#if defined(Q_OS_MACOS)
+        // Cmd+W closes a window on macOS, and for a single-window app that is
+        // the same thing as quitting.
         case Qt::Key_W:
             close();
             return;
@@ -594,6 +687,67 @@ void ClockWindow::keyPressEvent(QKeyEvent *event)
     QWidget::keyPressEvent(event);
 }
 
+// -------------------------------------------------------------- move on mouse
+
+// Pick the clock up onto the pointer. It centres on the cursor straight away
+// and follows it until any mouse button is pressed, which drops it there.
+void ClockWindow::startMoveMode()
+{
+    if (m_moveMode)
+        return;
+    cancelPicking();
+    m_dragging = false;
+    m_moveMode = true;
+    m_positionBeforeMove = pos();
+
+    setCursor(Qt::SizeAllCursor);
+    // Without an explicit grab the pointer leaves the window on the first
+    // motion and the moves stop arriving; tracking is needed as well because no
+    // button is held down.
+    setMouseTracking(true);
+    grabMouse();
+    grabKeyboard();
+
+    centerOnCursor();
+}
+
+void ClockWindow::stopMoveMode()
+{
+    if (!m_moveMode)
+        return;
+    m_moveMode = false;
+    releaseKeyboard();
+    releaseMouse();
+    setMouseTracking(false);
+    unsetCursor();
+    rememberPlacement();
+    flushSave();
+}
+
+// Abandon the move and put the clock back where it was picked up from.
+void ClockWindow::cancelMoveMode()
+{
+    if (!m_moveMode)
+        return;
+    const QPoint back = m_positionBeforeMove;
+    stopMoveMode();
+    move(back);
+}
+
+// Centre the window on the pointer, kept whole on the screen the pointer is on
+// so it cannot be carried off the edge of the desktop.
+void ClockWindow::centerOnCursor()
+{
+    const QPoint cursor = QCursor::pos();
+    QPoint topLeft(cursor.x() - width() / 2, cursor.y() - height() / 2);
+    const QScreen *screen = QGuiApplication::screenAt(cursor);
+    if (!screen)
+        screen = currentScreen();
+    if (screen)
+        topLeft = clampToScreen(topLeft, screen);
+    move(topLeft);
+}
+
 // -------------------------------------------------------------- centre pick
 
 void ClockWindow::startPicking()
@@ -603,7 +757,39 @@ void ClockWindow::startPicking()
     m_centerBeforePick = m_cfg.center;
     m_hadCenterBeforePick = true;
     setCursor(Qt::CrossCursor);
+
+    // Take the keyboard so the arrow keys drive the pivot. The click that
+    // starts a pick lands on the Settings dialog, which would otherwise keep
+    // focus and swallow every arrow key into its own widget navigation.
+    raise();
+    activateWindow();
+    setFocus(Qt::OtherFocusReason);
+
     update();
+}
+
+// Settle the pivot where it currently sits and leave pick mode.
+void ClockWindow::commitPick()
+{
+    m_centerBeforePick.reset();
+    m_hadCenterBeforePick = false;
+    queueSave();
+    stopPicking();
+}
+
+// Nudge the pivot by whole pixels of the clock face.
+//
+// Working in pixels rather than in the stored fraction keeps a step the same
+// visible distance whatever the clock's size, and matches what the readout in
+// Settings shows.
+void ClockWindow::nudgeCenter(int dx, int dy)
+{
+    if (!m_picking)
+        return;
+    // An unset centre means "middle of the canvas"; starting from the effective
+    // position is what makes the first arrow key move from where the crosshair
+    // is actually drawn rather than jumping.
+    previewCenter(centerPixels() + QPointF(dx, dy));
 }
 
 void ClockWindow::stopPicking()
@@ -613,6 +799,11 @@ void ClockWindow::stopPicking()
     m_picking = false;
     m_draggingCenter = false;
     unsetCursor();
+    // Hand the keyboard back so the dialog is immediately usable again.
+    if (m_settings) {
+        m_settings->raise();
+        m_settings->activateWindow();
+    }
     update();
 }
 
@@ -701,8 +892,15 @@ void ClockWindow::buildMenu()
 {
     m_menu = new QMenu(this);
 
-    QAction *settings = m_menu->addAction(QStringLiteral("Settings"));
+    QAction *settings = m_menu->addAction(menuHotkey(QStringLiteral("Settings"), "S"));
     connect(settings, &QAction::triggered, this, &ClockWindow::openSettings);
+
+    QAction *move = m_menu->addAction(menuHotkey(QStringLiteral("Move"), "M"));
+    connect(move, &QAction::triggered, this, [this] {
+        // Deferred until the menu has closed and given up its own mouse grab,
+        // which would otherwise fight the one move mode takes.
+        QTimer::singleShot(0, this, [this] { startMoveMode(); });
+    });
 
     m_onTopAction = m_menu->addAction(QStringLiteral("Always on top"));
     m_onTopAction->setCheckable(true);
@@ -715,17 +913,17 @@ void ClockWindow::buildMenu()
         queueSave();
     });
 
-    QAction *reset = m_menu->addAction(QStringLiteral("Reset defaults"));
+    QAction *reset = m_menu->addAction(menuHotkey(QStringLiteral("Reset defaults"), "R"));
     connect(reset, &QAction::triggered, this, &ClockWindow::confirmReset);
 
-    QAction *help = m_menu->addAction(QStringLiteral("Help"));
+    QAction *help = m_menu->addAction(menuHotkey(QStringLiteral("Help"), "H"));
     connect(help, &QAction::triggered, this, &ClockWindow::showHelp);
 
-    QAction *about = m_menu->addAction(QStringLiteral("About"));
+    QAction *about = m_menu->addAction(menuHotkey(QStringLiteral("About"), "A"));
     connect(about, &QAction::triggered, this, &ClockWindow::showAbout);
 
     m_menu->addSeparator();
-    QAction *quit = m_menu->addAction(QStringLiteral("Quit"));
+    QAction *quit = m_menu->addAction(menuHotkey(QStringLiteral("Quit"), "Q"));
     connect(quit, &QAction::triggered, this, [this] { close(); });
 }
 
@@ -852,7 +1050,7 @@ void ClockWindow::showHelp()
     auto *box = new QMessageBox(this);
     box->setAttribute(Qt::WA_DeleteOnClose, true);
     box->setWindowTitle(QStringLiteral("vclock help"));
-    box->setIcon(QMessageBox::Information);
+    box->setIconPixmap(QPixmap::fromImage(appIconImage(96)));
     box->setTextFormat(Qt::RichText);
     box->setText(QStringLiteral("<b>vclock help</b>"));
     box->setInformativeText(
@@ -862,10 +1060,12 @@ void ClockWindow::showHelp()
             "Right click &mdash; menu<br>"
             "<br><b>Keyboard</b><br>"
             "%1+S &mdash; settings<br>"
+            "%1+M &mdash; carry the clock on the pointer<br>"
             "%1+H &mdash; this help<br>"
             "%1+A &mdash; about<br>"
             "%1+R &mdash; reset defaults<br>"
-            "%2 &mdash; quit<br>"
+            "%1+Q &mdash; quit<br>"
+            "%2 &mdash; also quit<br>"
             "<br><b>Clock face</b><br>"
             "Any SVG can be used. Within the artwork white is treated as the face "
             "color and black as the wire color, and both can be recolored from "
@@ -873,7 +1073,12 @@ void ClockWindow::showHelp()
             "<br><b>Hand center</b><br>"
             "Settings &#9656; Pick on clock, then drag on the face. The hands and "
             "marks follow the pointer and settle where you release the button. "
-            "Esc cancels.")
+            "The arrow keys move the pivot one pixel at a time, Shift+arrow moves "
+            "it ten, Enter accepts and Esc cancels.<br>"
+            "<br><b>Move</b><br>"
+            "Menu &#9656; Move, or %1+M, picks the clock up onto the pointer. It "
+            "centers on the cursor and follows it until any mouse button is "
+            "clicked. Esc puts it back where it started.")
             .arg(QLatin1String(kCmdLabel), QLatin1String(kQuitKeys)));
     box->setStandardButtons(QMessageBox::Close);
     box->show();

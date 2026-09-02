@@ -1,3 +1,55 @@
-.git
-.idea/**
-build/**
+# ---------------------------------------------------------------- build trees
+# build/ and build-debug/ are what build.sh uses; cmake-build-* is what CLion
+# creates, one directory per configuration profile.
+build/
+build-debug/
+cmake-build-*/
+
+# Anything CMake leaves behind if it is ever run in the source tree itself.
+CMakeCache.txt
+CMakeFiles/
+CMakeUserPresets.json
+cmake_install.cmake
+CTestTestfile.cmake
+install_manifest.txt
+Testing/
+_deps/
+
+# Written by -DCMAKE_EXPORT_COMPILE_COMMANDS=ON, which build.sh always sets, and
+# often symlinked to the root of the tree for clangd.
+compile_commands.json
+
+# ------------------------------------------------------------------------ Qt
+# AUTOMOC output normally stays inside the build tree; these catch the strays
+# from an in-source build.
+moc_*.cpp
+moc_*.h
+qrc_*.cpp
+ui_*.h
+*.moc
+.qmake.stash
+
+# ------------------------------------------------------------------ CLion/IDE
+.idea/
+*.iml
+.vscode/
+.cache/
+.vs/
+
+# ------------------------------------------------------------- build products
+*.o
+*.a
+*.so
+*.so.*
+*.dylib
+*.exe
+*.out
+
+# ------------------------------------------------------------------------- OS
+.DS_Store
+Thumbs.db
+
+# -------------------------------------------------------------------- editors
+*~
+*.swp
+*.swo

@@ -206,6 +206,9 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     // ---------------------------------------------------------- hand centre
     addLabel(grid, QStringLiteral("Hand center"), row);
     m_pick = new QPushButton(QStringLiteral("Pick on clock\u2026"), this);
+    m_pick->setToolTip(QStringLiteral(
+        "Drag on the clock face, or use the arrow keys to move the pivot a pixel "
+        "at a time (hold Shift for 10). Enter accepts, Esc cancels."));
     connect(m_pick, &QPushButton::clicked, this, [this] { m_clock->startPicking(); });
     grid->addWidget(m_pick, row, 1, Qt::AlignLeft);
     m_centerAuto = new QCheckBox(QStringLiteral("auto (canvas center)"), this);
