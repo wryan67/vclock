@@ -37,8 +37,20 @@ int main(int argc, char *argv[])
     app.setQuitOnLastWindowClosed(false);
 
     ClockWindow clock;
-    clock.show();
+    // Placed before the first show(): a window manager applies its own
+    // placement policy when a window is mapped, and on X11 that routinely wins
+    // over a move() issued afterwards, leaving the clock wherever the WM felt
+    // like putting it. Positioning it while it is still unmapped makes the
+    // request part of the initial geometry, which is honoured.
     clock.restorePosition();
+    clock.show();
+    // The clock is a frameless tool window that deliberately stays out of the
+    // taskbar and the window switcher, so a window manager that maps it below
+    // the windows already on screen leaves the user with no way to find it and
+    // nothing apparently happening. Asking for the front explicitly makes it
+    // visible on launch without forcing "always on top" on for good.
+    clock.raise();
+    clock.activateWindow();
 
     // Ctrl+C in the launching terminal shuts down the same way the menu does,
     // so the config still gets flushed.  Polling a flag keeps the handler

@@ -210,6 +210,27 @@ Config loadConfig()
     if (o.value(QLatin1String("y")).isDouble())
         cfg.y = static_cast<int>(o.value(QLatin1String("y")).toDouble());
 
+    const QJsonObject displays = o.value(QLatin1String("displays")).toObject();
+    for (auto it = displays.begin(); it != displays.end(); ++it) {
+        if (it.key().isEmpty() || !it.value().isObject())
+            continue;
+        const QJsonObject entry = it.value().toObject();
+        // A record without a position carries no information worth keeping.
+        if (!entry.value(QLatin1String("x")).isDouble()
+            || !entry.value(QLatin1String("y")).isDouble()) {
+            continue;
+        }
+        DisplayState state;
+        state.x = static_cast<int>(entry.value(QLatin1String("x")).toDouble());
+        state.y = static_cast<int>(entry.value(QLatin1String("y")).toDouble());
+        if (entry.value(QLatin1String("size")).isDouble()) {
+            state.size = qMax(kSizeMin,
+                              static_cast<int>(entry.value(QLatin1String("size")).toDouble()));
+        }
+        cfg.displays.insert(it.key(), state);
+    }
+    cfg.lastDisplay = readString(o, "last_display", QString());
+
     if (cfg.faceSvg.isEmpty())
         cfg.faceDefault = true;
     return cfg;
@@ -247,6 +268,18 @@ void saveConfig(const Config &cfg)
     }
     o.insert(QStringLiteral("x"), cfg.x.has_value() ? QJsonValue(*cfg.x) : QJsonValue::Null);
     o.insert(QStringLiteral("y"), cfg.y.has_value() ? QJsonValue(*cfg.y) : QJsonValue::Null);
+
+    QJsonObject displays;
+    for (auto it = cfg.displays.begin(); it != cfg.displays.end(); ++it) {
+        QJsonObject entry;
+        entry.insert(QStringLiteral("x"), it->x);
+        entry.insert(QStringLiteral("y"), it->y);
+        if (it->size > 0)
+            entry.insert(QStringLiteral("size"), it->size);
+        displays.insert(it.key(), entry);
+    }
+    o.insert(QStringLiteral("displays"), displays);
+    o.insert(QStringLiteral("last_display"), cfg.lastDisplay);
 
     const QString dir = configDir();
     if (!QDir().mkpath(dir)) {

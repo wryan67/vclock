@@ -8,6 +8,7 @@
 #include <QAction>
 #include <QApplication>
 #include <QCloseEvent>
+#include <QCursor>
 #include <QGuiApplication>
 #include <QIcon>
 #include <QKeyEvent>
@@ -20,6 +21,7 @@
 #include <QPixmap>
 #include <QScreen>
 #include <QSignalBlocker>
+#include <QStringList>
 #include <QTime>
 #include <QTimer>
 #include <QWindow>
@@ -54,6 +56,50 @@ QPointF localPosOf(const QMouseEvent *event)
 #else
     return event->localPos();
 #endif
+}
+
+// A monitor's identity, from its EDID where the platform exposes one.
+//
+// The connector name ("HDMI-0", "DP-2") is deliberately the last resort: it
+// describes the port rather than the panel, so plugging the same monitor into a
+// different socket would otherwise look like a brand new screen and lose its
+// remembered placement.
+QString displayIdentity(const QScreen *screen)
+{
+    QStringList parts;
+    for (const QString &part : {screen->manufacturer(), screen->model(),
+                                screen->serialNumber()}) {
+        if (!part.trimmed().isEmpty())
+            parts << part.trimmed();
+    }
+    QString id = parts.join(QLatin1Char(' ')).simplified();
+    if (id.isEmpty())
+        id = screen->name().trimmed();
+    if (id.isEmpty())
+        id = QStringLiteral("display");
+    return id;
+}
+
+QString displayKey(const QScreen *screen)
+{
+    if (!screen)
+        return QString();
+
+    const QString id = displayIdentity(screen);
+
+    // Two monitors of the same make and model can report the same EDID string
+    // (and some report no serial at all), which would make them share a single
+    // record. Where that happens the connector name tells them apart; it is
+    // only appended for the ambiguous case, so ordinary single-panel setups
+    // keep a key that survives being replugged.
+    int matches = 0;
+    for (const QScreen *other : QGuiApplication::screens()) {
+        if (displayIdentity(other) == id)
+            ++matches;
+    }
+    if (matches > 1 && !screen->name().trimmed().isEmpty())
+        return id + QStringLiteral(" @") + screen->name().trimmed();
+    return id;
 }
 
 }  // namespace
@@ -117,6 +163,9 @@ ClockWindow::ClockWindow()
         }
     });
     m_tick->start();
+
+    connect(qApp, &QGuiApplication::screenRemoved, this,
+            [this](QScreen *) { handleScreenRemoved(); });
 }
 
 ClockWindow::~ClockWindow() = default;
@@ -219,10 +268,183 @@ QString ClockWindow::faceLabel() const
     return m_face->label();
 }
 
+// The monitor the clock is on right now.
+QScreen *ClockWindow::currentScreen() const
+{
+    // Once mapped, the screen under the window's centre is the one the user
+    // would say it is on, even when it straddles a boundary.
+    if (windowHandle()) {
+        if (QScreen *screen = QGuiApplication::screenAt(frameGeometry().center()))
+            return screen;
+        if (QScreen *screen = windowHandle()->screen())
+            return screen;
+    }
+    if (QScreen *screen = QGuiApplication::screenAt(QCursor::pos()))
+        return screen;
+    return QGuiApplication::primaryScreen();
+}
+
+// The monitor to open on: the one the clock was last used on if it is still
+// attached, otherwise wherever the pointer is.
+QScreen *ClockWindow::startupScreen() const
+{
+    if (!m_cfg.lastDisplay.isEmpty()) {
+        for (QScreen *screen : QGuiApplication::screens()) {
+            if (displayKey(screen) == m_cfg.lastDisplay)
+                return screen;
+        }
+    }
+    if (QScreen *screen = QGuiApplication::screenAt(QCursor::pos()))
+        return screen;
+    return QGuiApplication::primaryScreen();
+}
+
+int ClockWindow::maxSizeFor(const QScreen *screen) const
+{
+    if (!screen)
+        return kSizeMaxFallback;
+    return std::max(kSizeMin, screen->geometry().height());
+}
+
+// Where a clock with no history goes on a given monitor: the middle of its
+// working area, which is visible whatever else is already open.
+QPoint ClockWindow::defaultPositionOn(const QScreen *screen) const
+{
+    const QRect available = screen->availableGeometry();
+    return QPoint(available.x() + (available.width() - width()) / 2,
+                  available.y() + (available.height() - height()) / 2);
+}
+
+// Keep the whole clock inside the monitor's working area, so a remembered
+// position taken from a larger screen cannot strand it out of reach.
+QPoint ClockWindow::clampToScreen(const QPoint &topLeft, const QScreen *screen) const
+{
+    const QRect available = screen->availableGeometry();
+    int x = topLeft.x();
+    int y = topLeft.y();
+
+    if (available.width() > width())
+        x = qBound(available.left(), x, available.right() - width() + 1);
+    else
+        x = available.left();
+
+    if (available.height() > height())
+        y = qBound(available.top(), y, available.bottom() - height() + 1);
+    else
+        y = available.top();
+
+    return QPoint(x, y);
+}
+
+void ClockWindow::placeOnScreen(QScreen *screen)
+{
+    if (!screen)
+        return;
+
+    const auto saved = m_cfg.displays.constFind(displayKey(screen));
+    if (saved != m_cfg.displays.constEnd()) {
+        if (saved->size > 0) {
+            const int size = std::min(saved->size, maxSizeFor(screen));
+            if (size != m_cfg.size) {
+                m_cfg.size = size;
+                applySize();
+                rebuildRaster();
+            }
+        }
+        // Stored relative to the working area, so the clock lands on the same
+        // part of this panel however the monitors are arranged today.
+        const QPoint want = screen->availableGeometry().topLeft()
+                            + QPoint(saved->x, saved->y);
+        move(clampToScreen(want, screen));
+    } else {
+        const int size = std::min(m_cfg.size, maxSizeFor(screen));
+        if (size != m_cfg.size) {
+            m_cfg.size = size;
+            applySize();
+            rebuildRaster();
+        }
+        move(defaultPositionOn(screen));
+    }
+    update();
+}
+
+// Record where the clock is, and how big, against the monitor it is on.
+void ClockWindow::rememberPlacement()
+{
+    QScreen *screen = currentScreen();
+    if (!screen)
+        return;
+    const QString key = displayKey(screen);
+    if (key.isEmpty())
+        return;
+
+    const QRect available = screen->availableGeometry();
+    DisplayState state;
+    state.x = pos().x() - available.x();
+    state.y = pos().y() - available.y();
+    state.size = m_cfg.size;
+
+    const auto existing = m_cfg.displays.constFind(key);
+    if (existing != m_cfg.displays.constEnd() && existing->x == state.x
+        && existing->y == state.y && existing->size == state.size
+        && m_cfg.lastDisplay == key) {
+        return;
+    }
+
+    m_cfg.displays.insert(key, state);
+    m_cfg.lastDisplay = key;
+    queueSave();
+}
+
+// A monitor being unplugged can leave the clock on coordinates that no longer
+// exist, which -- for a frameless window with no taskbar entry -- is
+// indistinguishable from the program having quit. Bring it back onto a screen
+// that is still attached.
+void ClockWindow::handleScreenRemoved()
+{
+    if (!isVisible())
+        return;
+    // Deferred: the window manager does its own reshuffling when a screen goes
+    // away, and moving the window before that settles just fights it.
+    QTimer::singleShot(0, this, [this] {
+        if (!isVisible())
+            return;
+        if (QGuiApplication::screenAt(frameGeometry().center()))
+            return;  // still somewhere valid
+        if (QScreen *screen = QGuiApplication::primaryScreen())
+            placeOnScreen(screen);
+    });
+}
+
+// Place the window for this session.
+//
+// With a position remembered for this monitor the clock goes back exactly where
+// it was. Without one the window manager would otherwise be left to place it,
+// which on a busy desktop tends to mean the top-left corner underneath whatever
+// is already open -- and since this is a frameless tool window that skips the
+// taskbar and the pager, a clock parked behind another window is effectively
+// invisible and unreachable. Centring it on the target screen keeps a first run
+// on any monitor visible.
 void ClockWindow::restorePosition()
 {
-    if (m_cfg.x.has_value() && m_cfg.y.has_value())
-        move(*m_cfg.x, *m_cfg.y);
+    QScreen *screen = startupScreen();
+    if (!screen)
+        return;
+
+    // A config written before per-display records existed keeps its absolute
+    // position, as long as that still lands on a monitor that is attached. The
+    // move below is picked up by moveEvent, which migrates it to a per-display
+    // record straight away.
+    if (!m_cfg.displays.contains(displayKey(screen)) && m_cfg.x.has_value()
+        && m_cfg.y.has_value()) {
+        const QRect want(QPoint(*m_cfg.x, *m_cfg.y), size());
+        if (QGuiApplication::screenAt(want.center())) {
+            move(want.topLeft());
+            return;
+        }
+    }
+
+    placeOnScreen(screen);
 }
 
 // ------------------------------------------------------------------- events
@@ -236,6 +458,11 @@ void ClockWindow::moveEvent(QMoveEvent *event)
         m_cfg.y = pos.y();
         queueSave();
     }
+    // Dragging the clock onto another monitor records it against that monitor.
+    // Its remembered size is deliberately not applied here: resizing the window
+    // out from under a drag in progress would be startling, so a per-monitor
+    // size only takes effect when the clock opens there.
+    rememberPlacement();
 }
 
 void ClockWindow::closeEvent(QCloseEvent *event)
@@ -692,5 +919,7 @@ void ClockWindow::applySettings(const Config &values)
         applySize();
         scheduleRebuild();
     }
+    if (changedSize)
+        rememberPlacement();  // the size belongs to the monitor it was set on
     update();
 }

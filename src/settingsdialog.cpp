@@ -12,14 +12,19 @@
 #include <QFileInfo>
 #include <QFontMetrics>
 #include <QGridLayout>
+#include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QScreen>
+#include <QScrollArea>
+#include <QScrollBar>
 #include <QSlider>
 #include <QToolButton>
 #include <QVBoxLayout>
 
+#include <algorithm>
 #include <cmath>
 
 namespace {
@@ -61,11 +66,29 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     m_faceOwn = cfg.faceColor;
 
     auto *outer = new QVBoxLayout(this);
-    auto *grid = new QGridLayout;
+
+    // Every control lives on this widget, which the scroll area below pans over
+    // when the dialog is taller or wider than the screen it opens on.
+    auto *content = new QWidget;
+    auto *grid = new QGridLayout(content);
     grid->setHorizontalSpacing(10);
     grid->setVerticalSpacing(8);
     grid->setContentsMargins(12, 12, 12, 12);
-    outer->addLayout(grid);
+
+    auto *scroll = new QScrollArea(this);
+    scroll->setWidget(content);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    // Scroll bars appear only when something is actually out of view. A
+    // permanently visible bar would eat width on every setup that fits and
+    // suggest there is more below when there is not.
+    scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    // The viewport would otherwise paint in the base (text-entry) colour rather
+    // than the dialog's own background.
+    scroll->viewport()->setAutoFillBackground(false);
+    content->setAutoFillBackground(false);
+    outer->addWidget(scroll, 1);
 
     int row = 0;
 
@@ -229,6 +252,45 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     syncSwatches();
     refreshCenter();
     m_live = true;
+
+    resizeToFit(content, scroll, buttons);
+}
+
+// Open at the dialog's natural size where the screen allows it, and no larger
+// than the screen where it does not -- past that point the scroll area takes
+// over. This has to be done by hand because QScrollArea::sizeHint() clamps
+// itself to a couple of dozen text lines, so simply calling adjustSize() would
+// open the dialog already scrolled no matter how much room there is.
+void SettingsDialog::resizeToFit(QWidget *content, QScrollArea *scroll,
+                                 QWidget *buttons)
+{
+    content->ensurePolished();
+    if (QLayout *layout = content->layout())
+        layout->activate();
+
+    const QMargins margins = layout()->contentsMargins();
+    const QSize natural = content->sizeHint();
+    QSize want(natural.width() + margins.left() + margins.right(),
+               natural.height() + buttons->sizeHint().height()
+                   + layout()->spacing() + margins.top() + margins.bottom());
+
+    const QScreen *screen = QGuiApplication::screenAt(m_clock->frameGeometry().center());
+    if (!screen)
+        screen = QGuiApplication::primaryScreen();
+    if (screen) {
+        // Leave room for the title bar and any panels the working area does not
+        // already account for, so the dialog stays fully reachable.
+        const QSize room = screen->availableGeometry().size() - QSize(0, 64);
+        if (want.height() > room.height()) {
+            want.setHeight(std::max(room.height(), scroll->minimumSizeHint().height()));
+            // Losing height to a vertical bar can push the content wider than
+            // the viewport, which would otherwise bring on a horizontal bar too.
+            want.setWidth(want.width() + scroll->verticalScrollBar()->sizeHint().width());
+        }
+        want = want.boundedTo(room.expandedTo(QSize(0, 0)));
+    }
+
+    resize(want);
 }
 
 QLabel *SettingsDialog::addLabel(QGridLayout *grid, const QString &text, int row)

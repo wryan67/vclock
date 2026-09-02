@@ -14,6 +14,7 @@ class QCheckBox;
 class QGridLayout;
 class QLabel;
 class QLineEdit;
+class QScrollArea;
 class QSlider;
 
 class SettingsDialog : public QDialog
@@ -34,6 +35,10 @@ private:
     QLabel *addLabel(QGridLayout *grid, const QString &text, int row);
     QSlider *addSlider(QGridLayout *grid, int row, const QString &caption, int value, int low,
                        int high, bool markHundred);
+
+    // Size the dialog to its contents, or to the screen when the contents do
+    // not fit and the scroll area has to take over.
+    void resizeToFit(QWidget *content, QScrollArea *scroll, QWidget *buttons);
 
     void onChanged(const QObject *sender = nullptr);
     void onBrowse();

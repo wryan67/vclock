@@ -2,6 +2,7 @@
 // platform-native config directory.
 #pragma once
 
+#include <QMap>
 #include <QPointF>
 #include <QString>
 #include <optional>
@@ -29,6 +30,21 @@ inline constexpr double kMarkInner = 0.88, kMarkOuter = 0.98, kMarkWidth = 0.011
 inline constexpr int kHandScaleMin = 25, kHandScaleMax = 200;
 inline constexpr int kMarkScaleMin = 0, kMarkScaleMax = 200;  // 0 hides the indices
 
+// Where the clock sat, and how big it was, on one particular monitor.
+//
+// The position is stored relative to that monitor's available area rather than
+// as a desktop-absolute coordinate: monitors change origin whenever the
+// arrangement is altered (or a second screen is unplugged), and a relative
+// offset keeps the clock on the same spot of the same physical panel when that
+// happens. The size is per-monitor because screens differ in resolution and
+// scaling, so one pixel size rarely suits them all.
+struct DisplayState
+{
+    int x = 0;
+    int y = 0;
+    int size = 0;  // 0 = never recorded; fall back to the global size
+};
+
 struct Config
 {
     int size = 400;                                        // widget width in px
@@ -53,6 +69,12 @@ struct Config
     std::optional<QPointF> center;  // fractions of the canvas; unset = auto
     std::optional<int> x;
     std::optional<int> y;
+
+    // Per-monitor placement, keyed by a stable display identity (see
+    // displayKey()).  QMap rather than QHash so the config file keeps a stable,
+    // readable ordering.
+    QMap<QString, DisplayState> displays;
+    QString lastDisplay;  // the monitor the clock was on when it last exited
 
     // The face file to load, or an empty string for the embedded default.
     QString facePath() const { return faceDefault ? QString() : faceSvg; }

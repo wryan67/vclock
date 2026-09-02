@@ -94,6 +94,41 @@ written under the older `~/.config/vclock` or `~/.config/fclock` paths (and the
 older `ship_color` / `ship_transparent` key names) are still read once and
 migrated on the next save.
 
+### Monitors
+
+The clock remembers a position and a size for each monitor it has been used on,
+under the `displays` key, along with the monitor it was last on in
+`last_display`:
+
+```json
+"displays": {
+  "Dell Inc. U2720Q 4M8YJ63": { "x": 568, "y": 199, "size": 400 }
+},
+"last_display": "Dell Inc. U2720Q 4M8YJ63"
+```
+
+A few details worth knowing:
+
+* Monitors are identified by their EDID (maker, model, serial) rather than by
+  the connector they are plugged into, so moving a cable between ports keeps
+  the monitor's settings. Two panels reporting identical EDID are told apart by
+  appending the connector name.
+* Positions are stored relative to the monitor's own working area, not to the
+  desktop as a whole, so rearranging monitors leaves the clock on the same part
+  of the same physical screen.
+* The clock opens on the monitor it was last used on. If that monitor is not
+  attached it opens on the monitor holding the pointer, and if it has never
+  been used there it is centred rather than left wherever the window manager
+  would put it. Records for absent monitors are kept, so plugging one back in
+  restores its placement.
+* Dragging the clock to another monitor records its position there, but its
+  remembered size for that monitor is only applied when the clock *opens* on
+  it — resizing the window mid-drag would be jarring.
+* Unplugging a monitor that the clock was on moves it back onto an attached
+  screen. Without this, a frameless window that keeps out of the taskbar and
+  the window switcher would be left stranded on coordinates that no longer
+  exist, and could not be recovered.
+
 ## Source layout
 
 | File | Contents |
