@@ -543,15 +543,13 @@ void ClockWindow::mousePressEvent(QMouseEvent *event)
             event->accept();
             return;
         }
+        // Arm a drag rather than starting one. Handing the window straight to
+        // the window manager would swallow the rest of the click pair, so the
+        // move waits until the pointer has really travelled.
         m_dragOffset = globalPosOf(event) - frameGeometry().topLeft();
-        // The window manager moves the window itself where it can, which is the
-        // only thing that works on Wayland; elsewhere the fallback tracks the
-        // pointer by hand.
-        m_dragging = true;
-        if (QWindow *handle = windowHandle()) {
-            if (handle->startSystemMove())
-                m_dragging = false;
-        }
+        m_pressPos = globalPosOf(event);
+        m_dragArmed = true;
+        m_dragging = false;
         event->accept();
         return;
     }
@@ -575,8 +573,28 @@ void ClockWindow::mouseMoveEvent(QMouseEvent *event)
         event->accept();
         return;
     }
-    if (m_dragging && (event->buttons() & Qt::LeftButton)) {
-        move(globalPosOf(event) - m_dragOffset);
+    if ((m_dragArmed || m_dragging) && (event->buttons() & Qt::LeftButton)) {
+        if (m_dragArmed) {
+            // Ignore the jitter of a click that was meant to stay put.
+            if ((globalPosOf(event) - m_pressPos).manhattanLength()
+                < QApplication::startDragDistance()) {
+                event->accept();
+                return;
+            }
+            m_dragArmed = false;
+            // The window manager moves the window itself where it can, which is
+            // the only thing that works on Wayland; elsewhere the fallback
+            // tracks the pointer by hand. Either way the window trails the
+            // pointer by the threshold distance for the rest of the drag, which
+            // is the ordinary feel of a drag threshold and far too small to see.
+            m_dragging = true;
+            if (QWindow *handle = windowHandle()) {
+                if (handle->startSystemMove())
+                    m_dragging = false;
+            }
+        }
+        if (m_dragging)
+            move(globalPosOf(event) - m_dragOffset);
         event->accept();
         return;
     }
@@ -602,6 +620,22 @@ void ClockWindow::mouseReleaseEvent(QMouseEvent *event)
         return;
     }
     m_dragging = false;
+    m_dragArmed = false;
+    event->accept();
+}
+
+void ClockWindow::mouseDoubleClickEvent(QMouseEvent *event)
+{
+    // A double click anywhere on the face opens Settings. The first click of the
+    // pair has already been treated as the start of a drag, which is harmless:
+    // the window has not moved unless the pointer did.
+    if (m_moveMode || m_picking || event->button() != Qt::LeftButton) {
+        QWidget::mouseDoubleClickEvent(event);
+        return;
+    }
+    m_dragging = false;
+    m_dragArmed = false;
+    openSettings();
     event->accept();
 }
 

@@ -7,8 +7,9 @@ The face is any SVG; its artwork is recoloured (line work → "wire" colour, bod
 crisp at any scale. The window is undecorated and painted onto a translucent
 surface, so everything outside the artwork is genuinely transparent.
 
-Left-drag moves the widget, right-click opens the menu, `Ctrl`+Q quits. Settings
-live in a platform-native config directory, including the last position:
+Left-drag moves the widget, double click opens Settings, right-click opens the
+menu, `Ctrl`+Q quits. Settings live in a platform-native config directory,
+including the last position:
 `$XDG_CONFIG_HOME` (or `~/.config`) on Linux, `~/Library/Application Support`
 on macOS, and `%APPDATA%` on Windows.
 
@@ -64,6 +65,7 @@ cmake -S . -B build -DCMAKE_PREFIX_PATH=/path/to/Qt/6.5.3/gcc_64
 | Action | Result |
 | --- | --- |
 | Left drag | move the clock |
+| Double click | settings |
 | Right click | menu (Settings, Move, Always on top, Reset defaults, Help, About, Quit) |
 | `Ctrl`/`Cmd`+S | settings |
 | `Ctrl`/`Cmd`+M | move mode (see below) |
@@ -74,6 +76,11 @@ cmake -S . -B build -DCMAKE_PREFIX_PATH=/path/to/Qt/6.5.3/gcc_64
 | `Esc`, `Ctrl`+C, `Alt`+F4 (`Cmd`+W on macOS) | quit as well |
 
 Each menu entry shows its shortcut in a right-hand column.
+
+A drag only begins once the pointer has actually travelled a few pixels, so a
+double click that stays put opens Settings instead of being swallowed by the
+start of a move. The clock therefore trails the pointer by that small threshold
+for the rest of a drag, which is the ordinary feel of dragging anything.
 
 The clock refuses to be minimised, maximised, or made full screen, whether the
 request comes from the window manager, a "show desktop" key, or a tiling

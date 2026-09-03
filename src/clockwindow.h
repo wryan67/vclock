@@ -68,6 +68,7 @@ protected:
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
+    void mouseDoubleClickEvent(QMouseEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
     void moveEvent(QMoveEvent *event) override;
     void changeEvent(QEvent *event) override;
@@ -116,6 +117,11 @@ private:
 
     bool m_dragging = false;
     QPoint m_dragOffset;
+    // A left press arms a drag but does not start one: the window manager only
+    // takes over once the pointer has actually travelled, so that a click that
+    // stays put can still become a double click.
+    bool m_dragArmed = false;
+    QPoint m_pressPos;
 
     // Ctrl+M move mode: the clock rides the pointer until a button settles it.
     bool m_moveMode = false;
