@@ -163,6 +163,14 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     grid->addWidget(m_smoothSweep, row, 1, 1, 2);
     ++row;
 
+    m_reverseTime = new QCheckBox(QStringLiteral("Reverse time"), this);
+    m_reverseTime->setChecked(cfg.reverseTime);
+    m_reverseTime->setToolTip(QStringLiteral(
+        "Run the hands anticlockwise. The clock still keeps the correct time, but each "
+        "hand is mirrored about the 12, so you read it in a mirror."));
+    grid->addWidget(m_reverseTime, row, 1, 1, 2);
+    ++row;
+
     // --------------------------------------------------------------- colours
     addLabel(grid, QStringLiteral("Second hand color"), row);
     m_second = new ColorButton(QColor(cfg.secondColor), false,
@@ -257,7 +265,7 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
         connect(button, &ColorButton::colorSet, this, [this, button] { onChanged(button); });
     }
     for (QCheckBox *box : {m_minuteSame, m_faceTransparent, m_faceIsDefault, m_quarterMarks,
-                           m_smoothSweep}) {
+                           m_smoothSweep, m_reverseTime}) {
         connect(box, &QCheckBox::toggled, this, [this] { onChanged(); });
     }
 
@@ -516,6 +524,7 @@ Config SettingsDialog::values() const
     out.minuteColor = m_minuteOwn;
     out.minuteSameAsHour = m_minuteSame->isChecked();
     out.smoothSweep = m_smoothSweep->isChecked();
+    out.reverseTime = m_reverseTime->isChecked();
     out.faceColor = m_faceOwn;
     out.faceTransparent = m_faceTransparent->isChecked();
     out.wireColor = hexOf(m_wire->color());

@@ -123,6 +123,19 @@ sweeps cheaply. That is why it is opt-in.
 Configs written while this option was briefly called `smooth_minute` are still
 read, so the setting survives the rename.
 
+### Reverse time
+
+Ticking **Reverse time** in Settings runs all three hands anticlockwise. The
+angles are mirrored about the twelve, so the clock still tells the right time —
+you just have to read it in a mirror. It works with either movement: stepping or
+sweeping.
+
+Only the hands are mirrored. The dial is not, because sixty evenly spaced marks
+look the same either way round.
+
+Like smooth sweep, this is a movement setting rather than an appearance one, so
+choosing a preset leaves it alone. *Reset defaults* clears it.
+
 ### Hand centre
 
 Settings ▸ *Pick on clock…* hands focus to the clock itself and shows a

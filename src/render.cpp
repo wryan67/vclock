@@ -184,8 +184,11 @@ void drawHands(QPainter &painter, const Config &cfg, double cx, double cy, doubl
         return std::min(fraction * radius * handScale, reach);
     };
     const auto hand = [&](double angle, double len, double width, const QColor &color) {
-        strokeLine(painter, color, width, cx, cy, cx + len * std::sin(angle),
-                   cy - len * std::cos(angle));
+        // Reversing mirrors each hand about the 12-6 axis, so they sweep
+        // anticlockwise and read against a mirrored dial.  Only the sine flips,
+        // because cos(-a) == cos(a).
+        const double s = cfg.reverseTime ? -std::sin(angle) : std::sin(angle);
+        strokeLine(painter, color, width, cx, cy, cx + len * s, cy - len * std::cos(angle));
     };
 
     hand((hours + minutes / 60.0) * kPi / 6.0, length(kHourLen),

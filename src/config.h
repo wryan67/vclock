@@ -61,6 +61,7 @@ struct Config
     QString minuteColor = QStringLiteral("#000000");
     bool minuteSameAsHour = false;
     bool smoothSweep = false;                              // sweep the hands instead of stepping them
+    bool reverseTime = false;                              // run the hands anticlockwise
     QString faceColor = QStringLiteral("#ffffff");
     bool faceTransparent = false;
     QString wireColor = QStringLiteral("#000000");

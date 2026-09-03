@@ -87,11 +87,17 @@ void ColorButton::openPicker()
     }
 
     const QColor before = m_color;
-    auto *dialog = new QColorDialog(m_color, window());
+    auto *dialog = new QColorDialog(window());
     // The native pickers do not report the colour until they are accepted, so
-    // the live preview needs Qt's own dialog.
+    // the live preview needs Qt's own dialog.  The options have to be set
+    // before the starting colour: while the dialog still expects to be the
+    // platform's own, it forwards the colour to that helper instead of to its
+    // widgets, so a colour passed to the constructor is dropped.  The dialog
+    // then opens on its default white, and picking white looks like no change
+    // at all, so it never reports one.
     dialog->setOption(QColorDialog::DontUseNativeDialog, true);
     dialog->setOption(QColorDialog::ShowAlphaChannel, false);
+    dialog->setCurrentColor(m_color);
     dialog->setWindowTitle(m_title);
     dialog->setAttribute(Qt::WA_DeleteOnClose, true);
     dialog->setModal(true);

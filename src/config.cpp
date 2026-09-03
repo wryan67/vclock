@@ -191,6 +191,7 @@ Config loadConfig()
     // hand; honour it so an existing config keeps the setting.
     cfg.smoothSweep = readBool(o, "smooth_sweep",
                                readBool(o, "smooth_minute", kDefaults.smoothSweep));
+    cfg.reverseTime = readBool(o, "reverse_time", kDefaults.reverseTime);
     cfg.faceTransparent = readBool(o, "face_transparent", kDefaults.faceTransparent);
 
     cfg.faceSvg = readString(o, "face_svg", kDefaults.faceSvg);
@@ -257,6 +258,7 @@ void saveConfig(const Config &cfg)
     o.insert(QStringLiteral("minute_color"), cfg.minuteColor);
     o.insert(QStringLiteral("minute_same_as_hour"), cfg.minuteSameAsHour);
     o.insert(QStringLiteral("smooth_sweep"), cfg.smoothSweep);
+    o.insert(QStringLiteral("reverse_time"), cfg.reverseTime);
     o.insert(QStringLiteral("face_color"), cfg.faceColor);
     o.insert(QStringLiteral("face_transparent"), cfg.faceTransparent);
     o.insert(QStringLiteral("wire_color"), cfg.wireColor);
@@ -328,4 +330,5 @@ void copyResetKeys(const Config &from, Config &to)
     copyPresetKeys(from, to);  // brings the size and hand centre with it
     to.alwaysOnTop = from.alwaysOnTop;
     to.smoothSweep = from.smoothSweep;
+    to.reverseTime = from.reverseTime;
 }
