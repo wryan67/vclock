@@ -109,7 +109,7 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
         presetBox->addWidget(button);
     }
     presetBox->addStretch(1);
-    grid->addLayout(presetBox, row, 1, 1, 2);
+    grid->addLayout(presetBox, row, 1, 1, 3);
     ++row;
 
     // --------------------------------------------------------- face chooser
@@ -131,23 +131,7 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     grid->addLayout(faceRow, row, 1);
     m_faceIsDefault = new QCheckBox(QStringLiteral("default"), this);
     m_faceIsDefault->setChecked(cfg.faceDefault);
-    grid->addWidget(m_faceIsDefault, row, 2);
-    ++row;
-
-    // ------------------------------------------------------------ color mode
-    addLabel(grid, QStringLiteral("Face colors"), row);
-    m_colorMode = new QComboBox(this);
-    m_colorMode->addItem(QStringLiteral("Recolor"), true);
-    m_colorMode->addItem(QStringLiteral("Original"), false);
-    m_colorMode->setCurrentIndex(cfg.faceRecolor ? 0 : 1);
-    m_colorMode->setToolTip(QStringLiteral(
-        "Recolor maps the artwork's shading onto the face and wire colors below, so "
-        "line art takes on whatever colors you pick. It reads brightness alone, so it "
-        "discards any color the drawing already had.\n\n"
-        "Original draws the file exactly as it was authored, which is what you want "
-        "for a full-color picture. The face and wire colors do not apply; the hands "
-        "and marks still do."));
-    grid->addWidget(m_colorMode, row, 1, Qt::AlignLeft);
+    grid->addWidget(m_faceIsDefault, row, 2, 1, 2);
     ++row;
 
     // -------------------------------------------------------------- sliders
@@ -170,7 +154,7 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     m_quarterMarks->setChecked(cfg.quarterMarksOnly);
     m_quarterMarks->setToolTip(QStringLiteral(
         "Draw full indices at 12, 3, 6 and 9 only; the other hours drop to the minute track."));
-    grid->addWidget(m_quarterMarks, row, 1, 1, 2);
+    grid->addWidget(m_quarterMarks, row, 1, 1, 3);
     ++row;
 
     m_smoothSweep = new QCheckBox(QStringLiteral("Smooth sweep hands"), this);
@@ -178,7 +162,7 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     m_smoothSweep->setToolTip(QStringLiteral(
         "Sweep the hands at 60 fps, each at the exact angle for the current millisecond, "
         "instead of stepping them once a second. Costs noticeably more CPU on a large clock."));
-    grid->addWidget(m_smoothSweep, row, 1, 1, 2);
+    grid->addWidget(m_smoothSweep, row, 1, 1, 3);
     ++row;
 
     m_reverseTime = new QCheckBox(QStringLiteral("Reverse time"), this);
@@ -186,20 +170,31 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     m_reverseTime->setToolTip(QStringLiteral(
         "Run the hands anticlockwise. The clock still keeps the correct time, but each "
         "hand is mirrored about the 12, so you read it in a mirror."));
-    grid->addWidget(m_reverseTime, row, 1, 1, 2);
+    grid->addWidget(m_reverseTime, row, 1, 1, 3);
     ++row;
 
     // --------------------------------------------------------------- colours
+    // The mark colours pair off with the hand colours in a second column: the
+    // right half of these rows was empty anyway, and folding them in saves two
+    // rows of a dialog that is already tall enough to scroll.
     addLabel(grid, QStringLiteral("Second hand color"), row);
     m_second = new ColorButton(QColor(cfg.secondColor), false,
                                QStringLiteral("Second hand color"), this);
     grid->addWidget(m_second, row, 1, Qt::AlignLeft);
+    addLabel(grid, QStringLiteral("Hour mark color"), row, 2);
+    m_hourMark = new ColorButton(QColor(cfg.hourMarkColor), false,
+                                 QStringLiteral("Hour mark color"), this);
+    grid->addWidget(m_hourMark, row, 3, Qt::AlignLeft);
     ++row;
 
     addLabel(grid, QStringLiteral("Hour hand color"), row);
     m_hour = new ColorButton(QColor(cfg.hourColor), false, QStringLiteral("Hour hand color"),
                              this);
     grid->addWidget(m_hour, row, 1, Qt::AlignLeft);
+    addLabel(grid, QStringLiteral("Minute mark color"), row, 2);
+    m_minuteMark = new ColorButton(QColor(cfg.minuteMarkColor), false,
+                                   QStringLiteral("Minute mark color"), this);
+    grid->addWidget(m_minuteMark, row, 3, Qt::AlignLeft);
     ++row;
 
     addLabel(grid, QStringLiteral("Minute hand color"), row);
@@ -208,7 +203,22 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     grid->addWidget(m_minute, row, 1, Qt::AlignLeft);
     m_minuteSame = new QCheckBox(QStringLiteral("same as hour"), this);
     m_minuteSame->setChecked(cfg.minuteSameAsHour);
-    grid->addWidget(m_minuteSame, row, 2);
+    grid->addWidget(m_minuteSame, row, 2, 1, 2);
+    ++row;
+
+    // The mode governs the two swatches under it, so it sits with them.
+    addLabel(grid, QStringLiteral("Coloring"), row);
+    m_colorMode = new QComboBox(this);
+    m_colorMode->addItem(QStringLiteral("Recolor"), true);
+    m_colorMode->addItem(QStringLiteral("Original"), false);
+    m_colorMode->setCurrentIndex(cfg.faceRecolor ? 0 : 1);
+    m_colorMode->setToolTip(QStringLiteral(
+        "Recolor maps the artwork's shading onto the face and wire colors below, so "
+        "the drawing comes out in your colors with its shading intact.\n\n"
+        "Original draws the file exactly as it was authored, which suits a picture "
+        "that already has colors of its own. The face and wire colors then do not "
+        "apply; the hands and marks still do."));
+    grid->addWidget(m_colorMode, row, 1, Qt::AlignLeft);
     ++row;
 
     addLabel(grid, QStringLiteral("Face color"), row);
@@ -217,24 +227,12 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     grid->addWidget(m_face, row, 1, Qt::AlignLeft);
     m_faceTransparent = new QCheckBox(QStringLiteral("transparent"), this);
     m_faceTransparent->setChecked(cfg.faceTransparent);
-    grid->addWidget(m_faceTransparent, row, 2);
+    grid->addWidget(m_faceTransparent, row, 2, 1, 2);
     ++row;
 
     addLabel(grid, QStringLiteral("Wire color"), row);
     m_wire = new ColorButton(QColor(cfg.wireColor), false, QStringLiteral("Wire color"), this);
     grid->addWidget(m_wire, row, 1, Qt::AlignLeft);
-    ++row;
-
-    addLabel(grid, QStringLiteral("Hour mark color"), row);
-    m_hourMark = new ColorButton(QColor(cfg.hourMarkColor), false,
-                                 QStringLiteral("Hour mark color"), this);
-    grid->addWidget(m_hourMark, row, 1, Qt::AlignLeft);
-    ++row;
-
-    addLabel(grid, QStringLiteral("Minute mark color"), row);
-    m_minuteMark = new ColorButton(QColor(cfg.minuteMarkColor), false,
-                                   QStringLiteral("Minute mark color"), this);
-    grid->addWidget(m_minuteMark, row, 1, Qt::AlignLeft);
     ++row;
 
     // ---------------------------------------------------------- hand centre
@@ -254,13 +252,13 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
         }
         refreshCenter();
     });
-    grid->addWidget(m_centerAuto, row, 2);
+    grid->addWidget(m_centerAuto, row, 2, 1, 2);
     ++row;
 
     m_centerLabel = new QLabel(this);
     m_centerLabel->setTextFormat(Qt::RichText);
     m_centerLabel->setContentsMargins(4, 0, 0, 0);
-    grid->addWidget(m_centerLabel, row, 1, 1, 2);
+    grid->addWidget(m_centerLabel, row, 1, 1, 3);
     ++row;
 
     // --------------------------------------------------------------- buttons
@@ -332,11 +330,11 @@ void SettingsDialog::resizeToFit(QWidget *content, QScrollArea *scroll,
     resize(want);
 }
 
-QLabel *SettingsDialog::addLabel(QGridLayout *grid, const QString &text, int row)
+QLabel *SettingsDialog::addLabel(QGridLayout *grid, const QString &text, int row, int col)
 {
     auto *label = new QLabel(text, this);
     label->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-    grid->addWidget(label, row, 0);
+    grid->addWidget(label, row, col);
     return label;
 }
 
@@ -386,7 +384,7 @@ QSlider *SettingsDialog::addSlider(QGridLayout *grid, int row, const QString &ca
     box->setSpacing(8);
     box->addWidget(readout, 0);
     box->addLayout(column, 1);
-    grid->addLayout(box, row, 1, 1, 2);
+    grid->addLayout(box, row, 1, 1, 3);
     return slider;
 }
 
