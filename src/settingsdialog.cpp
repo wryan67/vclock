@@ -226,7 +226,7 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
         "Drag on the clock face, or use the arrow keys to move the pivot a pixel "
         "at a time (hold Shift for 10). Enter accepts, Esc cancels."));
     connect(m_pick, &QPushButton::clicked, this, [this] { m_clock->startPicking(); });
-    m_centerAuto = new QCheckBox(QStringLiteral("auto location"), this);
+    m_centerAuto = new QCheckBox(QStringLiteral("center on image"), this);
     m_centerAuto->setChecked(!m_clock->cfg().center.has_value());
     connect(m_centerAuto, &QCheckBox::toggled, this, [this](bool on) {
         if (on) {
@@ -572,10 +572,10 @@ void SettingsDialog::refreshCenter()
     // pivot is set, which is the way back.
     m_centerAuto->setEnabled(!autoCenter);
     m_centerAuto->setToolTip(autoCenter
-                                 ? QStringLiteral("The pivot is the centre of the canvas. "
-                                                  "Use Pick on clock to put it elsewhere.")
-                                 : QStringLiteral("Return the pivot to the centre of the "
-                                                  "canvas."));
+                                 ? QStringLiteral("The hands turn on the centre of the image. "
+                                                  "Use Pick on clock to put them elsewhere.")
+                                 : QStringLiteral("Put the hands back on the centre of the "
+                                                  "image."));
     const QPointF center = m_clock->centerPixels();
     m_centerLabel->setText(
         QStringLiteral("<small>%1: %2, %3 px&nbsp;&nbsp;(radius %4)</small>")
