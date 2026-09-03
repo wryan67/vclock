@@ -98,8 +98,10 @@ black as the wire colour, and both can be recoloured from Settings; anti-aliased
 pixels blend between the two, so edges stay smooth. Ticking **transparent**
 keeps only the line work and fades the body away.
 
-Two faces are built in and need no files: the plain default ring, and the app
-icon's gradient dial (stored in the config as `builtin:icon`).
+Three faces are built in and need no files: the plain default ring, the app
+icon's gradient dial (stored in the config as `builtin:icon`), and a silver dial
+under a dark rim (`builtin:silver`), which is the same gradient running the other
+way.
 
 ### Smooth sweep hands
 
@@ -133,7 +135,7 @@ the Settings window either way.
 
 ### Presets
 
-The five thumbnails at the top of Settings are whole default clocks, not just
+The six thumbnails at the top of Settings are whole default clocks, not just
 colour schemes. Clicking one restores every appearance setting, and also puts
 the clock size and the hand centre back to their defaults — so a preset always
 gives you exactly the clock in the thumbnail. Where the window sits on screen is

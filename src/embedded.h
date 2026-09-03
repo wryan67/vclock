@@ -39,6 +39,28 @@ inline QByteArray iconFaceSvg()
 )SVG");
 }
 
+// A third built-in face: a silver dial with a dark rim.  It is the tonal
+// opposite of the one above and shares its exact greys, only with the gradient
+// running the other way (light at the top left, dark at the bottom right) and a
+// dark rim instead of a light one.  Under the Silver preset's black wire and
+// white face colours recolor() is the identity, so the artwork renders as
+// drawn.  Note the gradient spans the circle's bounding box, so the disc itself
+// only shows the middle 1/sqrt(2) of the ramp.
+inline QByteArray silverFaceSvg()
+{
+    return QByteArrayLiteral(
+        R"SVG(<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+  <defs>
+    <linearGradient id="clockGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#efefef" />
+      <stop offset="100%" stop-color="#575757" />
+    </linearGradient>
+  </defs>
+  <circle cx="50" cy="50" r="40" stroke="#171717" stroke-width="3" fill="url(#clockGradient)" />
+</svg>
+)SVG");
+}
+
 // The application icon, embedded so the program does not depend on a system
 // icon theme (which is often absent on Windows and macOS).
 inline QByteArray appIconSvg()

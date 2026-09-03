@@ -94,6 +94,27 @@ const QVector<Preset> &presets()
                                                       // colour with its opposite hue, which a
                                                       // neutral dial has none of; red is the
                                                       // usual second hand on a black face
+
+        // The silver dial is the tonal opposite of the four above: a light body
+        // under a dark rim, so its hands are dark and only its marks stay light.
+        // Black and white map the artwork's greys straight through, which is
+        // what makes it come out as drawn.
+        Preset silver;
+        silver.name = QStringLiteral("Silver");
+        silver.tip = QStringLiteral("A brushed silver dial with a black rim and black hands");
+        silver.values.faceSvg = kBuiltinFacePrefix + QStringLiteral("silver");
+        silver.values.faceDefault = false;
+        silver.values.faceTransparent = false;
+        silver.values.wireColor = QStringLiteral("#000000");
+        silver.values.faceColor = QStringLiteral("#ffffff");
+        silver.values.hourColor = QStringLiteral("#000000");
+        silver.values.minuteColor = QStringLiteral("#000000");
+        silver.values.minuteSameAsHour = true;
+        silver.values.hourMarkColor = QStringLiteral("#ffffff");   // these sit on the dark rim
+        silver.values.minuteMarkColor = QStringLiteral("#ffffff");
+        silver.values.secondColor = QStringLiteral("#ff6666");
+        out.append(silver);
+
         return out;
     }();
     return list;

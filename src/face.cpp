@@ -20,6 +20,8 @@ QByteArray builtinFaceData(const QString &name)
 {
     if (name == QLatin1String("icon"))
         return iconFaceSvg();
+    if (name == QLatin1String("silver"))
+        return silverFaceSvg();
     return QByteArray();
 }
 
@@ -27,6 +29,8 @@ QString builtinFaceLabel(const QString &name)
 {
     if (name == QLatin1String("icon"))
         return QStringLiteral("gradient dial");
+    if (name == QLatin1String("silver"))
+        return QStringLiteral("silver dial");
     return name;
 }
 
