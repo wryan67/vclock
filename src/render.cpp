@@ -121,18 +121,18 @@ const QVector<Preset> &presets()
         // a light hand would keep disappearing into the walls.
         Preset comb;
         comb.name = QStringLiteral("Honeycomb");
-        comb.tip = QStringLiteral("A honeycomb in wax and honey, with a bee-black hand set");
+        comb.tip = QStringLiteral("A honeycomb in wax and honey, with hands in amber and cream");
         comb.values.faceSvg = kBuiltinFacePrefix + QStringLiteral("honeycomb");
         comb.values.faceDefault = false;
         comb.values.faceTransparent = false;
-        comb.values.wireColor = QStringLiteral("#4a2600");   // the cells, in shadow
-        comb.values.faceColor = QStringLiteral("#ffc94d");   // the lit wax
-        comb.values.hourColor = QStringLiteral("#1a1000");
-        comb.values.minuteColor = QStringLiteral("#1a1000");
-        comb.values.minuteSameAsHour = true;
+        comb.values.wireColor = QStringLiteral("#000000");   // the walls and the rim
+        comb.values.faceColor = QStringLiteral("#ffc94d");   // the honey in the cells
+        comb.values.hourColor = QStringLiteral("#8f4300");
+        comb.values.minuteColor = QStringLiteral("#ffc28c");
+        comb.values.minuteSameAsHour = false;
         comb.values.hourMarkColor = QStringLiteral("#1a1000");
         comb.values.minuteMarkColor = QStringLiteral("#1a1000");
-        comb.values.secondColor = QStringLiteral("#ffffff");
+        comb.values.secondColor = QStringLiteral("#ffec8c");
         out.append(comb);
 
         return out;
