@@ -179,12 +179,18 @@ radius. Move it and you can watch the wheel handle slide straight in or out.
 The `B` slider is brightness. Both bars are painted using the other channels'
 current values, so each one previews the range it will actually move through.
 
-The presets are seven columns — red, orange, yellow, green, blue, purple, and a
-greyscale column — by seven rows. The top row is the pure colour and each row
-below is the same hue shaded darker, so a row reads as one weight all the way
-across. The grey column is the exception: black sits at the top with the rest of
-the pure colours, and the column runs down through the greys to white, since
-shading black into more black would be no use to anyone.
+The presets are nine columns — red, orange, yellow, green, teal, blue, purple,
+pink, and a greyscale column — by nine rows. Pink and teal are there because
+neither can be reached from a neighbour: pink is a tint of red rather than a
+shade of it, and the gap between green and blue is wide enough that teal is a
+long way from either.
+
+Every column runs light to dark. The top two rows are tints, the same hue washed
+out towards white, which is where the pinks and lavenders live; then the pure
+colour; then shades down towards black. One ramp per column means a row reads as
+a single weight the whole way across, which a hand-picked list never quite
+manages. The greys follow the same run, white at the top and black at the
+bottom, so the last column reads with the others rather than against them.
 
 The wheel is tinted by the current brightness so you see the colour in context,
 but it never dims past the point where the hues stop being distinguishable. That

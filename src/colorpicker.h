@@ -147,8 +147,8 @@ private:
     void buildSwatches(class QGridLayout *grid);
     void addSwatch(class QGridLayout *grid, const QColor &c, int row, int col);
 
-    static constexpr int kSwatchColumns = 7;
-    static constexpr int kSwatchRows = 7;
+    static constexpr int kSwatchColumns = 9;
+    static constexpr int kSwatchRows = 9;
 
     QColor m_color;
     int m_hue = 0;

@@ -434,25 +434,36 @@ ColorPickerDialog::ColorPickerDialog(const QColor &initial, QWidget *parent)
 
 void ColorPickerDialog::buildSwatches(QGridLayout *grid)
 {
-    // Six columns of one hue each plus a greyscale column, seven rows deep.
-    // The top row is the pure colour; each row below is the same hue shaded
-    // progressively darker, which is what a clock hand or wire usually wants.
-    // Generating them beats a hand-written list: the rows stay aligned in tone
-    // across the hues, so a row reads as one weight all the way across.
-    static const int kHues[] = {0, 28, 50, 120, 212, 275};
-    static const qreal kShades[kSwatchRows] = {1.0, 0.85, 0.70, 0.56, 0.43, 0.31, 0.20};
+    // Eight columns of one hue each plus a greyscale column.  Pink and teal
+    // earn their place because neither is reachable by shading a neighbour:
+    // pink is a tint rather than a shade of red, and the gap between green and
+    // blue is wide enough that teal is a long way from either.
+    static const int kHues[] = {0, 28, 50, 120, 172, 212, 275, 322};
     constexpr int kHueColumns = int(sizeof(kHues) / sizeof(kHues[0]));
+
+    // Every column runs light to dark.  The top two rows are tints -- the same
+    // hue washed out towards white, which is where the pinks and lavenders
+    // live -- then the pure colour, then shades down towards black.  Keeping
+    // one ramp per column means a row reads as a single weight the whole way
+    // across, which a hand-written list never quite manages.
+    struct Tone {
+        int sat;
+        int val;
+    };
+    static const Tone kTones[kSwatchRows] = {{55, 255},  {115, 255}, {255, 255},
+                                             {255, 217}, {255, 179}, {255, 143},
+                                             {255, 110}, {255, 79},  {255, 51}};
 
     for (int row = 0; row < kSwatchRows; ++row) {
         for (int col = 0; col < kSwatchColumns; ++col) {
             QColor c;
             if (col < kHueColumns) {
-                c = QColor::fromHsv(kHues[col], 255, int(255 * kShades[row] + 0.5));
+                c = QColor::fromHsv(kHues[col], kTones[row].sat, kTones[row].val);
             } else {
-                // The last column starts at black -- one of the colours named
-                // in the top row -- and runs down through the greys to white,
-                // rather than shading black into more black.
-                const int level = int(255.0 * row / (kSwatchRows - 1) + 0.5);
+                // The greys follow the same light-to-dark run, white at the top
+                // and black at the bottom, so the last column reads as part of
+                // the same ramp rather than against it.
+                const int level = int(255.0 * (kSwatchRows - 1 - row) / (kSwatchRows - 1) + 0.5);
                 c = QColor(level, level, level);
             }
             addSwatch(grid, c, row, col);
