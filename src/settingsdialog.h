@@ -69,6 +69,7 @@ private:
     QSlider *m_markScale = nullptr;
     QSlider *m_markPosition = nullptr;
     QSlider *m_minuteMarkScale = nullptr;
+    QSlider *m_opacity = nullptr;
     QCheckBox *m_quarterMarks = nullptr;
     QCheckBox *m_smoothSweep = nullptr;
     QCheckBox *m_reverseTime = nullptr;

@@ -36,6 +36,9 @@ public:
     // Base name of this clock's config, or empty when it is the default one.
     QString configName() const;
 
+    // The file this clock reads and writes.
+    QString configFilePath() const { return m_configPath; }
+
     // Apply a settings record to the live widget (used for preview too).
     void applySettings(const Config &values);
 
@@ -68,6 +71,16 @@ public:
     void showHelp();
     void showAbout();
     void confirmReset();
+    void manageClocks();
+
+    // Re-read this clock's display name, which the manage dialog can change
+    // while the clock is up.
+    void refreshTitle();
+
+signals:
+    // Emitted from closeEvent, before the window is deleted, so the manager
+    // can drop it from the set of running clocks.
+    void closed();
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -82,9 +95,6 @@ protected:
 
 private:
     QString m_configPath;
-    // Clocks still open. The program ends when the last one is closed, not
-    // when any one of them is.
-    static int s_openClocks;
 
     QSize pixelSize() const;
     void applySize();
@@ -106,6 +116,7 @@ private:
     void applyAlwaysOnTop();
     void syncAlwaysOnTop();
     void applyTickRate();
+    void applyOpacity();
     void buildMenu();
     void placeDialog(QWidget *dialog);
     void closeSettings();

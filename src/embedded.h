@@ -203,5 +203,9 @@ inline const char *aboutText()
            "The clock face can be any SVG. In Recolor mode white is treated as "
            "the face color and black as the wire color, and both can be set from "
            "Settings; in Original mode the artwork is drawn as it was authored, "
-           "which is what a full-color picture wants.";
+           "which is what a full-color picture wants.\n\n"
+           "Toolbar icons are from Font Awesome Free 6.7.2 by @fontawesome "
+           "(https://fontawesome.com), used under CC BY 4.0 "
+           "(https://creativecommons.org/licenses/by/4.0/) and recolored to "
+           "match the dialogs they appear in.";
 }

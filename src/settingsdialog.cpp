@@ -4,6 +4,7 @@
 #include "colorbutton.h"
 #include "face.h"
 #include "render.h"
+#include "icons.h"
 
 #include <QCheckBox>
 #include <QComboBox>
@@ -23,6 +24,7 @@
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QSlider>
+#include <QSpinBox>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -42,13 +44,31 @@ QString hexOf(const QColor &color)
     return color.name(QColor::HexRgb);
 }
 
-QLabel *makeReadout(int digits)
+// The widest value any of these sliders can show, so that every box in the
+// group is the same size however few digits its own range needs.  A slider that
+// only ever reaches 200 still gets a box wide enough for the clock size, which
+// is what stops the column looking ragged.
+constexpr int kReadoutDigits = 4;
+
+// The value beside a slider, which can also be typed into.  Editing it is the
+// only way to set an exact number on a slider whose range is wider than the
+// pixels it is drawn in -- clock size steps several pixels per pixel of travel.
+QSpinBox *makeReadout(int low, int high)
 {
-    auto *label = new QLabel;
-    label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-    const int width = label->fontMetrics().horizontalAdvance(QString(digits, QLatin1Char('0')));
-    label->setMinimumWidth(width);
-    return label;
+    auto *box = new QSpinBox;
+    box->setRange(low, high);
+    box->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    // Typing is clamped rather than rejected: QSpinBox keeps what is typed
+    // inside the range on its own, and correctFromNearestValue tidies a
+    // half-finished number when focus leaves rather than reverting it.
+    box->setKeyboardTracking(false);
+    box->setCorrectionMode(QAbstractSpinBox::CorrectToNearestValue);
+    box->setButtonSymbols(QAbstractSpinBox::NoButtons);
+    const int width = box->fontMetrics().horizontalAdvance(
+                          QString(kReadoutDigits, QLatin1Char('0')))
+                      + 14;
+    box->setFixedWidth(width);
+    return box;
 }
 
 }  // namespace
@@ -144,8 +164,8 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     grid->addWidget(chooserBox, row, 0, 1, 4);
     ++row;
 
-    // -------------------------------------------------------- sizes section
-    auto *sizesBox = new QGroupBox(QStringLiteral("Sizes"), this);
+    // ----------------------------------------------- sizes / opacity section
+    auto *sizesBox = new QGroupBox(QStringLiteral("Sizes / Opacity"), this);
     auto *sizesGrid = new QGridLayout(sizesBox);
     sizesGrid->setHorizontalSpacing(10);
     sizesGrid->setVerticalSpacing(8);
@@ -164,6 +184,11 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
                                   cfg.minuteMarkScale, kMarkScaleMin, kMarkScaleMax, true);
     m_minuteMarkScale->setToolTip(
         QStringLiteral("Percentage of the hour mark size. 0 hides the minute marks."));
+    m_opacity = addSlider(sizesGrid, srow++, QStringLiteral("Opacity (%)"), cfg.opacity,
+                          kOpacityMin, kOpacityMax, true);
+    m_opacity->setToolTip(
+        QStringLiteral("How solid the clock is. It stops short of invisible so that "
+                       "there is always enough of it left to right click on."));
 
     grid->addWidget(sizesBox, row, 0, 1, 4);
     ++row;
@@ -321,7 +346,12 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     auto *buttons = new QDialogButtonBox(this);
     QPushButton *save = buttons->addButton(QStringLiteral("Save"),
                                            QDialogButtonBox::AcceptRole);
-    buttons->addButton(QStringLiteral("Cancel"), QDialogButtonBox::RejectRole);
+    QPushButton *cancel = buttons->addButton(QStringLiteral("Cancel"),
+                                             QDialogButtonBox::RejectRole);
+    save->setIcon(glyphIcon(Glyph::Save, GlyphRole::Go));
+    save->setIconSize(QSize(18, 18));
+    cancel->setIcon(glyphIcon(Glyph::Cancel, GlyphRole::Stop));
+    cancel->setIconSize(QSize(18, 18));
     save->setDefault(true);
     connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
@@ -329,7 +359,7 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
 
     // ------------------------------------------------------------- wiring up
     for (QSlider *slider : {m_size, m_handScale, m_markScale, m_markPosition,
-                            m_minuteMarkScale}) {
+                            m_minuteMarkScale, m_opacity}) {
         connect(slider, &QSlider::valueChanged, this, [this] { onChanged(); });
     }
     for (ColorButton *button : {m_second, m_hour, m_minute, m_face, m_wire, m_hourMark,
@@ -422,11 +452,12 @@ QSlider *SettingsDialog::addSlider(QGridLayout *grid, int row, const QString &ca
     slider->setTickInterval(qMax(1, (high - low) / 10));
     slider->setPageStep(qMax(1, (high - low) / 10));
 
-    const int digits = QString::number(high).size();
-    QLabel *readout = makeReadout(digits);
-    readout->setText(QString::number(slider->value()));
-    connect(slider, &QSlider::valueChanged, readout,
-            [readout](int v) { readout->setText(QString::number(v)); });
+    QSpinBox *readout = makeReadout(low, high);
+    readout->setValue(slider->value());
+    // Each follows the other.  setValue() on a control already holding that
+    // value emits nothing, so the pair settles rather than looping.
+    connect(slider, &QSlider::valueChanged, readout, &QSpinBox::setValue);
+    connect(readout, &QSpinBox::valueChanged, slider, &QSlider::setValue);
 
     auto *marks = new QHBoxLayout;
     marks->setContentsMargins(0, 0, 0, 0);
@@ -506,6 +537,7 @@ void SettingsDialog::applyPreset(const Config &values)
     m_markScale->setValue(values.markScale);
     m_markPosition->setValue(values.markPosition);
     m_minuteMarkScale->setValue(values.minuteMarkScale);
+    m_opacity->setValue(values.opacity);
     m_quarterMarks->setChecked(values.quarterMarksOnly);
     m_minuteSame->setChecked(values.minuteSameAsHour);
     m_faceTransparent->setChecked(values.faceTransparent);
@@ -620,6 +652,7 @@ Config SettingsDialog::values() const
     out.markScale = m_markScale->value();
     out.markPosition = m_markPosition->value();
     out.minuteMarkScale = m_minuteMarkScale->value();
+    out.opacity = m_opacity->value();
     out.quarterMarksOnly = m_quarterMarks->isChecked();
     out.faceSvg = faceSvg();
     out.faceDefault = faceDefault();

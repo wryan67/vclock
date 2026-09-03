@@ -213,6 +213,7 @@ Config loadConfig(const QString &requested)
                                    kDefaults.markPosition);
     cfg.minuteMarkScale = readPercent(o, "minute_mark_scale", kMarkScaleMin,
                                       kMarkScaleMax, kDefaults.minuteMarkScale);
+    cfg.opacity = readPercent(o, "opacity", kOpacityMin, kOpacityMax, kDefaults.opacity);
 
     cfg.quarterMarksOnly = readBool(o, "quarter_marks_only", kDefaults.quarterMarksOnly);
     cfg.alwaysOnTop = readBool(o, "always_on_top", kDefaults.alwaysOnTop);
@@ -282,6 +283,7 @@ void saveConfig(const Config &cfg, const QString &requested)
     o.insert(QStringLiteral("mark_scale"), cfg.markScale);
     o.insert(QStringLiteral("mark_position"), cfg.markPosition);
     o.insert(QStringLiteral("minute_mark_scale"), cfg.minuteMarkScale);
+    o.insert(QStringLiteral("opacity"), cfg.opacity);
     o.insert(QStringLiteral("quarter_marks_only"), cfg.quarterMarksOnly);
     o.insert(QStringLiteral("always_on_top"), cfg.alwaysOnTop);
     o.insert(QStringLiteral("face_svg"), cfg.faceSvg);

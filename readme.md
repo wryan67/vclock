@@ -76,14 +76,20 @@ cmake -S . -B build -DCMAKE_PREFIX_PATH=/path/to/Qt/6.5.3/gcc_64
 | --- | --- |
 | Left drag | move the clock |
 | Double click | settings |
-| Right click | menu (Settings, Move, Always on top, Reset defaults, Help, About, Quit) |
+| Right click | menu (Always on top, Manage clocks, Settings, Move, Reset defaults, Help, About, Hide, Quit) |
+| `Ctrl`/`Cmd`+K | manage clocks |
 | `Ctrl`/`Cmd`+S | settings |
 | `Ctrl`/`Cmd`+M | move mode (see below) |
-| `Ctrl`/`Cmd`+H | help |
+| `F1` | help |
 | `Ctrl`/`Cmd`+A | about |
 | `Ctrl`/`Cmd`+R | reset defaults |
-| `Ctrl`/`Cmd`+Q | quit |
-| `Esc`, `Ctrl`+C, `Alt`+F4 (`Cmd`+W on macOS) | quit as well |
+| `Ctrl`/`Cmd`+H | hide this clock |
+| `Esc`, `Alt`+F4 (`Cmd`+W on macOS) | hide it as well |
+| `Ctrl`/`Cmd`+Q | quit, closing every clock |
+
+Hide takes one clock off screen and leaves the others running; Manage clocks
+brings it back. Hiding the last one ends the program, since there is nothing
+left to run for.
 
 Each menu entry shows its shortcut in a right-hand column.
 
@@ -243,6 +249,16 @@ If the screen is not tall or wide enough for the whole dialog, the controls
 scroll and the Save and Cancel buttons stay pinned below them, so they are
 always reachable. Scrollbars appear only when they are actually needed.
 
+Every slider in Sizes / Opacity has its value in a box beside it that can be
+typed into as well as read, which is the only way to set an exact number on a
+slider whose range is wider than the pixels it is drawn in. A value outside the
+range is refused as it is typed, and a half-finished one is rounded to the
+nearest allowed value when you leave the box.
+
+Opacity fades the whole window, artwork and hands together. It stops short of
+invisible on purpose: a clock faded to nothing would still be there, still
+taking clicks, with no way left to see it or reach its menu to put it right.
+
 ## Configuration
 
 Settings are JSON in `default.cfg` inside the platform config directory above.
@@ -266,10 +282,28 @@ own size, face and position:
     vclock -c desk -c world
 
 They share one process and one tray of settings dialogs; the title bar of each
-Settings window names the config it belongs to. Quitting one clock leaves the
+Settings window names the config it belongs to. Hiding one clock leaves the
 others running, and the program ends with the last of them. Naming the same
 config twice opens it once, since two clocks writing one file would each save
 over the other.
+
+A clock named with `-c` is showing for that run only: it does not change which
+clocks come back the next time vclock is started on its own.
+
+## Managing clocks
+
+Right click &#9656; Manage clocks, or `Ctrl`+K, lists every clock you have. Each
+row has a Show box, the clock's name, and buttons to open its settings, rename
+it, or delete it and the config it keeps its settings in.
+
+Show puts a clock on screen and takes it off again. Whatever is showing when
+vclock stops is what comes back when it starts again, so there is nothing
+separate to set for that. If every clock is hidden the default one comes back
+rather than the program starting with no windows at all.
+
+The list lives in `vclocks.cfg` in the config directory, alongside the per-clock
+configs. Names there are labels only; the config file a clock uses is fixed when
+it is made, so renaming never moves any settings.
 
 `-h`, `--help` prints the options and exits.
 

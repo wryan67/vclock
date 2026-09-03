@@ -1,7 +1,9 @@
 #include "clockwindow.h"
 
+#include "clockmanager.h"
 #include "embedded.h"
 #include "face.h"
+#include "manageclocksdialog.h"
 #include "render.h"
 #include "settingsdialog.h"
 
@@ -9,6 +11,7 @@
 #include <QApplication>
 #include <QCloseEvent>
 #include <QCursor>
+#include <QDesktopServices>
 #include <QGuiApplication>
 #include <QIcon>
 #include <QKeyEvent>
@@ -24,6 +27,7 @@
 #include <QStringList>
 #include <QTime>
 #include <QTimer>
+#include <QUrl>
 #include <QWindow>
 
 #include <algorithm>
@@ -39,11 +43,12 @@ constexpr int kSmoothIntervalMs = 17;  // ~60 fps
 #if defined(Q_OS_MACOS)
 // macOS users expect Cmd; Qt already maps Qt::ControlModifier onto it.
 const char *kCmdLabel = "Cmd";
-// The alternates listed in help alongside the primary Cmd+Q / Ctrl+Q.
-const char *kQuitKeys = "Cmd+W, Cmd+C, Esc";
+// The alternates listed in help alongside the primary Cmd+H, for taking a
+// single clock off screen.
+const char *kHideKeys = "Cmd+W, Esc";
 #else
 const char *kCmdLabel = "Ctrl";
-const char *kQuitKeys = "Ctrl+C, Alt+F4, Esc";
+const char *kHideKeys = "Alt+F4, Esc";
 #endif
 
 // The accelerator shown down the right-hand side of a menu entry. Qt renders
@@ -121,19 +126,14 @@ QString displayKey(const QScreen *screen)
 
 }  // namespace
 
-int ClockWindow::s_openClocks = 0;
-
 ClockWindow::ClockWindow(const QString &configPath)
     : QWidget(nullptr), m_configPath(configPath.isEmpty() ? ::configPath() : configPath)
 {
-    ++s_openClocks;
     m_cfg = loadConfig(m_configPath);
 
-    // Several clocks can be running at once, so the title says which config
-    // this one belongs to.
-    setWindowTitle(m_configPath == ::configPath()
-                       ? QStringLiteral("vclock")
-                       : QStringLiteral("vclock \u2014 ") + configName());
+    // Several clocks can be running at once, so the title says which one this
+    // is.
+    refreshTitle();
     setWindowIcon(QIcon(QPixmap::fromImage(appIconImage(64))));
 
     // Undecorated, kept out of the taskbar and the window switcher, and painted
@@ -191,6 +191,7 @@ ClockWindow::ClockWindow(const QString &configPath)
         }
     });
     applyTickRate();
+    applyOpacity();
     m_tick->start();
 
     connect(qApp, &QGuiApplication::screenRemoved, this,
@@ -532,8 +533,20 @@ void ClockWindow::closeEvent(QCloseEvent *event)
     closeSettings();
     flushSave();
     event->accept();
-    if (--s_openClocks <= 0)
-        qApp->quit();
+    // The manager decides whether this was the last clock; it may be holding
+    // the program open for a dialog of its own.
+    emit closed();
+}
+
+void ClockWindow::refreshTitle()
+{
+    // Qt appends the application display name to a window title that differs
+    // from it, so the name alone reads as "Kitchen — vclock". The default
+    // clock under its default name stays plain "vclock", as it always was.
+    const QString name = ClockManager::instance().nameFor(m_configPath);
+    const bool plain = name.isEmpty()
+                       || (m_configPath == ::configPath() && name == QLatin1String("Default"));
+    setWindowTitle(plain ? QStringLiteral("vclock") : name);
 }
 
 QString ClockWindow::configName() const
@@ -695,6 +708,10 @@ void ClockWindow::keyPressEvent(QKeyEvent *event)
         }
     }
 
+    if (key == Qt::Key_F1) {
+        showHelp();
+        return;
+    }
     if (key == Qt::Key_Escape) {
         if (m_moveMode)
             cancelMoveMode();
@@ -713,16 +730,19 @@ void ClockWindow::keyPressEvent(QKeyEvent *event)
     if (command) {
         switch (key) {
         case Qt::Key_C:
-            close();
+            ClockManager::instance().quitNow();
             return;
         case Qt::Key_S:
             openSettings();
+            return;
+        case Qt::Key_K:
+            manageClocks();
             return;
         case Qt::Key_M:
             startMoveMode();
             return;
         case Qt::Key_H:
-            showHelp();
+            close();
             return;
         case Qt::Key_A:
             showAbout();
@@ -731,11 +751,10 @@ void ClockWindow::keyPressEvent(QKeyEvent *event)
             confirmReset();
             return;
         case Qt::Key_Q:
-            close();
+            ClockManager::instance().quitNow();
             return;
 #if defined(Q_OS_MACOS)
-        // Cmd+W closes a window on macOS, and for a single-window app that is
-        // the same thing as quitting.
+        // Cmd+W closes a window on macOS; here that means hiding this clock.
         case Qt::Key_W:
             close();
             return;
@@ -962,16 +981,6 @@ void ClockWindow::buildMenu()
 {
     m_menu = new QMenu(this);
 
-    QAction *settings = m_menu->addAction(menuHotkey(QStringLiteral("Settings"), "S"));
-    connect(settings, &QAction::triggered, this, &ClockWindow::openSettings);
-
-    QAction *move = m_menu->addAction(menuHotkey(QStringLiteral("Move"), "M"));
-    connect(move, &QAction::triggered, this, [this] {
-        // Deferred until the menu has closed and given up its own mouse grab,
-        // which would otherwise fight the one move mode takes.
-        QTimer::singleShot(0, this, [this] { startMoveMode(); });
-    });
-
     m_onTopAction = m_menu->addAction(QStringLiteral("Always on top"));
     m_onTopAction->setCheckable(true);
     m_onTopAction->setChecked(m_cfg.alwaysOnTop);
@@ -983,18 +992,58 @@ void ClockWindow::buildMenu()
         queueSave();
     });
 
+    // "K" because C, M, S, H, A, R and Q are all spoken for -- Ctrl+C is one
+    // of the ways out of the program.
+    QAction *manage = m_menu->addAction(menuHotkey(QStringLiteral("Manage clocks"), "K"));
+    connect(manage, &QAction::triggered, this, &ClockWindow::manageClocks);
+
+    QAction *settings = m_menu->addAction(menuHotkey(QStringLiteral("Settings"), "S"));
+    connect(settings, &QAction::triggered, this, &ClockWindow::openSettings);
+
+    QAction *move = m_menu->addAction(menuHotkey(QStringLiteral("Move"), "M"));
+    connect(move, &QAction::triggered, this, [this] {
+        // Deferred until the menu has closed and given up its own mouse grab,
+        // which would otherwise fight the one move mode takes.
+        QTimer::singleShot(0, this, [this] { startMoveMode(); });
+    });
+
     QAction *reset = m_menu->addAction(menuHotkey(QStringLiteral("Reset defaults"), "R"));
     connect(reset, &QAction::triggered, this, &ClockWindow::confirmReset);
 
-    QAction *help = m_menu->addAction(menuHotkey(QStringLiteral("Help"), "H"));
+    m_menu->addSeparator();
+
+    // The clock face can be any SVG, and this is where the good free ones are.
+    QAction *freesvg = m_menu->addAction(QStringLiteral("Find faces at freesvg.org"));
+    connect(freesvg, &QAction::triggered, this, [] {
+        QDesktopServices::openUrl(QUrl(QStringLiteral("https://freesvg.org/")));
+    });
+
+    // F1 rather than Ctrl+H, which Hide now has; F1 is where a user looks for
+    // help anyway.  Written out in full because it takes no modifier.
+    QAction *help = m_menu->addAction(QStringLiteral("Help\tF1"));
     connect(help, &QAction::triggered, this, &ClockWindow::showHelp);
 
     QAction *about = m_menu->addAction(menuHotkey(QStringLiteral("About"), "A"));
     connect(about, &QAction::triggered, this, &ClockWindow::showAbout);
 
     m_menu->addSeparator();
+
+    // Hide takes this one clock off screen and leaves the rest running; the
+    // manage dialog can bring it back.  With nothing else up there is nothing
+    // left to run for, so the program ends -- which is what closing the last
+    // window has always done.
+    QAction *hide = m_menu->addAction(menuHotkey(QStringLiteral("Hide"), "H"));
+    connect(hide, &QAction::triggered, this, [this] { close(); });
+
+    // Quit ends the program whatever else is open.  That is the difference
+    // between it and Hide, which is only ever about this window.
     QAction *quit = m_menu->addAction(menuHotkey(QStringLiteral("Quit"), "Q"));
-    connect(quit, &QAction::triggered, this, [this] { close(); });
+    connect(quit, &QAction::triggered, this, [] { ClockManager::instance().quitNow(); });
+}
+
+void ClockWindow::manageClocks()
+{
+    ManageClocksDialog::showDialog(this);
 }
 
 void ClockWindow::applyAlwaysOnTop()
@@ -1010,6 +1059,15 @@ void ClockWindow::applyAlwaysOnTop()
         show();
         move(where);
     }
+}
+
+// The window is faded as a whole, artwork and hands together, which is what a
+// user sliding an opacity control expects; fading the painting alone would
+// leave a solid-looking window over whatever is behind it.
+void ClockWindow::applyOpacity()
+{
+    const int percent = std::clamp(m_cfg.opacity, kOpacityMin, kOpacityMax);
+    setWindowOpacity(percent / 100.0);
 }
 
 // A sweeping minute hand has to be redrawn continuously; a stepping one only
@@ -1143,11 +1201,13 @@ void ClockWindow::showHelp()
             "<br><b>Keyboard</b><br>"
             "%1+S &mdash; settings<br>"
             "%1+M &mdash; carry the clock on the pointer<br>"
-            "%1+H &mdash; this help<br>"
+            "%1+K &mdash; manage clocks<br>"
+            "F1 &mdash; this help<br>"
             "%1+A &mdash; about<br>"
             "%1+R &mdash; reset defaults<br>"
-            "%1+Q &mdash; quit<br>"
-            "%2 &mdash; also quit<br>"
+            "%1+H &mdash; hide this clock<br>"
+            "%2 &mdash; also hide it<br>"
+            "%1+Q &mdash; quit, closing every clock<br>"
             "<br><b>Clock face</b><br>"
             "Any SVG can be used. Within the artwork white is treated as the face "
             "color and black as the wire color, and both can be recolored from "
@@ -1161,7 +1221,7 @@ void ClockWindow::showHelp()
             "Menu &#9656; Move, or %1+M, picks the clock up onto the pointer. It "
             "centers on the cursor and follows it until any mouse button is "
             "clicked. Esc puts it back where it started.")
-            .arg(QLatin1String(kCmdLabel), QLatin1String(kQuitKeys)));
+            .arg(QLatin1String(kCmdLabel), QLatin1String(kHideKeys)));
     box->setStandardButtons(QMessageBox::Close);
     box->show();
 }
@@ -1192,12 +1252,15 @@ void ClockWindow::applySettings(const Config &values)
     const bool changedSize = values.size != m_cfg.size;
     const bool changedOnTop = values.alwaysOnTop != m_cfg.alwaysOnTop;
     const bool changedSmooth = values.smoothSweep != m_cfg.smoothSweep;
+    const bool changedOpacity = values.opacity != m_cfg.opacity;
 
     m_cfg = values;
     if (changedOnTop)
         syncAlwaysOnTop();
     if (changedSmooth)
         applyTickRate();
+    if (changedOpacity)
+        applyOpacity();
     if (newFace)
         m_face = openFace(m_cfg.facePath());
     if (newFace || changedColor) {

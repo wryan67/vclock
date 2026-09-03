@@ -20,6 +20,10 @@ add_executable(vclock WIN32 MACOSX_BUNDLE
   src/render.cpp
   src/colorbutton.cpp
   src/colorpicker.cpp
+  src/icons.cpp
+  src/registry.cpp
+  src/clockmanager.cpp
+  src/manageclocksdialog.cpp
   src/settingsdialog.cpp
   src/clockwindow.cpp
   src/config.h
@@ -28,6 +32,10 @@ add_executable(vclock WIN32 MACOSX_BUNDLE
   src/render.h
   src/colorbutton.h
   src/colorpicker.h
+  src/icons.h
+  src/registry.h
+  src/clockmanager.h
+  src/manageclocksdialog.h
   src/settingsdialog.h
   src/clockwindow.h
 )

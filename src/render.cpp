@@ -130,8 +130,8 @@ const QVector<Preset> &presets()
         comb.values.hourColor = QStringLiteral("#8f4300");
         comb.values.minuteColor = QStringLiteral("#ffc28c");
         comb.values.minuteSameAsHour = false;
-        comb.values.hourMarkColor = QStringLiteral("#1a1000");
-        comb.values.minuteMarkColor = QStringLiteral("#1a1000");
+        comb.values.hourMarkColor = QStringLiteral("#ffffff");
+        comb.values.minuteMarkColor = QStringLiteral("#9f9f9f");
         comb.values.secondColor = QStringLiteral("#ffec8c");
         out.append(comb);
 

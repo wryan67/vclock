@@ -1,3 +1,5 @@
+#include "clockmanager.h"
+#include "icons.h"
 #include "clockwindow.h"
 #include "config.h"
 #include "face.h"
@@ -9,6 +11,7 @@
 #include <QPixmap>
 #include <QSet>
 #include <QTimer>
+#include <QVector>
 
 #include <atomic>
 #include <csignal>
@@ -36,6 +39,7 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
     app.setApplicationName(QStringLiteral("vclock"));
     app.setApplicationDisplayName(QStringLiteral("vclock"));
+    installGlyphStyle();
     app.setOrganizationName(QStringLiteral("vclock"));
     app.setWindowIcon(QIcon(QPixmap::fromImage(appIconImage(64))));
     // The clock closes itself (flushing its config first), and its dialogs must
@@ -62,7 +66,7 @@ int main(int argc, char *argv[])
 
     // Two clocks sharing one file would each save over the other, so a repeated
     // config is taken as having been meant once.
-    std::vector<QString> paths;
+    QVector<QString> paths;
     QSet<QString> seen;
     for (const QString &name : parser.values(configOption)) {
         const QString path = resolveConfigPath(name);
@@ -71,29 +75,14 @@ int main(int argc, char *argv[])
             paths.push_back(path);
         }
     }
-    if (paths.empty())
-        paths.push_back(QString());
 
-    std::vector<std::unique_ptr<ClockWindow>> clocks;
-    for (const QString &path : paths) {
-        auto clock = std::make_unique<ClockWindow>(path);
-        // Placed before the first show(): a window manager applies its own
-        // placement policy when a window is mapped, and on X11 that routinely
-        // wins over a move() issued afterwards, leaving the clock wherever the
-        // WM felt like putting it. Positioning it while it is still unmapped
-        // makes the request part of the initial geometry, which is honoured.
-        clock->restorePosition();
-        clock->show();
-        // The clock is a frameless tool window that deliberately stays out of
-        // the taskbar and the window switcher, so a window manager that maps it
-        // below the windows already on screen leaves the user with no way to
-        // find it and nothing apparently happening. Asking for the front
-        // explicitly makes it visible on launch without forcing "always on top"
-        // on for good.
-        clock->raise();
-        clock->activateWindow();
-        clocks.push_back(std::move(clock));
-    }
+    ClockManager &manager = ClockManager::instance();
+    // Naming configs on the command line says exactly which clocks to run;
+    // otherwise the ones marked to start in the manage dialog come up.
+    if (paths.isEmpty())
+        manager.openVisible();
+    else
+        manager.openPaths(paths);
 
     // Ctrl+C in the launching terminal shuts down the same way the menu does,
     // so the config still gets flushed.  Polling a flag keeps the handler
@@ -104,11 +93,10 @@ int main(int argc, char *argv[])
 #endif
     QTimer interruptPoll;
     interruptPoll.setInterval(200);
-    QObject::connect(&interruptPoll, &QTimer::timeout, &app, [&clocks] {
+    QObject::connect(&interruptPoll, &QTimer::timeout, &app, [&manager] {
         if (!g_interrupted.load())
             return;
-        for (const auto &clock : clocks)
-            clock->close();
+        manager.closeAll();
     });
     interruptPoll.start();
 

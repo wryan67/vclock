@@ -30,6 +30,11 @@ inline constexpr double kMarkInner = 0.88, kMarkOuter = 0.98, kMarkWidth = 0.011
 inline constexpr int kHandScaleMin = 25, kHandScaleMax = 200;
 inline constexpr int kMarkScaleMin = 0, kMarkScaleMax = 200;  // 0 hides the indices
 
+// How solid the window is.  The floor is well above zero on purpose: a clock
+// faded to nothing would still be there, still taking clicks, with no way left
+// to see it or reach its menu to put it right.
+inline constexpr int kOpacityMin = 10, kOpacityMax = 100;
+
 // Where the clock sat, and how big it was, on one particular monitor.
 //
 // The position is stored relative to that monitor's available area rather than
@@ -52,6 +57,7 @@ struct Config
     int markScale = 100;                                   // percent of the built-in hour-index geometry
     int markPosition = 100;                                // percent of the built-in index radius
     int minuteMarkScale = 50;                              // percent of the hour-index size
+    int opacity = 100;                                     // percent; 100 is fully solid
     bool quarterMarksOnly = false;                         // draw hour indices at 12/3/6/9 only
     bool alwaysOnTop = true;                               // keep the widget above other windows
     QString faceSvg;                                       // path to a user-supplied face ("" = none)
