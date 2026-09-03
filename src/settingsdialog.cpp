@@ -150,27 +150,34 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     m_minuteMarkScale->setToolTip(
         QStringLiteral("Percentage of the hour mark size. 0 hides the minute marks."));
 
+    // The three independent options share one row, spread across the dialog:
+    // stacked they read as a list of three unrelated things taking three rows
+    // to say it.
     m_quarterMarks = new QCheckBox(QStringLiteral("quarter marks only"), this);
     m_quarterMarks->setChecked(cfg.quarterMarksOnly);
     m_quarterMarks->setToolTip(QStringLiteral(
         "Draw full indices at 12, 3, 6 and 9 only; the other hours drop to the minute track."));
-    grid->addWidget(m_quarterMarks, row, 1, 1, 3);
-    ++row;
 
     m_smoothSweep = new QCheckBox(QStringLiteral("Smooth sweep hands"), this);
     m_smoothSweep->setChecked(cfg.smoothSweep);
     m_smoothSweep->setToolTip(QStringLiteral(
         "Sweep the hands at 60 fps, each at the exact angle for the current millisecond, "
         "instead of stepping them once a second. Costs noticeably more CPU on a large clock."));
-    grid->addWidget(m_smoothSweep, row, 1, 1, 3);
-    ++row;
 
     m_reverseTime = new QCheckBox(QStringLiteral("Reverse time"), this);
     m_reverseTime->setChecked(cfg.reverseTime);
     m_reverseTime->setToolTip(QStringLiteral(
         "Run the hands anticlockwise. The clock still keeps the correct time, but each "
         "hand is mirrored about the 12, so you read it in a mirror."));
-    grid->addWidget(m_reverseTime, row, 1, 1, 3);
+
+    auto *optionRow = new QHBoxLayout;
+    optionRow->setContentsMargins(0, 0, 0, 0);
+    optionRow->addWidget(m_quarterMarks);
+    optionRow->addStretch(1);
+    optionRow->addWidget(m_smoothSweep);
+    optionRow->addStretch(1);
+    optionRow->addWidget(m_reverseTime);
+    grid->addLayout(optionRow, row, 1, 1, 3);
     ++row;
 
     // --------------------------------------------------------------- colours
@@ -200,10 +207,9 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     addLabel(grid, QStringLiteral("Minute hand color"), row);
     m_minute = new ColorButton(QColor(cfg.minuteColor), false,
                                QStringLiteral("Minute hand color"), this);
-    grid->addWidget(m_minute, row, 1, Qt::AlignLeft);
     m_minuteSame = new QCheckBox(QStringLiteral("same as hour"), this);
     m_minuteSame->setChecked(cfg.minuteSameAsHour);
-    grid->addWidget(m_minuteSame, row, 2, 1, 2);
+    grid->addLayout(withOption(m_minute, m_minuteSame), row, 1);
     ++row;
 
     // The mode governs the two swatches under it, so it sits with them.
@@ -224,10 +230,9 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     addLabel(grid, QStringLiteral("Face color"), row);
     // useAlpha lets the swatch show the checkerboard when transparent.
     m_face = new ColorButton(QColor(cfg.faceColor), true, QStringLiteral("Face color"), this);
-    grid->addWidget(m_face, row, 1, Qt::AlignLeft);
     m_faceTransparent = new QCheckBox(QStringLiteral("transparent"), this);
     m_faceTransparent->setChecked(cfg.faceTransparent);
-    grid->addWidget(m_faceTransparent, row, 2, 1, 2);
+    grid->addLayout(withOption(m_face, m_faceTransparent), row, 1);
     ++row;
 
     addLabel(grid, QStringLiteral("Wire color"), row);
@@ -242,7 +247,6 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
         "Drag on the clock face, or use the arrow keys to move the pivot a pixel "
         "at a time (hold Shift for 10). Enter accepts, Esc cancels."));
     connect(m_pick, &QPushButton::clicked, this, [this] { m_clock->startPicking(); });
-    grid->addWidget(m_pick, row, 1, Qt::AlignLeft);
     m_centerAuto = new QCheckBox(QStringLiteral("auto (canvas center)"), this);
     m_centerAuto->setChecked(!m_clock->cfg().center.has_value());
     connect(m_centerAuto, &QCheckBox::toggled, this, [this](bool on) {
@@ -252,7 +256,7 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
         }
         refreshCenter();
     });
-    grid->addWidget(m_centerAuto, row, 2, 1, 2);
+    grid->addLayout(withOption(m_pick, m_centerAuto), row, 1, 1, 3);
     ++row;
 
     m_centerLabel = new QLabel(this);
@@ -328,6 +332,19 @@ void SettingsDialog::resizeToFit(QWidget *content, QScrollArea *scroll,
     }
 
     resize(want);
+}
+
+// A control with the checkbox that qualifies it sitting right beside it, rather
+// than adrift in a far column where it reads as belonging to nothing.
+QHBoxLayout *SettingsDialog::withOption(QWidget *control, QWidget *box)
+{
+    auto *layout = new QHBoxLayout;
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(8);
+    layout->addWidget(control, 0);
+    layout->addWidget(box, 0);
+    layout->addStretch(1);
+    return layout;
 }
 
 QLabel *SettingsDialog::addLabel(QGridLayout *grid, const QString &text, int row, int col)

@@ -34,6 +34,7 @@ public:
 
 private:
     QLabel *addLabel(QGridLayout *grid, const QString &text, int row, int col = 0);
+    class QHBoxLayout *withOption(QWidget *control, QWidget *box);
     QSlider *addSlider(QGridLayout *grid, int row, const QString &caption, int value, int low,
                        int high, bool markHundred);
 
