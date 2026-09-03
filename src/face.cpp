@@ -22,6 +22,8 @@ QByteArray builtinFaceData(const QString &name)
         return iconFaceSvg();
     if (name == QLatin1String("silver"))
         return silverFaceSvg();
+    if (name == QLatin1String("honeycomb"))
+        return honeycombFaceSvg();
     return QByteArray();
 }
 
@@ -31,6 +33,8 @@ QString builtinFaceLabel(const QString &name)
         return QStringLiteral("gradient dial");
     if (name == QLatin1String("silver"))
         return QStringLiteral("silver dial");
+    if (name == QLatin1String("honeycomb"))
+        return QStringLiteral("honeycomb");
     return name;
 }
 

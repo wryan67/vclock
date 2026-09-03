@@ -115,6 +115,26 @@ const QVector<Preset> &presets()
         silver.values.secondColor = QStringLiteral("#ff6666");
         out.append(silver);
 
+        // Honey: the wax walls take the face colour and the cells the wire
+        // colour, so the pair is a light gold over a dark amber. The hands go
+        // near-black rather than light, because half the face is open cell and
+        // a light hand would keep disappearing into the walls.
+        Preset comb;
+        comb.name = QStringLiteral("Honeycomb");
+        comb.tip = QStringLiteral("A honeycomb in wax and honey, with a bee-black hand set");
+        comb.values.faceSvg = kBuiltinFacePrefix + QStringLiteral("honeycomb");
+        comb.values.faceDefault = false;
+        comb.values.faceTransparent = false;
+        comb.values.wireColor = QStringLiteral("#4a2600");   // the cells, in shadow
+        comb.values.faceColor = QStringLiteral("#ffc94d");   // the lit wax
+        comb.values.hourColor = QStringLiteral("#1a1000");
+        comb.values.minuteColor = QStringLiteral("#1a1000");
+        comb.values.minuteSameAsHour = true;
+        comb.values.hourMarkColor = QStringLiteral("#1a1000");
+        comb.values.minuteMarkColor = QStringLiteral("#1a1000");
+        comb.values.secondColor = QStringLiteral("#ffffff");
+        out.append(comb);
+
         return out;
     }();
     return list;

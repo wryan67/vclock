@@ -121,10 +121,11 @@ the mode is whatever you last set it to and stays there when you change faces.
 Recolouring a full-colour picture is a legitimate thing to want — it flattens
 the artwork to your own two colours and can look rather good.
 
-Three faces are built in and need no files: the plain default ring, the app
+Four faces are built in and need no files: the plain default ring, the app
 icon's gradient dial (stored in the config as `builtin:icon`), and a silver dial
 under a dark rim (`builtin:silver`), which is the same gradient running the other
-way. Whichever is in use, the *Clock face svg* field names it when no file of
+way, and a honeycomb (`builtin:honeycomb`), whose lit wax walls take the face
+colour and whose cells take the wire colour. Whichever is in use, the *Clock face svg* field names it when no file of
 your own is loaded; clicking a preset is how you return to a built-in face.
 
 ### Smooth sweep hands
