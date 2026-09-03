@@ -19,6 +19,7 @@
 
 namespace {
 
+constexpr qreal kRimWidth = 3.0;
 constexpr int kWheelSize = 200;
 constexpr int kSliderHeight = 26;
 constexpr int kSwatchSize = 26;
@@ -71,7 +72,9 @@ QPointF ColorWheel::centre() const
 
 qreal ColorWheel::radius() const
 {
-    return qMin(width(), height()) / 2.0 - 1.0;
+    // Two pixels of margin, so the rim can be drawn kRimWidth wide without
+    // half of it falling off the edge of the widget.
+    return qMin(width(), height()) / 2.0 - 2.0;
 }
 
 void ColorWheel::setHsv(int h, int s, int v)
@@ -101,7 +104,7 @@ void ColorWheel::rebuildCache()
     img.fill(Qt::transparent);
 
     const qreal c = px / 2.0;
-    const qreal rad = c - dpr;
+    const qreal rad = c - 2.0 * dpr;
     const qreal v = renderValue() / 255.0;
     for (int y = 0; y < px; ++y) {
         QRgb *line = reinterpret_cast<QRgb *>(img.scanLine(y));
@@ -139,10 +142,17 @@ void ColorWheel::paintEvent(QPaintEvent *)
 
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing, true);
-    if (!m_cache.isNull())
-        painter.drawImage(QPointF(0, 0), m_cache);
+    if (!m_cache.isNull()) {
+        // The cache is square, the widget need not be: blit it about the same
+        // centre the rim and the handle are measured from, or the two drift
+        // apart as soon as the widget is not square.
+        const QSizeF size(m_cache.size() / m_cache.devicePixelRatio());
+        painter.drawImage(QPointF((width() - size.width()) / 2.0,
+                                  (height() - size.height()) / 2.0),
+                          m_cache);
+    }
 
-    painter.setPen(QPen(QColor(0, 0, 0, 60), 1.0));
+    painter.setPen(QPen(QColor(0, 0, 0, 150), kRimWidth));
     painter.setBrush(Qt::NoBrush);
     painter.drawEllipse(centre(), radius(), radius());
 
@@ -654,10 +664,10 @@ void ColorPickerDialog::applyColor(const QColor &color, QWidget *source)
     // otherwise throw away where the wheel handle was.
     const int h = rgb.hue() >= 0 ? rgb.hue() : m_hue;
     const int s = rgb.value() > 0 ? rgb.saturation() : m_sat;
-    applyHsv(h, s, rgb.value(), source);
+    applyHsv(h, s, rgb.value(), source, rgb);
 }
 
-void ColorPickerDialog::applyHsv(int h, int s, int v, QWidget *source)
+void ColorPickerDialog::applyHsv(int h, int s, int v, QWidget *source, const QColor &exact)
 {
     if (m_updating)
         return;
@@ -665,7 +675,11 @@ void ColorPickerDialog::applyHsv(int h, int s, int v, QWidget *source)
     m_hue = qBound(0, h, 359);
     m_sat = qBound(0, s, 255);
     m_val = qBound(0, v, 255);
-    m_color = fromHsv(m_hue, m_sat, m_val).toRgb();
+    // A quarter of the preset swatches do not survive the trip out to HSV and
+    // back -- and the drift compounds, so repeated applies walk the colour
+    // away from where it started.  When the caller named an RGB value, that
+    // value is the colour; the HSV is only how the wheel and sliders show it.
+    m_color = exact.isValid() ? exact.toRgb() : fromHsv(m_hue, m_sat, m_val).toRgb();
 
     // Every control but the one being used is refreshed.  Both sliders are
     // redrawn whenever the other one moves, because each bar's gradient is

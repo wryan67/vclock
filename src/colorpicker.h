@@ -187,7 +187,10 @@ private:
     // black has no hue or saturation, and any grey has no hue, so a round trip
     // through a colour would forget where the wheel handle and the saturation
     // slider were as soon as either slider reached zero.
-    void applyHsv(int h, int s, int v, QWidget *source);
+    // "exact" is the colour a caller handed us verbatim, when there was one.
+    // Going through HSV and back does not always return the same RGB, so the
+    // caller's own value is kept rather than the one the round trip produces.
+    void applyHsv(int h, int s, int v, QWidget *source, const QColor &exact = QColor());
     QColor m_color;
     int m_hue = 0;
     int m_sat = 0;
