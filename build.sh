@@ -197,16 +197,45 @@ package_for() {
         suse:qtsvg)      echo qt6-svg-devel ;;
         alpine:qtsvg)    echo qt6-qtsvg-dev ;;
 
+        debian:xkb)      echo libxkbcommon-dev ;;
+        rhel:xkb)        echo libxkbcommon-devel ;;
+        arch:xkb)        echo libxkbcommon ;;
+        suse:xkb)        echo libxkbcommon-devel ;;
+        alpine:xkb)      echo libxkbcommon-dev ;;
+
         *) echo "" ;;
     esac
 }
 
 MISSING_KEYS=()
 MISSING_LABELS=()
+# Things the build works without, but which CMake grumbles about when they are
+# absent. Kept apart so a missing one never stops a build that would succeed.
+OPTIONAL_KEYS=()
+OPTIONAL_LABELS=()
 
 want() {
     MISSING_KEYS+=("$1")
     MISSING_LABELS+=("$2")
+}
+
+want_optional() {
+    OPTIONAL_KEYS+=("$1")
+    OPTIONAL_LABELS+=("$2")
+}
+
+# Qt6Gui lists XKB as a dependency of its private interface. vclock does not
+# touch that interface, so the build is fine without it, but CMake still says
+# "Could NOT find XKB" every configure. The headers cost nothing and silence it.
+xkb_present() {
+    if command -v pkg-config >/dev/null 2>&1 && pkg-config --exists xkbcommon; then
+        return 0
+    fi
+    local dir
+    for dir in /usr/include /usr/local/include; do
+        [ -f "$dir/xkbcommon/xkbcommon.h" ] && return 0
+    done
+    return 1
 }
 
 as_root() {
@@ -223,6 +252,11 @@ as_root() {
 # Qt is probed last, because a successful probe also settles QT_PREFIX.
 check_dependencies() {
     MISSING_KEYS=(); MISSING_LABELS=()
+    OPTIONAL_KEYS=(); OPTIONAL_LABELS=()
+
+    if ! xkb_present; then
+        want_optional xkb "xkbcommon development files (optional; without them CMake reports \"Could NOT find XKB\")"
+    fi
 
     if ! command -v cmake >/dev/null 2>&1; then
         want cmake "cmake (not on PATH)"
@@ -258,9 +292,15 @@ check_dependencies() {
 }
 
 # The packages that would satisfy the current MISSING_KEYS, deduplicated.
+# With "optional" as the first argument, the optional ones instead.
 missing_packages() {
-    local key pkg seen=" "
-    for key in ${MISSING_KEYS+"${MISSING_KEYS[@]}"}; do
+    local key pkg seen=" " keys
+    if [ "${1-}" = optional ]; then
+        keys=(${OPTIONAL_KEYS+"${OPTIONAL_KEYS[@]}"})
+    else
+        keys=(${MISSING_KEYS+"${MISSING_KEYS[@]}"})
+    fi
+    for key in ${keys+"${keys[@]}"}; do
         pkg=$(package_for "$key")
         [ -n "$pkg" ] || continue
         case $seen in *" $pkg "*) continue ;; esac
@@ -298,16 +338,34 @@ report_missing() {
     printf '\n' >&2
 }
 
+# Printed after a successful check: nothing here stops a build.
+report_optional() {
+    [ ${#OPTIONAL_LABELS[@]} -eq 0 ] && return 0
+    local label pkgs
+    printf '%snote:%s optional dependencies are missing:\n' "$C_BOLD" "$C_RESET" >&2
+    for label in "${OPTIONAL_LABELS[@]}"; do
+        printf '    %s\n' "$label" >&2
+    done
+    pkgs=$(missing_packages optional | tr '\n' ' '); pkgs=${pkgs% }
+    if [ -n "$PKG_TOOL" ] && [ -n "$pkgs" ]; then
+        printf '  Install with:\n    ./build.sh --install-deps\n  or by hand:\n    sudo %s %s\n' \
+            "$PKG_TOOL" "$pkgs" >&2
+    fi
+    printf '\n' >&2
+}
+
 install_dependencies() {
     detect_distro
     check_dependencies || true
 
-    if [ ${#MISSING_KEYS[@]} -eq 0 ]; then
+    if [ ${#MISSING_KEYS[@]} -eq 0 ] && [ ${#OPTIONAL_KEYS[@]} -eq 0 ]; then
         info "All build dependencies are already installed"
         return 0
     fi
 
-    local pkgs; pkgs=$(missing_packages | tr '\n' ' '); pkgs=${pkgs% }
+    local pkgs
+    pkgs=$( { missing_packages; missing_packages optional; } | tr '\n' ' ')
+    pkgs=${pkgs% }
     if [ -z "$PKG_TOOL" ] || [ -z "$pkgs" ]; then
         report_missing
         die "cannot install automatically on this system"
@@ -403,7 +461,8 @@ find_qt_prefix() {
 
 qt_installer_prefixes() {
     ls -d "$HOME"/Qt/*/gcc_64 "$HOME"/Qt/*/gcc_arm64 \
-          /opt/Qt/*/gcc_64 /opt/Qt*/*/gcc_64 2>/dev/null | sort -Vr
+          /opt/Qt/*/gcc_64 /opt/Qt/*/gcc_arm64 \
+          /opt/Qt*/*/gcc_64 /opt/Qt*/*/gcc_arm64 2>/dev/null | sort -Vr
 }
 
 # Is one Qt module -- Widgets or Svg -- installed anywhere we would look?  Used
@@ -506,8 +565,10 @@ if ! check_dependencies; then
     exit 1
 fi
 
+report_optional
+
 if [ "$CHECK_DEPS" -eq 1 ]; then
-    ok "All build dependencies are present."
+    ok "All required build dependencies are present."
     printf '    system      %s\n' "$DISTRO_NAME"
     printf '    cmake       %s\n' "$CMAKE_VERSION"
     printf '    qt%s prefix  %s\n' "$QT_MAJOR" "$QT_PREFIX"
