@@ -405,15 +405,6 @@ void SettingsDialog::onBrowse()
     m_faceEdit->setToolTip(chosen);
     m_hasFaceOverride = false;  // an explicit file beats a preset's face
     m_faceOverride.clear();
-
-    // Guess the mode from the artwork rather than making the user discover the
-    // setting: recolouring a full-colour drawing throws its colours away, and
-    // the result looks broken enough that nobody would choose it on purpose.
-    const bool mono = isMonochrome(openFace(chosen)->render(256, 256));
-    if (mono != recolorMode()) {
-        const QSignalBlocker blocker(m_colorMode);
-        m_colorMode->setCurrentIndex(mono ? 0 : 1);
-    }
     onChanged();
 }
 

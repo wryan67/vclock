@@ -173,36 +173,6 @@ QImage recolor(const QImage &art, const QString &wireHex, const QString &faceHex
     return out;
 }
 
-// A pixel counts as coloured when its channels spread far enough apart to be a
-// hue rather than a grey.  Judging the image on the *proportion* of such pixels
-// rather than on any single one keeps a stray anti-aliasing artefact, or a
-// JPEG-ish fringe on an otherwise grey drawing, from tipping the verdict.
-bool isMonochrome(const QImage &art)
-{
-    QImage src = art;
-    if (src.format() != QImage::Format_ARGB32)
-        src = src.convertToFormat(QImage::Format_ARGB32);
-
-    qint64 opaque = 0;
-    qint64 colored = 0;
-    for (int y = 0; y < src.height(); ++y) {
-        const QRgb *in = reinterpret_cast<const QRgb *>(src.constScanLine(y));
-        for (int x = 0; x < src.width(); ++x) {
-            const QRgb p = in[x];
-            if (qAlpha(p) < 128)
-                continue;
-            ++opaque;
-            const int hi = std::max({qRed(p), qGreen(p), qBlue(p)});
-            const int lo = std::min({qRed(p), qGreen(p), qBlue(p)});
-            if (hi - lo > 24)
-                ++colored;
-        }
-    }
-    if (opaque == 0)
-        return true;
-    return colored * 100 < opaque * 5;
-}
-
 QRect contentBounds(const QImage &art)
 {
     QImage src = art;

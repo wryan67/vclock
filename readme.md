@@ -104,21 +104,21 @@ where it started. The clock is kept fully on the screen the pointer is on.
 
 Any SVG can be used, in one of two colour modes.
 
-**Recolor** — the default, and what suits line art. Within the artwork white is
-treated as the face colour and black as the wire colour, and both can be set
-from Settings; anti-aliased pixels blend between the two, so edges stay smooth.
-Ticking **transparent** keeps only the line work and fades the body away. The
-mapping reads brightness alone, so it throws away any colour the drawing already
-had — run a full-colour picture through it and you get a flat grey ghost of it.
+**Recolor** — the default. Within the artwork white is treated as the face
+colour and black as the wire colour, and both can be set from Settings;
+anti-aliased pixels blend between the two, so edges stay smooth. Ticking
+**transparent** keeps only the line work and fades the body away. The mapping
+reads brightness alone, so a drawing that already had colours comes out in
+yours instead, its shading intact.
 
 **Original** draws the file exactly as authored. The face and wire colours no
 longer mean anything, so they grey out; the hands and the marks still draw on
 top as usual.
 
-Choosing a file guesses the mode for you: vclock renders it and looks at what
-fraction of the opaque pixels carry a real hue rather than a grey. A drawing
-that is already coloured opens in Original, line art in Recolor. It is only a
-guess, and the selector is right there to overrule it.
+Which one a given drawing wants is a matter of taste, so vclock does not guess:
+the mode is whatever you last set it to and stays there when you change faces.
+Recolouring a full-colour picture is a legitimate thing to want — it flattens
+the artwork to your own two colours and can look rather good.
 
 Three faces are built in and need no files: the plain default ring, the app
 icon's gradient dial (stored in the config as `builtin:icon`), and a silver dial
