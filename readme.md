@@ -163,6 +163,26 @@ left alone, since that is a placement choice rather than a look. As with any
 other change, the preset is only a preview until Save; Cancel puts the previous
 size and centre back.
 
+### Choosing colours
+
+Every colour swatch in Settings opens a small picker: a hue/saturation wheel, a
+brightness slider under it, a grid of preset swatches, and an `HTML` field
+showing the hex value. All four stay in step — drag the wheel and the hex field
+follows; type `#ff8800` into the hex field and the wheel and slider jump to it.
+
+The wheel is tinted by the current brightness so you see the colour in context,
+but it never dims past the point where the hues stop being distinguishable. That
+floor matters here because the default hand colour is nearly black, so without it
+the wheel would open unusable on most of these buttons.
+
+The swatch beside the hex field is split: the right half is the colour you are
+choosing, the left half is the colour you started with. Clicking the left half
+puts the original back. As with the rest of Settings the clock previews the
+colour live, and Cancel restores what was there before.
+
+The layout is modelled on [iro.js](https://github.com/jaames/iro.js), but none of
+its code is used — this is a plain Qt widget written from scratch.
+
 ### The Settings window
 
 If the screen is not tall or wide enough for the whole dialog, the controls
@@ -221,6 +241,7 @@ A few details worth knowing:
 | `src/face.*` | SVG rasterising, recolouring, and content bounds |
 | `src/render.*` | hands, hour/minute indices, and the appearance presets |
 | `src/colorbutton.*` | a colour swatch button with a live preview |
+| `src/colorpicker.*` | the colour picker: wheel, brightness slider, hex field |
 | `src/settingsdialog.*` | the Settings window |
 | `src/clockwindow.*` | the translucent clock window itself |
 

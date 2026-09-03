@@ -1,8 +1,8 @@
 // A colour swatch button that previews changes live.
 //
 // A plain QColorDialog only reports the colour once it is accepted, so the
-// clock could not follow the colour while it was being chosen.  This drives a
-// non-native QColorDialog and re-emits colorSet() on every currentColorChanged,
+// clock could not follow the colour while it was being chosen.  This drives
+// ColorPickerDialog and re-emits colorSet() on every currentColorChanged,
 // giving a live preview; Cancel restores the colour that was in effect when the
 // dialog opened.
 #pragma once
@@ -11,7 +11,7 @@
 #include <QPushButton>
 #include <QString>
 
-class QColorDialog;
+class ColorPickerDialog;
 
 class ColorButton : public QPushButton
 {
@@ -44,5 +44,5 @@ private:
     QColor m_color;
     bool m_useAlpha = false;
     QString m_title;
-    QColorDialog *m_dialog = nullptr;
+    ColorPickerDialog *m_dialog = nullptr;
 };
