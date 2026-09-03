@@ -12,6 +12,7 @@
 #include <QPushButton>
 #include <QRegularExpression>
 #include <QRegularExpressionValidator>
+#include <QSpinBox>
 #include <QVBoxLayout>
 
 #include <cmath>
@@ -343,21 +344,14 @@ ColorPickerDialog::ColorPickerDialog(const QColor &initial, QWidget *parent)
 
     auto *right = new QVBoxLayout;
     auto *swatches = new QGridLayout;
-    swatches->setSpacing(6);
-    // A spread of hues to land near a colour in one click, then a greyscale
-    // row, which a clock face needs far more often than a web palette does.
-    buildSwatches(swatches,
-                  {QColor("#e53e3e"), QColor("#ed8936"), QColor("#ffd700"), QColor("#38a169"),
-                   QColor("#319795"), QColor("#4299e1"), QColor("#9f7aea"), QColor("#ed64a6"),
-                   QColor("#000000"), QColor("#404040"), QColor("#707070"), QColor("#a0a0a0"),
-                   QColor("#c0c0c0"), QColor("#e0e0e0"), QColor("#ffffff"), QColor("#8b4513")},
-                  4);
+    swatches->setSpacing(4);
     right->addLayout(swatches);
     right->addStretch(1);
     top->addLayout(right);
+    buildSwatches(swatches);
 
-    auto *fields = new QHBoxLayout;
-    fields->addWidget(new QLabel(QStringLiteral("HTML"), this));
+    auto *fields = new QGridLayout;
+    fields->addWidget(new QLabel(QStringLiteral("HTML"), this), 0, 0);
     m_hex = new QLineEdit(this);
     m_hex->setMaxLength(7);
     // Accepts with or without the leading hash, and tolerates a partly typed
@@ -365,9 +359,26 @@ ColorPickerDialog::ColorPickerDialog(const QColor &initial, QWidget *parent)
     m_hex->setValidator(new QRegularExpressionValidator(
         QRegularExpression(QStringLiteral("^#?[0-9A-Fa-f]{0,6}$")), m_hex));
     m_hex->setFixedWidth(90);
-    fields->addWidget(m_hex);
+    fields->addWidget(m_hex, 0, 1, Qt::AlignLeft);
+
+    fields->addWidget(new QLabel(QStringLiteral("RGB"), this), 1, 0);
+    auto *rgbRow = new QHBoxLayout;
+    rgbRow->setSpacing(4);
+    for (int i = 0; i < 3; ++i) {
+        m_rgb[i] = new QSpinBox(this);
+        m_rgb[i]->setRange(0, 255);
+        m_rgb[i]->setFixedWidth(58);
+        m_rgb[i]->setToolTip(QStringList{QStringLiteral("Red"), QStringLiteral("Green"),
+                                         QStringLiteral("Blue")}
+                                 .at(i));
+        rgbRow->addWidget(m_rgb[i]);
+    }
+    rgbRow->addStretch(1);
+    fields->addLayout(rgbRow, 1, 1, Qt::AlignLeft);
+
     m_preview = new ColorPreview(m_color, this);
-    fields->addWidget(m_preview, 1);
+    fields->addWidget(m_preview, 0, 2, 2, 1);
+    fields->setColumnStretch(2, 1);
     outer->addLayout(fields);
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
@@ -394,29 +405,61 @@ ColorPickerDialog::ColorPickerDialog(const QColor &initial, QWidget *parent)
     // Tidy a partial or empty entry back to the colour actually in force.
     connect(m_hex, &QLineEdit::editingFinished, this,
             [this] { m_hex->setText(m_color.name(QColor::HexRgb)); });
+    for (int i = 0; i < 3; ++i) {
+        connect(m_rgb[i], &QSpinBox::valueChanged, this, [this] {
+            if (m_updating)
+                return;
+            applyColor(QColor(m_rgb[0]->value(), m_rgb[1]->value(), m_rgb[2]->value()), m_rgb[0]);
+        });
+    }
     connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
     applyColor(m_color, nullptr);
 }
 
-void ColorPickerDialog::buildSwatches(QGridLayout *grid, const QList<QColor> &colors, int columns)
+void ColorPickerDialog::buildSwatches(QGridLayout *grid)
 {
-    for (int i = 0; i < colors.size(); ++i) {
-        const QColor c = colors.at(i);
-        auto *button = new QPushButton(this);
-        button->setFixedSize(kSwatchSize, kSwatchSize);
-        button->setCursor(Qt::PointingHandCursor);
-        button->setToolTip(c.name(QColor::HexRgb));
-        button->setFlat(true);
-        button->setStyleSheet(
-            QStringLiteral("QPushButton { background:%1; border:1px solid rgba(0,0,0,70); "
-                           "border-radius:%2px; } QPushButton:hover { border:2px solid #4299e1; }")
-                .arg(c.name(QColor::HexRgb))
-                .arg(kSwatchSize / 2));
-        connect(button, &QPushButton::clicked, this, [this, c] { applyColor(c, nullptr); });
-        grid->addWidget(button, i / columns, i % columns);
+    // Six columns of one hue each plus a greyscale column, seven rows deep.
+    // The top row is the pure colour; each row below is the same hue shaded
+    // progressively darker, which is what a clock hand or wire usually wants.
+    // Generating them beats a hand-written list: the rows stay aligned in tone
+    // across the hues, so a row reads as one weight all the way across.
+    static const int kHues[] = {0, 28, 50, 120, 212, 275};
+    static const qreal kShades[kSwatchRows] = {1.0, 0.85, 0.70, 0.56, 0.43, 0.31, 0.20};
+    constexpr int kHueColumns = int(sizeof(kHues) / sizeof(kHues[0]));
+
+    for (int row = 0; row < kSwatchRows; ++row) {
+        for (int col = 0; col < kSwatchColumns; ++col) {
+            QColor c;
+            if (col < kHueColumns) {
+                c = QColor::fromHsv(kHues[col], 255, int(255 * kShades[row] + 0.5));
+            } else {
+                // The last column starts at black -- one of the colours named
+                // in the top row -- and runs down through the greys to white,
+                // rather than shading black into more black.
+                const int level = int(255.0 * row / (kSwatchRows - 1) + 0.5);
+                c = QColor(level, level, level);
+            }
+            addSwatch(grid, c, row, col);
+        }
     }
+}
+
+void ColorPickerDialog::addSwatch(QGridLayout *grid, const QColor &c, int row, int col)
+{
+    auto *button = new QPushButton(this);
+    button->setFixedSize(kSwatchSize, kSwatchSize);
+    button->setCursor(Qt::PointingHandCursor);
+    button->setToolTip(c.name(QColor::HexRgb));
+    button->setFlat(true);
+    button->setStyleSheet(
+        QStringLiteral("QPushButton { background:%1; border:1px solid rgba(0,0,0,70); "
+                       "border-radius:%2px; } QPushButton:hover { border:2px solid #4299e1; }")
+            .arg(c.name(QColor::HexRgb))
+            .arg(kSwatchSize / 2));
+    connect(button, &QPushButton::clicked, this, [this, c] { applyColor(c, nullptr); });
+    grid->addWidget(button, row, col);
 }
 
 void ColorPickerDialog::applyColor(const QColor &color, QWidget *source)
@@ -436,6 +479,13 @@ void ColorPickerDialog::applyColor(const QColor &color, QWidget *source)
         m_slider->setColor(m_color);
     if (source != m_hex)
         m_hex->setText(m_color.name(QColor::HexRgb));
+    // m_rgb[0] stands for the whole row: whichever of the three was edited,
+    // all of them already hold the values that produced this colour.
+    if (source != m_rgb[0]) {
+        m_rgb[0]->setValue(m_color.red());
+        m_rgb[1]->setValue(m_color.green());
+        m_rgb[2]->setValue(m_color.blue());
+    }
     m_preview->setColor(m_color);
 
     m_updating = false;

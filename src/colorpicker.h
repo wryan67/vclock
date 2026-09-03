@@ -19,6 +19,7 @@
 #include <QWidget>
 
 class QLineEdit;
+class QSpinBox;
 
 // The hue/saturation disc.  Hue runs anticlockwise from red at the right, and
 // saturation grows from the centre outwards; brightness comes from the slider
@@ -128,12 +129,17 @@ private:
     // that originated the change and is left alone, so that editing the hex
     // field does not fight the caret, and dragging a handle does not snap.
     void applyColor(const QColor &color, QWidget *source);
-    void buildSwatches(class QGridLayout *grid, const QList<QColor> &colors, int columns);
+    void buildSwatches(class QGridLayout *grid);
+    void addSwatch(class QGridLayout *grid, const QColor &c, int row, int col);
+
+    static constexpr int kSwatchColumns = 7;
+    static constexpr int kSwatchRows = 7;
 
     QColor m_color;
     ColorWheel *m_wheel = nullptr;
     BrightnessSlider *m_slider = nullptr;
     ColorPreview *m_preview = nullptr;
     QLineEdit *m_hex = nullptr;
+    QSpinBox *m_rgb[3] = {nullptr, nullptr, nullptr};
     bool m_updating = false;
 };

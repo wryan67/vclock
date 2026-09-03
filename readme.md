@@ -166,16 +166,24 @@ size and centre back.
 ### Choosing colours
 
 Every colour swatch in Settings opens a small picker: a hue/saturation wheel, a
-brightness slider under it, a grid of preset swatches, and an `HTML` field
-showing the hex value. All four stay in step — drag the wheel and the hex field
-follows; type `#ff8800` into the hex field and the wheel and slider jump to it.
+brightness slider under it, a grid of preset swatches, and `HTML` and `RGB`
+fields. Everything stays in step — drag the wheel and the numbers follow; type
+`#ff8800` into the hex field, or put `255` in the red box, and the wheel and
+slider jump to match.
+
+The presets are seven columns — red, orange, yellow, green, blue, purple, and a
+greyscale column — by seven rows. The top row is the pure colour and each row
+below is the same hue shaded darker, so a row reads as one weight all the way
+across. The grey column is the exception: black sits at the top with the rest of
+the pure colours, and the column runs down through the greys to white, since
+shading black into more black would be no use to anyone.
 
 The wheel is tinted by the current brightness so you see the colour in context,
 but it never dims past the point where the hues stop being distinguishable. That
 floor matters here because the default hand colour is nearly black, so without it
 the wheel would open unusable on most of these buttons.
 
-The swatch beside the hex field is split: the right half is the colour you are
+The swatch beside the fields is split: the right half is the colour you are
 choosing, the left half is the colour you started with. Clicking the left half
 puts the original back. As with the rest of Settings the clock previews the
 colour live, and Cancel restores what was there before.
@@ -241,7 +249,7 @@ A few details worth knowing:
 | `src/face.*` | SVG rasterising, recolouring, and content bounds |
 | `src/render.*` | hands, hour/minute indices, and the appearance presets |
 | `src/colorbutton.*` | a colour swatch button with a live preview |
-| `src/colorpicker.*` | the colour picker: wheel, brightness slider, hex field |
+| `src/colorpicker.*` | the colour picker: wheel, brightness slider, hex and RGB fields |
 | `src/settingsdialog.*` | the Settings window |
 | `src/clockwindow.*` | the translucent clock window itself |
 
