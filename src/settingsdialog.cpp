@@ -6,6 +6,7 @@
 #include "render.h"
 
 #include <QCheckBox>
+#include <QComboBox>
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFileDialog>
@@ -133,7 +134,24 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     grid->addWidget(m_faceIsDefault, row, 2);
     ++row;
 
+    // ------------------------------------------------------------ color mode
+    addLabel(grid, QStringLiteral("Face colors"), row);
+    m_colorMode = new QComboBox(this);
+    m_colorMode->addItem(QStringLiteral("Recolor"), true);
+    m_colorMode->addItem(QStringLiteral("Original"), false);
+    m_colorMode->setCurrentIndex(cfg.faceRecolor ? 0 : 1);
+    m_colorMode->setToolTip(QStringLiteral(
+        "Recolor maps the artwork's shading onto the face and wire colors below, so "
+        "line art takes on whatever colors you pick. It reads brightness alone, so it "
+        "discards any color the drawing already had.\n\n"
+        "Original draws the file exactly as it was authored, which is what you want "
+        "for a full-color picture. The face and wire colors do not apply; the hands "
+        "and marks still do."));
+    grid->addWidget(m_colorMode, row, 1, Qt::AlignLeft);
+    ++row;
+
     // -------------------------------------------------------------- sliders
+
     const int maxSize = m_clock->maxSize();
     m_size = addSlider(grid, row++, QStringLiteral("Clock size (px)"), cfg.size, kSizeMin,
                        maxSize, false);
@@ -268,6 +286,7 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
                            m_smoothSweep, m_reverseTime}) {
         connect(box, &QCheckBox::toggled, this, [this] { onChanged(); });
     }
+    connect(m_colorMode, &QComboBox::currentIndexChanged, this, [this] { onChanged(); });
 
     syncSwatches();
     refreshCenter();
@@ -386,6 +405,15 @@ void SettingsDialog::onBrowse()
     m_faceEdit->setToolTip(chosen);
     m_hasFaceOverride = false;  // an explicit file beats a preset's face
     m_faceOverride.clear();
+
+    // Guess the mode from the artwork rather than making the user discover the
+    // setting: recolouring a full-colour drawing throws its colours away, and
+    // the result looks broken enough that nobody would choose it on purpose.
+    const bool mono = isMonochrome(openFace(chosen)->render(256, 256));
+    if (mono != recolorMode()) {
+        const QSignalBlocker blocker(m_colorMode);
+        m_colorMode->setCurrentIndex(mono ? 0 : 1);
+    }
     onChanged();
 }
 
@@ -424,6 +452,7 @@ void SettingsDialog::applyPreset(const Config &values)
     m_quarterMarks->setChecked(values.quarterMarksOnly);
     m_minuteSame->setChecked(values.minuteSameAsHour);
     m_faceTransparent->setChecked(values.faceTransparent);
+    m_colorMode->setCurrentIndex(values.faceRecolor ? 0 : 1);
 
     m_faceOwn = values.faceColor;
     m_minuteOwn = values.minuteColor;
@@ -459,8 +488,13 @@ void SettingsDialog::syncSwatches()
     m_minute->setEnabled(!same);
     m_minute->setColor(same ? m_hour->color() : QColor(m_minuteOwn));
 
+    // The face and wire colours are the recolour's two ends, so they mean
+    // nothing at all when the artwork is drawn as authored.
+    const bool recolor = recolorMode();
     const bool clear = m_faceTransparent->isChecked();
-    m_face->setEnabled(!clear);
+    m_face->setEnabled(recolor && !clear);
+    m_wire->setEnabled(recolor);
+    m_faceTransparent->setEnabled(recolor);
     QColor faceColor(m_faceOwn);
     if (!faceColor.isValid())
         faceColor = QColor(Qt::white);
@@ -491,6 +525,11 @@ void SettingsDialog::refreshCenter()
                  QString::number(std::lround(center.x())),
                  QString::number(std::lround(center.y())),
                  QString::number(std::lround(m_clock->handRadius()))));
+}
+
+bool SettingsDialog::recolorMode() const
+{
+    return m_colorMode->currentData().toBool();
 }
 
 QString SettingsDialog::faceSvg() const
@@ -527,6 +566,7 @@ Config SettingsDialog::values() const
     out.reverseTime = m_reverseTime->isChecked();
     out.faceColor = m_faceOwn;
     out.faceTransparent = m_faceTransparent->isChecked();
+    out.faceRecolor = recolorMode();
     out.wireColor = hexOf(m_wire->color());
     out.hourMarkColor = hexOf(m_hourMark->color());
     out.minuteMarkColor = hexOf(m_minuteMark->color());

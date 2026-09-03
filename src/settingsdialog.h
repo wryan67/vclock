@@ -11,6 +11,7 @@
 class ClockWindow;
 class ColorButton;
 class QCheckBox;
+class QComboBox;
 class QGridLayout;
 class QLabel;
 class QLineEdit;
@@ -48,6 +49,7 @@ private:
 
     QString faceSvg() const;
     bool faceDefault() const;
+    bool recolorMode() const;
 
     ClockWindow *m_clock = nullptr;
     bool m_live = false;
@@ -60,6 +62,7 @@ private:
     QLineEdit *m_faceEdit = nullptr;
     class QPushButton *m_browse = nullptr;
     QCheckBox *m_faceIsDefault = nullptr;
+    QComboBox *m_colorMode = nullptr;
 
     QSlider *m_size = nullptr;
     QSlider *m_handScale = nullptr;

@@ -100,7 +100,8 @@ inline QByteArray appIconSvg()
 inline const char *aboutText()
 {
     return "A transparent, borderless analog clock for the desktop.\n\n"
-           "The clock face can be any SVG. Within that artwork white is treated as "
-           "the face color and black as the wire color, and both can be recolored "
-           "from Settings.";
+           "The clock face can be any SVG. In Recolor mode white is treated as "
+           "the face color and black as the wire color, and both can be set from "
+           "Settings; in Original mode the artwork is drawn as it was authored, "
+           "which is what a full-color picture wants.";
 }

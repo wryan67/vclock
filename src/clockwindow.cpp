@@ -224,7 +224,10 @@ void ClockWindow::rebuildRaster()
                       static_cast<double>(bounds.width()) / pw,
                       static_cast<double>(bounds.height()) / ph);
 
-    m_raster = recolor(art, m_cfg.wireColor, m_cfg.faceColor, m_cfg.faceTransparent);
+    // In "original" mode the artwork is its own colour scheme; leave it be.
+    m_raster = m_cfg.faceRecolor
+                   ? recolor(art, m_cfg.wireColor, m_cfg.faceColor, m_cfg.faceTransparent)
+                   : art;
     m_raster.setDevicePixelRatio(dpr);
 }
 
@@ -1171,7 +1174,8 @@ void ClockWindow::applySettings(const Config &values)
         values.faceSvg != m_cfg.faceSvg || values.faceDefault != m_cfg.faceDefault;
     const bool changedColor = values.wireColor != m_cfg.wireColor
                               || values.faceColor != m_cfg.faceColor
-                              || values.faceTransparent != m_cfg.faceTransparent;
+                              || values.faceTransparent != m_cfg.faceTransparent
+                              || values.faceRecolor != m_cfg.faceRecolor;
     const bool changedSize = values.size != m_cfg.size;
     const bool changedOnTop = values.alwaysOnTop != m_cfg.alwaysOnTop;
     const bool changedSmooth = values.smoothSweep != m_cfg.smoothSweep;

@@ -193,6 +193,7 @@ Config loadConfig()
                                readBool(o, "smooth_minute", kDefaults.smoothSweep));
     cfg.reverseTime = readBool(o, "reverse_time", kDefaults.reverseTime);
     cfg.faceTransparent = readBool(o, "face_transparent", kDefaults.faceTransparent);
+    cfg.faceRecolor = readBool(o, "face_recolor", kDefaults.faceRecolor);
 
     cfg.faceSvg = readString(o, "face_svg", kDefaults.faceSvg);
     cfg.secondColor = readString(o, "second_color", kDefaults.secondColor);
@@ -261,6 +262,7 @@ void saveConfig(const Config &cfg)
     o.insert(QStringLiteral("reverse_time"), cfg.reverseTime);
     o.insert(QStringLiteral("face_color"), cfg.faceColor);
     o.insert(QStringLiteral("face_transparent"), cfg.faceTransparent);
+    o.insert(QStringLiteral("face_recolor"), cfg.faceRecolor);
     o.insert(QStringLiteral("wire_color"), cfg.wireColor);
     o.insert(QStringLiteral("hour_mark_color"), cfg.hourMarkColor);
     o.insert(QStringLiteral("minute_mark_color"), cfg.minuteMarkColor);
@@ -320,6 +322,7 @@ void copyPresetKeys(const Config &from, Config &to)
     to.minuteSameAsHour = from.minuteSameAsHour;
     to.faceColor = from.faceColor;
     to.faceTransparent = from.faceTransparent;
+    to.faceRecolor = from.faceRecolor;
     to.wireColor = from.wireColor;
     to.hourMarkColor = from.hourMarkColor;
     to.minuteMarkColor = from.minuteMarkColor;

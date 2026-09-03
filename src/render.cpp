@@ -212,7 +212,8 @@ QPixmap presetThumbnail(const Config &values, int size, qreal devicePixelRatio)
 
     const std::unique_ptr<Face> face = openFace(values.facePath());
     QImage art = face->render(pixels, pixels);
-    art = recolor(art, values.wireColor, values.faceColor, values.faceTransparent);
+    if (values.faceRecolor)
+        art = recolor(art, values.wireColor, values.faceColor, values.faceTransparent);
 
     QImage canvas(pixels, pixels, QImage::Format_ARGB32_Premultiplied);
     canvas.fill(Qt::transparent);

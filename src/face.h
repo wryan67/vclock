@@ -48,6 +48,11 @@ std::unique_ptr<Face> openFace(const QString &path);
 QImage recolor(const QImage &art, const QString &wireHex, const QString &faceHex,
                bool faceTransparent);
 
+// True when the artwork is (near enough) greyscale, and so is a candidate for
+// recolouring. A full-colour drawing answers false: recolouring one throws all
+// of its hues away, since recolor() reads only brightness.
+bool isMonochrome(const QImage &art);
+
 // Bounding box (inclusive) of the artwork's non-transparent pixels.
 QRect contentBounds(const QImage &art);
 

@@ -2,10 +2,12 @@
 
 A transparent, borderless analog clock for the desktop, written in C++ with Qt.
 
-The face is any SVG; its artwork is recoloured (line work → "wire" colour, body
-→ "face" colour) and rasterised at the widget's current pixel size, so it stays
-crisp at any scale. The window is undecorated and painted onto a translucent
-surface, so everything outside the artwork is genuinely transparent.
+The face is any SVG. By default its artwork is recoloured (line work → "wire"
+colour, body → "face" colour), or it can be drawn in its own colours for a
+picture that already has some; either way it is rasterised at the widget's
+current pixel size, so it stays crisp at any scale. The window is undecorated
+and painted onto a translucent surface, so everything outside the artwork is
+genuinely transparent.
 
 Left-drag moves the widget, double click opens Settings, right-click opens the
 menu, `Ctrl`+Q quits. Settings live in a platform-native config directory,
@@ -100,10 +102,23 @@ where it started. The clock is kept fully on the screen the pointer is on.
 
 ### Clock face
 
-Any SVG can be used. Within the artwork white is treated as the face colour and
-black as the wire colour, and both can be recoloured from Settings; anti-aliased
-pixels blend between the two, so edges stay smooth. Ticking **transparent**
-keeps only the line work and fades the body away.
+Any SVG can be used, in one of two colour modes.
+
+**Recolor** — the default, and what suits line art. Within the artwork white is
+treated as the face colour and black as the wire colour, and both can be set
+from Settings; anti-aliased pixels blend between the two, so edges stay smooth.
+Ticking **transparent** keeps only the line work and fades the body away. The
+mapping reads brightness alone, so it throws away any colour the drawing already
+had — run a full-colour picture through it and you get a flat grey ghost of it.
+
+**Original** draws the file exactly as authored. The face and wire colours no
+longer mean anything, so they grey out; the hands and the marks still draw on
+top as usual.
+
+Choosing a file guesses the mode for you: vclock renders it and looks at what
+fraction of the opaque pixels carry a real hue rather than a grey. A drawing
+that is already coloured opens in Original, line art in Recolor. It is only a
+guess, and the selector is right there to overrule it.
 
 Three faces are built in and need no files: the plain default ring, the app
 icon's gradient dial (stored in the config as `builtin:icon`), and a silver dial

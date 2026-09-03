@@ -62,6 +62,9 @@ struct Config
     bool minuteSameAsHour = false;
     bool smoothSweep = false;                              // sweep the hands instead of stepping them
     bool reverseTime = false;                              // run the hands anticlockwise
+    // Recolour maps the artwork's brightness onto the wire/face colours, which
+    // only makes sense for line art. A full-colour drawing has to be left alone.
+    bool faceRecolor = true;
     QString faceColor = QStringLiteral("#ffffff");
     bool faceTransparent = false;
     QString wireColor = QStringLiteral("#000000");
