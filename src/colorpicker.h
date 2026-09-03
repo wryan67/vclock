@@ -120,6 +120,50 @@ private:
     QColor m_current;
 };
 
+// The grid of preset colours.  One widget rather than a grid of buttons: it
+// paints the ring on whichever swatch matches the current colour, and moving
+// between swatches with the arrow keys is navigation within one control rather
+// than a walk through nine rows of the focus chain.
+class SwatchGrid : public QWidget
+{
+    Q_OBJECT
+
+public:
+    explicit SwatchGrid(QWidget *parent = nullptr);
+
+    // Ring the swatch matching this colour, if any of them do.
+    void setCurrentColor(const QColor &color);
+
+    QSize sizeHint() const override;
+
+signals:
+    void colorPicked(const QColor &color);
+
+protected:
+    void paintEvent(QPaintEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void leaveEvent(QEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
+    void focusOutEvent(QFocusEvent *event) override;
+
+private:
+    static constexpr int kColumns = 9;
+    static constexpr int kRows = 9;
+
+    QColor colorAt(int row, int col) const;
+    QRect cellRect(int row, int col) const;
+    QPoint cellAt(const QPoint &pos) const;  // (-1,-1) when the point is between cells
+
+    QColor m_current;
+    // Where the keyboard is. -1 until a swatch is clicked or the grid is
+    // tabbed into, so arrow keys have somewhere to start from.
+    int m_cursorRow = -1;
+    int m_cursorCol = -1;
+    int m_hoverRow = -1;
+    int m_hoverCol = -1;
+};
+
 class ColorPickerDialog : public QDialog
 {
     Q_OBJECT
@@ -144,12 +188,6 @@ private:
     // through a colour would forget where the wheel handle and the saturation
     // slider were as soon as either slider reached zero.
     void applyHsv(int h, int s, int v, QWidget *source);
-    void buildSwatches(class QGridLayout *grid);
-    void addSwatch(class QGridLayout *grid, const QColor &c, int row, int col);
-
-    static constexpr int kSwatchColumns = 9;
-    static constexpr int kSwatchRows = 9;
-
     QColor m_color;
     int m_hue = 0;
     int m_sat = 0;
@@ -158,6 +196,7 @@ private:
     ChannelSlider *m_satSlider = nullptr;
     ChannelSlider *m_valSlider = nullptr;
     ColorPreview *m_preview = nullptr;
+    SwatchGrid *m_swatches = nullptr;
     QLineEdit *m_hex = nullptr;
     QSpinBox *m_rgb[3] = {nullptr, nullptr, nullptr};
     bool m_updating = false;

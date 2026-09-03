@@ -332,6 +332,217 @@ void ColorPreview::mousePressEvent(QMouseEvent *event)
 
 // ---------------------------------------------------------- ColorPickerDialog
 
+// --------------------------------------------------------------- SwatchGrid
+
+namespace {
+
+constexpr int kSwatchGap = 4;
+
+}  // namespace
+
+SwatchGrid::SwatchGrid(QWidget *parent)
+    : QWidget(parent)
+{
+    setFocusPolicy(Qt::StrongFocus);
+    setMouseTracking(true);
+    setCursor(Qt::PointingHandCursor);
+}
+
+QColor SwatchGrid::colorAt(int row, int col) const
+{
+    // Eight columns of one hue each plus a greyscale column.  Pink and teal
+    // earn their place because neither is reachable by shading a neighbour:
+    // pink is a tint rather than a shade of red, and the gap between green and
+    // blue is wide enough that teal is a long way from either.
+    static const int kHues[] = {0, 28, 50, 120, 172, 212, 275, 322};
+    constexpr int kHueColumns = int(sizeof(kHues) / sizeof(kHues[0]));
+
+    // Every column runs light to dark.  The top two rows are tints -- the same
+    // hue washed out towards white, which is where the pinks and lavenders
+    // live -- then the pure colour, then shades down towards black.  Keeping
+    // one ramp per column means a row reads as a single weight the whole way
+    // across, which a hand-written list never quite manages.
+    struct Tone
+    {
+        int sat;
+        int val;
+    };
+    static const Tone kTones[kRows] = {{55, 255},  {115, 255}, {255, 255},
+                                       {255, 217}, {255, 179}, {255, 143},
+                                       {255, 110}, {255, 79},  {255, 51}};
+
+    if (col < kHueColumns)
+        return QColor::fromHsv(kHues[col], kTones[row].sat, kTones[row].val);
+
+    // The greys follow the same light-to-dark run, white at the top and black
+    // at the bottom, so the last column reads as part of the same ramp rather
+    // than against it.
+    const int level = int(255.0 * (kRows - 1 - row) / (kRows - 1) + 0.5);
+    return QColor(level, level, level);
+}
+
+QSize SwatchGrid::sizeHint() const
+{
+    const int pitch = kSwatchSize + kSwatchGap;
+    return QSize(kColumns * pitch - kSwatchGap, kRows * pitch - kSwatchGap);
+}
+
+QRect SwatchGrid::cellRect(int row, int col) const
+{
+    const int pitch = kSwatchSize + kSwatchGap;
+    return QRect(col * pitch, row * pitch, kSwatchSize, kSwatchSize);
+}
+
+QPoint SwatchGrid::cellAt(const QPoint &pos) const
+{
+    const int pitch = kSwatchSize + kSwatchGap;
+    const int col = pos.x() / pitch;
+    const int row = pos.y() / pitch;
+    if (row < 0 || row >= kRows || col < 0 || col >= kColumns)
+        return QPoint(-1, -1);
+    // The gap between swatches belongs to neither of them.
+    if (!cellRect(row, col).contains(pos))
+        return QPoint(-1, -1);
+    return QPoint(col, row);
+}
+
+void SwatchGrid::setCurrentColor(const QColor &color)
+{
+    if (m_current == color)
+        return;
+    m_current = color;
+    update();
+}
+
+void SwatchGrid::paintEvent(QPaintEvent *)
+{
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+
+    for (int row = 0; row < kRows; ++row) {
+        for (int col = 0; col < kColumns; ++col) {
+            const QColor c = colorAt(row, col);
+            const QRectF r(cellRect(row, col));
+            const bool chosen = m_current.isValid() && c.rgb() == m_current.rgb();
+
+            // The chosen swatch draws smaller, inside a white ring. The ring is
+            // fenced with hairlines on both sides, because white alone is
+            // invisible against the white swatch and against the dialog.
+            const qreal inset = chosen ? 4.5 : 0.5;
+            painter.setBrush(c);
+            painter.setPen(QPen(QColor(0, 0, 0, 70), 1.0));
+            painter.drawEllipse(r.adjusted(inset, inset, -inset, -inset));
+
+            if (chosen) {
+                painter.setBrush(Qt::NoBrush);
+                painter.setPen(QPen(Qt::white, 3.0));
+                painter.drawEllipse(r.adjusted(2.5, 2.5, -2.5, -2.5));
+                painter.setPen(QPen(QColor(0, 0, 0, 90), 1.0));
+                painter.drawEllipse(r.adjusted(0.5, 0.5, -0.5, -0.5));
+            }
+
+            // There is no separate keyboard cursor: arrowing chooses as it
+            // moves, so the ring above always marks where the keys are.
+            if (!chosen && row == m_hoverRow && col == m_hoverCol) {
+                painter.setBrush(Qt::NoBrush);
+                painter.setPen(QPen(QColor(0x42, 0x99, 0xe1), 2.0));
+                painter.drawEllipse(r.adjusted(1.0, 1.0, -1.0, -1.0));
+            }
+        }
+    }
+}
+
+void SwatchGrid::mousePressEvent(QMouseEvent *event)
+{
+    const QPoint cell = cellAt(event->pos());
+    if (cell.x() < 0) {
+        QWidget::mousePressEvent(event);
+        return;
+    }
+    // Clicking is also where the keyboard starts from, so the arrow keys
+    // continue from the swatch just chosen rather than from a corner.
+    m_cursorCol = cell.x();
+    m_cursorRow = cell.y();
+    setFocus(Qt::MouseFocusReason);
+    emit colorPicked(colorAt(m_cursorRow, m_cursorCol));
+    update();
+}
+
+void SwatchGrid::mouseMoveEvent(QMouseEvent *event)
+{
+    const QPoint cell = cellAt(event->pos());
+    if (cell.y() == m_hoverRow && cell.x() == m_hoverCol)
+        return;
+    m_hoverCol = cell.x();
+    m_hoverRow = cell.y();
+    update();
+}
+
+void SwatchGrid::leaveEvent(QEvent *event)
+{
+    m_hoverRow = m_hoverCol = -1;
+    update();
+    QWidget::leaveEvent(event);
+}
+
+void SwatchGrid::focusOutEvent(QFocusEvent *event)
+{
+    update();  // the cursor is only drawn while the grid has focus
+    QWidget::focusOutEvent(event);
+}
+
+void SwatchGrid::keyPressEvent(QKeyEvent *event)
+{
+    int dRow = 0, dCol = 0;
+    switch (event->key()) {
+    case Qt::Key_Left:
+        dCol = -1;
+        break;
+    case Qt::Key_Right:
+        dCol = 1;
+        break;
+    case Qt::Key_Up:
+        dRow = -1;
+        break;
+    case Qt::Key_Down:
+        dRow = 1;
+        break;
+    case Qt::Key_Space:
+    case Qt::Key_Return:
+    case Qt::Key_Enter:
+        if (m_cursorRow >= 0)
+            emit colorPicked(colorAt(m_cursorRow, m_cursorCol));
+        return;
+    default:
+        QWidget::keyPressEvent(event);
+        return;
+    }
+
+    if (m_cursorRow < 0) {
+        // Tabbed in rather than clicked: start on the chosen swatch when one of
+        // them is chosen, and at the top left when none is.
+        m_cursorRow = m_cursorCol = 0;
+        bool found = false;
+        for (int row = 0; row < kRows && !found; ++row) {
+            for (int col = 0; col < kColumns; ++col) {
+                if (m_current.isValid() && colorAt(row, col).rgb() == m_current.rgb()) {
+                    m_cursorRow = row;
+                    m_cursorCol = col;
+                    found = true;
+                    break;
+                }
+            }
+        }
+    } else {
+        m_cursorRow = qBound(0, m_cursorRow + dRow, kRows - 1);
+        m_cursorCol = qBound(0, m_cursorCol + dCol, kColumns - 1);
+    }
+    update();
+    // Arrowing is choosing: the colour follows the cursor, so there is nothing
+    // left for space to confirm.
+    emit colorPicked(colorAt(m_cursorRow, m_cursorCol));
+}
+
 ColorPickerDialog::ColorPickerDialog(const QColor &initial, QWidget *parent)
     : QDialog(parent)
     , m_color(initial.isValid() ? initial : QColor(Qt::black))
@@ -355,12 +566,12 @@ ColorPickerDialog::ColorPickerDialog(const QColor &initial, QWidget *parent)
     top->addLayout(left);
 
     auto *right = new QVBoxLayout;
-    auto *swatches = new QGridLayout;
-    swatches->setSpacing(4);
-    right->addLayout(swatches);
+    m_swatches = new SwatchGrid(this);
+    connect(m_swatches, &SwatchGrid::colorPicked, this,
+            [this](const QColor &c) { applyColor(c, m_swatches); });
+    right->addWidget(m_swatches, 0, Qt::AlignTop | Qt::AlignLeft);
     right->addStretch(1);
     top->addLayout(right);
-    buildSwatches(swatches);
 
     auto *fields = new QGridLayout;
     fields->addWidget(new QLabel(QStringLiteral("HTML"), this), 0, 0);
@@ -432,60 +643,6 @@ ColorPickerDialog::ColorPickerDialog(const QColor &initial, QWidget *parent)
     applyColor(m_color, nullptr);
 }
 
-void ColorPickerDialog::buildSwatches(QGridLayout *grid)
-{
-    // Eight columns of one hue each plus a greyscale column.  Pink and teal
-    // earn their place because neither is reachable by shading a neighbour:
-    // pink is a tint rather than a shade of red, and the gap between green and
-    // blue is wide enough that teal is a long way from either.
-    static const int kHues[] = {0, 28, 50, 120, 172, 212, 275, 322};
-    constexpr int kHueColumns = int(sizeof(kHues) / sizeof(kHues[0]));
-
-    // Every column runs light to dark.  The top two rows are tints -- the same
-    // hue washed out towards white, which is where the pinks and lavenders
-    // live -- then the pure colour, then shades down towards black.  Keeping
-    // one ramp per column means a row reads as a single weight the whole way
-    // across, which a hand-written list never quite manages.
-    struct Tone {
-        int sat;
-        int val;
-    };
-    static const Tone kTones[kSwatchRows] = {{55, 255},  {115, 255}, {255, 255},
-                                             {255, 217}, {255, 179}, {255, 143},
-                                             {255, 110}, {255, 79},  {255, 51}};
-
-    for (int row = 0; row < kSwatchRows; ++row) {
-        for (int col = 0; col < kSwatchColumns; ++col) {
-            QColor c;
-            if (col < kHueColumns) {
-                c = QColor::fromHsv(kHues[col], kTones[row].sat, kTones[row].val);
-            } else {
-                // The greys follow the same light-to-dark run, white at the top
-                // and black at the bottom, so the last column reads as part of
-                // the same ramp rather than against it.
-                const int level = int(255.0 * (kSwatchRows - 1 - row) / (kSwatchRows - 1) + 0.5);
-                c = QColor(level, level, level);
-            }
-            addSwatch(grid, c, row, col);
-        }
-    }
-}
-
-void ColorPickerDialog::addSwatch(QGridLayout *grid, const QColor &c, int row, int col)
-{
-    auto *button = new QPushButton(this);
-    button->setFixedSize(kSwatchSize, kSwatchSize);
-    button->setCursor(Qt::PointingHandCursor);
-    button->setToolTip(c.name(QColor::HexRgb));
-    button->setFlat(true);
-    button->setStyleSheet(
-        QStringLiteral("QPushButton { background:%1; border:1px solid rgba(0,0,0,70); "
-                       "border-radius:%2px; } QPushButton:hover { border:2px solid #4299e1; }")
-            .arg(c.name(QColor::HexRgb))
-            .arg(kSwatchSize / 2));
-    connect(button, &QPushButton::clicked, this, [this, c] { applyColor(c, nullptr); });
-    grid->addWidget(button, row, col);
-}
 
 void ColorPickerDialog::applyColor(const QColor &color, QWidget *source)
 {
@@ -529,6 +686,9 @@ void ColorPickerDialog::applyHsv(int h, int s, int v, QWidget *source)
         m_rgb[2]->setValue(m_color.blue());
     }
     m_preview->setColor(m_color);
+    // Not skipped for the grid itself: a click there marks the swatch, and
+    // arriving at the same colour any other way should mark it too.
+    m_swatches->setCurrentColor(m_color);
 
     m_updating = false;
     emit currentColorChanged(m_color);
