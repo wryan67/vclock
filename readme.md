@@ -103,7 +103,7 @@ where it started. The clock is kept fully on the screen the pointer is on.
 ### Clock face
 
 Any SVG can be used, in one of two colour modes, chosen with **Coloring** in
-Settings — it sits directly above the two swatches it governs.
+the Settings **Face** box, directly above the two swatches it governs.
 
 **Recolor** — the default. Within the artwork white is treated as the face
 colour and black as the wire colour, and both can be set from Settings;
@@ -124,7 +124,8 @@ the artwork to your own two colours and can look rather good.
 Three faces are built in and need no files: the plain default ring, the app
 icon's gradient dial (stored in the config as `builtin:icon`), and a silver dial
 under a dark rim (`builtin:silver`), which is the same gradient running the other
-way.
+way. Whichever is in use, the *Clock face svg* field names it when no file of
+your own is loaded; clicking a preset is how you return to a built-in face.
 
 ### Smooth sweep hands
 

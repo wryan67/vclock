@@ -62,7 +62,6 @@ private:
 
     QLineEdit *m_faceEdit = nullptr;
     class QPushButton *m_browse = nullptr;
-    QCheckBox *m_faceIsDefault = nullptr;
     QComboBox *m_colorMode = nullptr;
 
     QSlider *m_size = nullptr;

@@ -13,6 +13,7 @@
 #include <QFileInfo>
 #include <QFontMetrics>
 #include <QGridLayout>
+#include <QGroupBox>
 #include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -128,10 +129,7 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     connect(m_browse, &QPushButton::clicked, this, &SettingsDialog::onBrowse);
     faceRow->addWidget(m_faceEdit, 1);
     faceRow->addWidget(m_browse, 0);
-    grid->addLayout(faceRow, row, 1);
-    m_faceIsDefault = new QCheckBox(QStringLiteral("default"), this);
-    m_faceIsDefault->setChecked(cfg.faceDefault);
-    grid->addWidget(m_faceIsDefault, row, 2, 1, 2);
+    grid->addLayout(faceRow, row, 1, 1, 3);
     ++row;
 
     // -------------------------------------------------------------- sliders
@@ -181,39 +179,84 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     ++row;
 
     // --------------------------------------------------------------- colours
-    // The mark colours pair off with the hand colours in a second column: the
-    // right half of these rows was empty anyway, and folding them in saves two
-    // rows of a dialog that is already tall enough to scroll.
-    addLabel(grid, QStringLiteral("Second hand color"), row);
+    // Three groups, because these are three separate jobs: what the hands look
+    // like, what the dial's markings look like, and what the artwork behind
+    // them looks like.  Ungrouped it was one undifferentiated run of swatches.
+    auto *handsBox = new QGroupBox(QStringLiteral("Hands"), this);
+    auto *handsGrid = new QGridLayout(handsBox);
+    handsGrid->setHorizontalSpacing(10);
+    int hrow = 0;
+
+    addLabel(handsGrid, QStringLiteral("Second"), hrow);
     m_second = new ColorButton(QColor(cfg.secondColor), false,
                                QStringLiteral("Second hand color"), this);
-    grid->addWidget(m_second, row, 1, Qt::AlignLeft);
-    addLabel(grid, QStringLiteral("Hour mark color"), row, 2);
-    m_hourMark = new ColorButton(QColor(cfg.hourMarkColor), false,
-                                 QStringLiteral("Hour mark color"), this);
-    grid->addWidget(m_hourMark, row, 3, Qt::AlignLeft);
-    ++row;
+    handsGrid->addWidget(m_second, hrow, 1, Qt::AlignLeft);
+    ++hrow;
 
-    addLabel(grid, QStringLiteral("Hour hand color"), row);
+    addLabel(handsGrid, QStringLiteral("Hour"), hrow);
     m_hour = new ColorButton(QColor(cfg.hourColor), false, QStringLiteral("Hour hand color"),
                              this);
-    grid->addWidget(m_hour, row, 1, Qt::AlignLeft);
-    addLabel(grid, QStringLiteral("Minute mark color"), row, 2);
-    m_minuteMark = new ColorButton(QColor(cfg.minuteMarkColor), false,
-                                   QStringLiteral("Minute mark color"), this);
-    grid->addWidget(m_minuteMark, row, 3, Qt::AlignLeft);
-    ++row;
+    handsGrid->addWidget(m_hour, hrow, 1, Qt::AlignLeft);
+    ++hrow;
 
-    addLabel(grid, QStringLiteral("Minute hand color"), row);
+    addLabel(handsGrid, QStringLiteral("Minute"), hrow);
     m_minute = new ColorButton(QColor(cfg.minuteColor), false,
                                QStringLiteral("Minute hand color"), this);
     m_minuteSame = new QCheckBox(QStringLiteral("same as hour"), this);
     m_minuteSame->setChecked(cfg.minuteSameAsHour);
-    grid->addLayout(withOption(m_minute, m_minuteSame), row, 1);
-    ++row;
+    handsGrid->addLayout(withOption(m_minute, m_minuteSame), hrow, 1);
+    ++hrow;
+
+    // The pivot is a property of the hands, so it belongs with them.
+    addLabel(handsGrid, QStringLiteral("Center"), hrow);
+    m_pick = new QPushButton(QStringLiteral("Pick on clock\u2026"), this);
+    m_pick->setToolTip(QStringLiteral(
+        "Drag on the clock face, or use the arrow keys to move the pivot a pixel "
+        "at a time (hold Shift for 10). Enter accepts, Esc cancels."));
+    connect(m_pick, &QPushButton::clicked, this, [this] { m_clock->startPicking(); });
+    m_centerAuto = new QCheckBox(QStringLiteral("auto"), this);
+    m_centerAuto->setToolTip(QStringLiteral("Pivot on the centre of the canvas."));
+    m_centerAuto->setChecked(!m_clock->cfg().center.has_value());
+    connect(m_centerAuto, &QCheckBox::toggled, this, [this](bool on) {
+        if (on) {
+            m_clock->stopPicking();
+            m_clock->setCenter(std::nullopt, true);
+        }
+        refreshCenter();
+    });
+    handsGrid->addLayout(withOption(m_pick, m_centerAuto), hrow, 1);
+    ++hrow;
+
+    m_centerLabel = new QLabel(this);
+    m_centerLabel->setTextFormat(Qt::RichText);
+    handsGrid->addWidget(m_centerLabel, hrow, 0, 1, 2);
+    ++hrow;
+
+    auto *marksBox = new QGroupBox(QStringLiteral("Marks"), this);
+    auto *marksGrid = new QGridLayout(marksBox);
+    marksGrid->setHorizontalSpacing(10);
+    int mrow = 0;
+
+    addLabel(marksGrid, QStringLiteral("Hour"), mrow);
+    m_hourMark = new ColorButton(QColor(cfg.hourMarkColor), false,
+                                 QStringLiteral("Hour mark color"), this);
+    marksGrid->addWidget(m_hourMark, mrow, 1, Qt::AlignLeft);
+    ++mrow;
+
+    addLabel(marksGrid, QStringLiteral("Minute"), mrow);
+    m_minuteMark = new ColorButton(QColor(cfg.minuteMarkColor), false,
+                                   QStringLiteral("Minute mark color"), this);
+    marksGrid->addWidget(m_minuteMark, mrow, 1, Qt::AlignLeft);
+    ++mrow;
+    marksGrid->setRowStretch(mrow, 1);
+
+    auto *faceBox = new QGroupBox(QStringLiteral("Face"), this);
+    auto *faceGrid = new QGridLayout(faceBox);
+    faceGrid->setHorizontalSpacing(10);
+    int frow = 0;
 
     // The mode governs the two swatches under it, so it sits with them.
-    addLabel(grid, QStringLiteral("Coloring"), row);
+    addLabel(faceGrid, QStringLiteral("Coloring"), frow);
     m_colorMode = new QComboBox(this);
     m_colorMode->addItem(QStringLiteral("Recolor"), true);
     m_colorMode->addItem(QStringLiteral("Original"), false);
@@ -224,45 +267,34 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
         "Original draws the file exactly as it was authored, which suits a picture "
         "that already has colors of its own. The face and wire colors then do not "
         "apply; the hands and marks still do."));
-    grid->addWidget(m_colorMode, row, 1, Qt::AlignLeft);
-    ++row;
+    faceGrid->addWidget(m_colorMode, frow, 1, Qt::AlignLeft);
+    ++frow;
 
-    addLabel(grid, QStringLiteral("Face color"), row);
+    addLabel(faceGrid, QStringLiteral("Face color"), frow);
     // useAlpha lets the swatch show the checkerboard when transparent.
     m_face = new ColorButton(QColor(cfg.faceColor), true, QStringLiteral("Face color"), this);
     m_faceTransparent = new QCheckBox(QStringLiteral("transparent"), this);
     m_faceTransparent->setChecked(cfg.faceTransparent);
-    grid->addLayout(withOption(m_face, m_faceTransparent), row, 1);
-    ++row;
+    faceGrid->addLayout(withOption(m_face, m_faceTransparent), frow, 1);
+    ++frow;
 
-    addLabel(grid, QStringLiteral("Wire color"), row);
+    addLabel(faceGrid, QStringLiteral("Wire color"), frow);
     m_wire = new ColorButton(QColor(cfg.wireColor), false, QStringLiteral("Wire color"), this);
-    grid->addWidget(m_wire, row, 1, Qt::AlignLeft);
-    ++row;
+    faceGrid->addWidget(m_wire, frow, 1, Qt::AlignLeft);
+    ++frow;
+    faceGrid->setRowStretch(frow, 1);
 
-    // ---------------------------------------------------------- hand centre
-    addLabel(grid, QStringLiteral("Hand center"), row);
-    m_pick = new QPushButton(QStringLiteral("Pick on clock\u2026"), this);
-    m_pick->setToolTip(QStringLiteral(
-        "Drag on the clock face, or use the arrow keys to move the pivot a pixel "
-        "at a time (hold Shift for 10). Enter accepts, Esc cancels."));
-    connect(m_pick, &QPushButton::clicked, this, [this] { m_clock->startPicking(); });
-    m_centerAuto = new QCheckBox(QStringLiteral("auto (canvas center)"), this);
-    m_centerAuto->setChecked(!m_clock->cfg().center.has_value());
-    connect(m_centerAuto, &QCheckBox::toggled, this, [this](bool on) {
-        if (on) {
-            m_clock->stopPicking();
-            m_clock->setCenter(std::nullopt, true);
-        }
-        refreshCenter();
-    });
-    grid->addLayout(withOption(m_pick, m_centerAuto), row, 1, 1, 3);
-    ++row;
-
-    m_centerLabel = new QLabel(this);
-    m_centerLabel->setTextFormat(Qt::RichText);
-    m_centerLabel->setContentsMargins(4, 0, 0, 0);
-    grid->addWidget(m_centerLabel, row, 1, 1, 3);
+    // Hands on the left, and the two shorter groups stacked beside it, so
+    // neither column ends in a long stretch of nothing.
+    auto *groupRow = new QHBoxLayout;
+    groupRow->setSpacing(10);
+    auto *rightColumn = new QVBoxLayout;
+    rightColumn->setSpacing(10);
+    rightColumn->addWidget(marksBox);
+    rightColumn->addWidget(faceBox);
+    groupRow->addWidget(handsBox, 1);
+    groupRow->addLayout(rightColumn, 1);
+    grid->addLayout(groupRow, row, 0, 1, 4);
     ++row;
 
     // --------------------------------------------------------------- buttons
@@ -284,7 +316,7 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
                                 m_minuteMark}) {
         connect(button, &ColorButton::colorSet, this, [this, button] { onChanged(button); });
     }
-    for (QCheckBox *box : {m_minuteSame, m_faceTransparent, m_faceIsDefault, m_quarterMarks,
+    for (QCheckBox *box : {m_minuteSame, m_faceTransparent, m_quarterMarks,
                            m_smoothSweep, m_reverseTime}) {
         connect(box, &QCheckBox::toggled, this, [this] { onChanged(); });
     }
@@ -442,7 +474,6 @@ void SettingsDialog::applyPreset(const Config &values)
     m_chosenFile.clear();
     m_faceEdit->clear();
     m_faceEdit->setToolTip(QString());
-    m_faceIsDefault->setChecked(values.faceDefault);
 
     // A preset is a whole default clock, so it restores the size and the hand
     // pivot too.  The centre lives on the clock rather than in a widget, so it
@@ -506,12 +537,6 @@ void SettingsDialog::syncSwatches()
         faceColor = QColor(Qt::white);
     faceColor.setAlpha(clear ? 0 : 255);
     m_face->setColor(faceColor);
-
-    const bool useDefault = m_faceIsDefault->isChecked();
-    m_faceEdit->setEnabled(!useDefault);
-    m_browse->setEnabled(!useDefault);
-    m_faceIsDefault->setToolTip(
-        QStringLiteral("Use the %1 clock face").arg(kDefaultFaceLabel));
 }
 
 void SettingsDialog::refreshCenter()
@@ -524,13 +549,15 @@ void SettingsDialog::refreshCenter()
     m_pick->setEnabled(true);
     const QPointF center = m_clock->centerPixels();
     m_centerLabel->setText(
-        QStringLiteral("<small>face: %1&nbsp;&nbsp;|&nbsp;&nbsp;center %2: %3, %4 px "
-                       "(radius %5)</small>")
-            .arg(m_clock->faceLabel().toHtmlEscaped(),
-                 autoCenter ? QStringLiteral("auto") : QStringLiteral("manual"),
+        QStringLiteral("<small>%1: %2, %3 px&nbsp;&nbsp;(radius %4)</small>")
+            .arg(autoCenter ? QStringLiteral("auto") : QStringLiteral("manual"),
                  QString::number(std::lround(center.x())),
                  QString::number(std::lround(center.y())),
                  QString::number(std::lround(m_clock->handRadius()))));
+
+    // With no file chosen the field would otherwise read "(none)", which says
+    // nothing about which built-in face a preset just loaded.
+    m_faceEdit->setPlaceholderText(m_clock->faceLabel());
 }
 
 bool SettingsDialog::recolorMode() const
@@ -547,10 +574,11 @@ QString SettingsDialog::faceSvg() const
     return m_clock->cfg().faceSvg;
 }
 
-// Fall back to the built-in face when no file has been chosen.
+// Fall back to the built-in face when no file has been chosen.  Getting back
+// here is a matter of clicking a preset, which is what the presets are for.
 bool SettingsDialog::faceDefault() const
 {
-    return m_faceIsDefault->isChecked() || faceSvg().isEmpty();
+    return faceSvg().isEmpty();
 }
 
 Config SettingsDialog::values() const
