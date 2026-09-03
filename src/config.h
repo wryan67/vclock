@@ -91,10 +91,20 @@ struct Config
 };
 
 QString configDir();
+
+// The file used when none is named on the command line.
 QString configPath();
 
-Config loadConfig();
-void saveConfig(const Config &cfg);
+// Turn a --config argument into a file path. A bare name is a file in the
+// config directory, so "world" means world.cfg alongside the default; anything
+// with a separator in it is a path of the user's own choosing.
+QString resolveConfigPath(const QString &nameOrPath);
+
+// The name to show for a config file: its base name, or empty for the default.
+QString configLabel(const QString &path);
+
+Config loadConfig(const QString &path = QString());
+void saveConfig(const Config &cfg, const QString &path = QString());
 
 // Copy everything a preset may change: its appearance, plus the clock's size
 // and hand centre, which a preset restores to their defaults.  The window's

@@ -121,12 +121,19 @@ QString displayKey(const QScreen *screen)
 
 }  // namespace
 
-ClockWindow::ClockWindow()
-    : QWidget(nullptr)
-{
-    m_cfg = loadConfig();
+int ClockWindow::s_openClocks = 0;
 
-    setWindowTitle(QStringLiteral("vclock"));
+ClockWindow::ClockWindow(const QString &configPath)
+    : QWidget(nullptr), m_configPath(configPath.isEmpty() ? ::configPath() : configPath)
+{
+    ++s_openClocks;
+    m_cfg = loadConfig(m_configPath);
+
+    // Several clocks can be running at once, so the title says which config
+    // this one belongs to.
+    setWindowTitle(m_configPath == ::configPath()
+                       ? QStringLiteral("vclock")
+                       : QStringLiteral("vclock \u2014 ") + configName());
     setWindowIcon(QIcon(QPixmap::fromImage(appIconImage(64))));
 
     // Undecorated, kept out of the taskbar and the window switcher, and painted
@@ -158,7 +165,7 @@ ClockWindow::ClockWindow()
     m_saveTimer = new QTimer(this);
     m_saveTimer->setSingleShot(true);
     m_saveTimer->setInterval(500);
-    connect(m_saveTimer, &QTimer::timeout, this, [this] { saveConfig(m_cfg); });
+    connect(m_saveTimer, &QTimer::timeout, this, [this] { saveConfig(m_cfg, m_configPath); });
 
     m_rebuildTimer = new QTimer(this);
     m_rebuildTimer->setSingleShot(true);
@@ -250,7 +257,7 @@ void ClockWindow::flushSave()
 {
     m_saveTimer->stop();
     m_rebuildTimer->stop();
-    saveConfig(m_cfg);
+    saveConfig(m_cfg, m_configPath);
 }
 
 int ClockWindow::maxSize() const
@@ -525,7 +532,13 @@ void ClockWindow::closeEvent(QCloseEvent *event)
     closeSettings();
     flushSave();
     event->accept();
-    qApp->quit();
+    if (--s_openClocks <= 0)
+        qApp->quit();
+}
+
+QString ClockWindow::configName() const
+{
+    return configLabel(m_configPath);
 }
 
 void ClockWindow::mousePressEvent(QMouseEvent *event)

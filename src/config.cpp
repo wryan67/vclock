@@ -2,6 +2,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -102,7 +103,35 @@ QString configDir()
 
 QString configPath()
 {
-    return QDir(configDir()).filePath(QStringLiteral("vclock.cfg"));
+    return QDir(configDir()).filePath(QStringLiteral("default.cfg"));
+}
+
+QString resolveConfigPath(const QString &nameOrPath)
+{
+    QString name = nameOrPath.trimmed();
+    if (name.isEmpty())
+        return configPath();
+
+    if (name.startsWith(QLatin1Char('~')))
+        name = QDir::homePath() + name.mid(1);
+
+    // A separator means the user is naming a file wherever they like; a bare
+    // name is one of the configs kept alongside the default.
+    if (name.contains(QLatin1Char('/')) || name.contains(QDir::separator())
+        || QDir::isAbsolutePath(name)) {
+        return QFileInfo(name).absoluteFilePath();
+    }
+
+    if (!name.contains(QLatin1Char('.')))
+        name += QStringLiteral(".cfg");
+    return QDir(configDir()).filePath(name);
+}
+
+QString configLabel(const QString &path)
+{
+    if (path.isEmpty() || QFileInfo(path) == QFileInfo(configPath()))
+        return QString();
+    return QFileInfo(path).completeBaseName();
 }
 
 namespace {
@@ -112,20 +141,22 @@ namespace {
 QStringList legacyConfigPaths()
 {
     const QString home = QDir::homePath();
-    return {home + QStringLiteral("/.config/vclock/vclock.cfg"),
+    return {QDir(configDir()).filePath(QStringLiteral("vclock.cfg")),
+            home + QStringLiteral("/.config/vclock/vclock.cfg"),
             home + QStringLiteral("/.config/fclock/fclock.cfg")};
 }
 
 }  // namespace
 
-Config loadConfig()
+Config loadConfig(const QString &requested)
 {
     Config cfg;
 
+    QString path = requested.isEmpty() ? configPath() : requested;
     // Settings written under an older name or path are still honoured; the next
-    // save writes them to the current location.
-    QString path = configPath();
-    if (!QFile::exists(path)) {
+    // save writes them to the current location. A config named on the command
+    // line is taken at its word: it either exists or it starts out empty.
+    if (path == configPath() && !QFile::exists(path)) {
         for (const QString &legacy : legacyConfigPaths()) {
             if (QFile::exists(legacy)) {
                 path = legacy;
@@ -242,8 +273,9 @@ Config loadConfig()
     return cfg;
 }
 
-void saveConfig(const Config &cfg)
+void saveConfig(const Config &cfg, const QString &requested)
 {
+    const QString path = requested.isEmpty() ? configPath() : requested;
     QJsonObject o;
     o.insert(QStringLiteral("size"), cfg.size);
     o.insert(QStringLiteral("hand_scale"), cfg.handScale);
@@ -290,18 +322,18 @@ void saveConfig(const Config &cfg)
     o.insert(QStringLiteral("displays"), displays);
     o.insert(QStringLiteral("last_display"), cfg.lastDisplay);
 
-    const QString dir = configDir();
+    const QString dir = QFileInfo(path).absolutePath();
     if (!QDir().mkpath(dir)) {
         qWarning("WARNING: could not create %s", qPrintable(dir));
         return;
     }
     // QSaveFile writes to a temporary and renames it into place, which is the
     // same atomic swap the Python version did by hand.
-    QSaveFile out(configPath());
+    QSaveFile out(path);
     if (!out.open(QIODevice::WriteOnly)
         || out.write(QJsonDocument(o).toJson(QJsonDocument::Indented)) < 0
         || !out.commit()) {
-        qWarning("WARNING: could not save %s", qPrintable(configPath()));
+        qWarning("WARNING: could not save %s", qPrintable(path));
     }
 }
 

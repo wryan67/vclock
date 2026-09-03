@@ -236,11 +236,33 @@ always reachable. Scrollbars appear only when they are actually needed.
 
 ## Configuration
 
-Settings are JSON in `vclock.cfg` inside the platform config directory above.
+Settings are JSON in `default.cfg` inside the platform config directory above.
 The file format is unchanged from the earlier Python implementation, and configs
-written under the older `~/.config/vclock` or `~/.config/fclock` paths (and the
-older `ship_color` / `ship_transparent` key names) are still read once and
-migrated on the next save.
+written under the older `vclock.cfg` name, the older `~/.config/vclock` or
+`~/.config/fclock` paths, or the older `ship_color` / `ship_transparent` key
+names, are still read once and migrated on the next save.
+
+### Command line
+
+    vclock [-c NAME]... [-h]
+
+`-c`, `--config NAME` reads and writes `NAME` instead of `default.cfg`. A bare
+name means a file in the config directory, so `-c world` is `world.cfg`;
+anything with a `/` in it is a path of your own. A config that does not exist
+yet starts from the defaults and is written on the first change.
+
+Repeat the option to run several clocks at once, each with its own config, its
+own size, face and position:
+
+    vclock -c desk -c world
+
+They share one process and one tray of settings dialogs; the title bar of each
+Settings window names the config it belongs to. Quitting one clock leaves the
+others running, and the program ends with the last of them. Naming the same
+config twice opens it once, since two clocks writing one file would each save
+over the other.
+
+`-h`, `--help` prints the options and exits.
 
 ### Monitors
 

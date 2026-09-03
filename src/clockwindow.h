@@ -25,10 +25,16 @@ class ClockWindow : public QWidget
     Q_OBJECT
 
 public:
-    ClockWindow();
+    // configPath names the file this clock reads and writes; empty means the
+    // default one. Each clock owns its own, so several can run side by side
+    // without writing over each other.
+    explicit ClockWindow(const QString &configPath = QString());
     ~ClockWindow() override;
 
     const Config &cfg() const { return m_cfg; }
+
+    // Base name of this clock's config, or empty when it is the default one.
+    QString configName() const;
 
     // Apply a settings record to the live widget (used for preview too).
     void applySettings(const Config &values);
@@ -75,6 +81,11 @@ protected:
     void closeEvent(QCloseEvent *event) override;
 
 private:
+    QString m_configPath;
+    // Clocks still open. The program ends when the last one is closed, not
+    // when any one of them is.
+    static int s_openClocks;
+
     QSize pixelSize() const;
     void applySize();
 

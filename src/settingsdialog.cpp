@@ -59,7 +59,9 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
 {
     // Not modal, so the clock stays interactive and the dialog can be moved
     // around freely while previewing changes.
-    setWindowTitle(QStringLiteral("Clock Settings"));
+    const QString which = m_clock->configName();
+    setWindowTitle(which.isEmpty() ? QStringLiteral("Clock Settings")
+                                   : QStringLiteral("Clock Settings \u2014 ") + which);
     setModal(false);
     setWindowFlag(Qt::WindowStaysOnTopHint, false);
 
