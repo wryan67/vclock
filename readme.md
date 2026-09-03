@@ -25,10 +25,16 @@ official installer's `~/Qt/<version>/gcc_64` layout), configures, and builds:
 
 ```sh
 ./build.sh                  # release build into ./build
-./build.sh --install-deps   # install the required packages first
+./build.sh --check-deps     # report what is missing, and stop
+./build.sh --install-deps   # install what is missing, then build
 ./build.sh --type Debug     # debug build into ./build-debug
 ./build.sh --help           # all options
 ```
+
+If anything is missing the script names it and, where it recognises the
+distribution, prints the exact install command for it — Debian, Ubuntu, RHEL,
+Fedora, Arch, openSUSE and Alpine, plus their derivatives via `ID_LIKE`. Only
+the packages actually missing are listed.
 
 If Qt is somewhere unusual, point the script at it with `--qt-dir` (or the
 `QT_PREFIX` environment variable):
@@ -53,10 +59,12 @@ cmake -S . -B build -DCMAKE_PREFIX_PATH=/path/to/Qt/6.5.3/gcc_64
 
 ### Dependencies by platform
 
-* **Linux** — `qt6-base-dev qt6-svg-dev` (Debian/Ubuntu) or `qt6-qtbase-devel
-  qt6-qtsvg-devel` (Fedora). A compositing window manager is needed for the
-  transparent background; without one the window falls back to an opaque
-  rectangle.
+* **Linux** — `qt6-base-dev qt6-svg-dev` (Debian/Ubuntu), `qt6-qtbase-devel
+  qt6-qtsvg-devel` (Fedora, RHEL via EPEL), `qt6-base qt6-svg` (Arch),
+  `qt6-base-devel qt6-svg-devel` (openSUSE) or `qt6-qtbase-dev qt6-qtsvg-dev`
+  (Alpine); `./build.sh --check-deps` works this out for you. A compositing
+  window manager is needed for the transparent background; without one the
+  window falls back to an opaque rectangle.
 * **macOS** — Qt from Homebrew (`brew install qt`) or the Qt installer. The
   build produces a `vclock.app` bundle.
 * **Windows** — Qt from the Qt installer with MSVC or MinGW. The executable is
