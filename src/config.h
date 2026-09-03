@@ -92,8 +92,9 @@ QString configPath();
 Config loadConfig();
 void saveConfig(const Config &cfg);
 
-// Copy everything a preset may change (appearance only: not the window's
-// physical size, stacking or placement, which stay the user's).
+// Copy everything a preset may change: its appearance, plus the clock's size
+// and hand centre, which a preset restores to their defaults.  The window's
+// stacking and on-screen placement stay the user's.
 void copyPresetKeys(const Config &from, Config &to);
 
 // Copy everything "Reset defaults" restores (all but the on-screen position).

@@ -131,6 +131,16 @@ ten, `Enter` accepts, and `Esc` cancels and restores the previous centre.
 Nothing is written to the config until the pick is accepted. Focus returns to
 the Settings window either way.
 
+### Presets
+
+The four thumbnails at the top of Settings are whole default clocks, not just
+colour schemes. Clicking one restores every appearance setting, and also puts
+the clock size and the hand centre back to their defaults — so a preset always
+gives you exactly the clock in the thumbnail. Where the window sits on screen is
+left alone, since that is a placement choice rather than a look. As with any
+other change, the preset is only a preview until Save; Cancel puts the previous
+size and centre back.
+
 ### The Settings window
 
 If the screen is not tall or wide enough for the whole dialog, the controls

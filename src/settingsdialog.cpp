@@ -402,6 +402,13 @@ void SettingsDialog::applyPreset(const Config &values)
     m_faceEdit->setToolTip(QString());
     m_faceIsDefault->setChecked(values.faceDefault);
 
+    // A preset is a whole default clock, so it restores the size and the hand
+    // pivot too.  The centre lives on the clock rather than in a widget, so it
+    // has to be set there; refreshCenter() then re-syncs the "auto" checkbox.
+    m_clock->stopPicking();
+    m_clock->setCenter(values.center, false);
+
+    m_size->setValue(values.size);
     m_handScale->setValue(values.handScale);
     m_markScale->setValue(values.markScale);
     m_markPosition->setValue(values.markPosition);

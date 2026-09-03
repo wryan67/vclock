@@ -303,6 +303,8 @@ void saveConfig(const Config &cfg)
 
 void copyPresetKeys(const Config &from, Config &to)
 {
+    to.size = from.size;
+    to.center = from.center;
     to.handScale = from.handScale;
     to.markScale = from.markScale;
     to.markPosition = from.markPosition;
@@ -323,9 +325,7 @@ void copyPresetKeys(const Config &from, Config &to)
 
 void copyResetKeys(const Config &from, Config &to)
 {
-    copyPresetKeys(from, to);
-    to.size = from.size;
+    copyPresetKeys(from, to);  // brings the size and hand centre with it
     to.alwaysOnTop = from.alwaysOnTop;
     to.smoothSweep = from.smoothSweep;
-    to.center = from.center;
 }
