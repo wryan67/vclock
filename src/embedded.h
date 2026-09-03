@@ -19,17 +19,22 @@ inline QByteArray defaultFaceSvg()
 // and pin removed, so vclock draws those itself from the settings.  It is
 // greyscale because recolor() maps brightness onto the wire/face colours;
 // a wide brightness range is what makes the gradient survive recolouring.
+//
+// Note this is the tonal inverse of the app icon: recolor() reads dark pixels
+// as the wire colour and light ones as the face colour, so the rim is dark and
+// the body light here even though the icon paints them the other way round.
+// The dial presets pass their colours accordingly.
 inline QByteArray iconFaceSvg()
 {
     return QByteArrayLiteral(
         R"SVG(<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
   <defs>
     <linearGradient id="clockGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#a8a8a8" />
-      <stop offset="100%" stop-color="#101010" />
+      <stop offset="0%" stop-color="#575757" />
+      <stop offset="100%" stop-color="#efefef" />
     </linearGradient>
   </defs>
-  <circle cx="50" cy="50" r="40" stroke="#e8e8e8" stroke-width="3" fill="url(#clockGradient)" />
+  <circle cx="50" cy="50" r="40" stroke="#171717" stroke-width="3" fill="url(#clockGradient)" />
 </svg>
 )SVG");
 }

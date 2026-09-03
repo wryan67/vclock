@@ -47,16 +47,18 @@ const QVector<Preset> &presets()
         out.append(classic);
 
         // The three dial presets share everything but their two accent colours.
-        const auto dial = [](const QString &name, const QString &tip, const QString &faceColor,
-                             const QString &wireColor, const QString &secondColor) {
+        // rimColor is the dial's outline (the dark tones in the artwork, hence
+        // the wire colour) and bodyColor its filled centre (the light tones).
+        const auto dial = [](const QString &name, const QString &tip, const QString &rimColor,
+                             const QString &bodyColor, const QString &secondColor) {
             Preset p;
             p.name = name;
             p.tip = tip;
             p.values.faceSvg = kBuiltinFacePrefix + QStringLiteral("icon");
             p.values.faceDefault = false;
             p.values.faceTransparent = false;
-            p.values.faceColor = faceColor;
-            p.values.wireColor = wireColor;
+            p.values.faceColor = bodyColor;
+            p.values.wireColor = rimColor;
             p.values.hourColor = QStringLiteral("#f0f0f0");  // the icon's hands and ticks
             p.values.minuteColor = QStringLiteral("#f0f0f0");
             p.values.minuteSameAsHour = true;
