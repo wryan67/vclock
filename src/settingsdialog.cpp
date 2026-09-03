@@ -227,7 +227,6 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
         "at a time (hold Shift for 10). Enter accepts, Esc cancels."));
     connect(m_pick, &QPushButton::clicked, this, [this] { m_clock->startPicking(); });
     m_centerAuto = new QCheckBox(QStringLiteral("auto location"), this);
-    m_centerAuto->setToolTip(QStringLiteral("Pivot on the centre of the canvas."));
     m_centerAuto->setChecked(!m_clock->cfg().center.has_value());
     connect(m_centerAuto, &QCheckBox::toggled, this, [this](bool on) {
         if (on) {
@@ -566,6 +565,17 @@ void SettingsDialog::refreshCenter()
         m_centerAuto->setChecked(autoCenter);
     }
     m_pick->setEnabled(true);
+    // Only one direction of this box does anything. Ticked, it is already the
+    // state we are in; unticking it asks for a manual pivot without saying
+    // where, so it used to snap straight back. Disabled while it is on, it
+    // stops offering a move it cannot make, and stays live while a manual
+    // pivot is set, which is the way back.
+    m_centerAuto->setEnabled(!autoCenter);
+    m_centerAuto->setToolTip(autoCenter
+                                 ? QStringLiteral("The pivot is the centre of the canvas. "
+                                                  "Use Pick on clock to put it elsewhere.")
+                                 : QStringLiteral("Return the pivot to the centre of the "
+                                                  "canvas."));
     const QPointF center = m_clock->centerPixels();
     m_centerLabel->setText(
         QStringLiteral("<small>%1: %2, %3 px&nbsp;&nbsp;(radius %4)</small>")
