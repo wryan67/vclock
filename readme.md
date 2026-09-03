@@ -133,7 +133,7 @@ the Settings window either way.
 
 ### Presets
 
-The four thumbnails at the top of Settings are whole default clocks, not just
+The five thumbnails at the top of Settings are whole default clocks, not just
 colour schemes. Clicking one restores every appearance setting, and also puts
 the clock size and the hand centre back to their defaults — so a preset always
 gives you exactly the clock in the thumbnail. Where the window sits on screen is

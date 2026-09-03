@@ -46,7 +46,7 @@ const QVector<Preset> &presets()
         classic.tip = QStringLiteral("The built-in face with the default hands and colours");
         out.append(classic);
 
-        // The three dial presets share everything but their two accent colours.
+        // The four dial presets share everything but their two accent colours.
         // rimColor is the dial's outline (the dark tones in the artwork, hence
         // the wire colour) and bodyColor its filled centre (the light tones).
         const auto dial = [](const QString &name, const QString &tip, const QString &rimColor,
@@ -84,6 +84,16 @@ const QVector<Preset> &presets()
                         QStringLiteral("#006400"),   // darkgreen reads brighter than navy, so
                                                      // it goes darker to match the other dials
                         QStringLiteral("#d166ff")));
+        out.append(dial(QStringLiteral("Onyx"),
+                        QStringLiteral("The gradient dial in black and silver"),
+                        QStringLiteral("#c4c4c4"),   // #b0c4de with its hue taken out
+                        QStringLiteral("#000000"),   // black; the artwork's own ramp still
+                                                     // carries the gradient, up to the rim
+                                                     // colour at its lightest
+                        QStringLiteral("#ff6666")));  // the other dials answer their body
+                                                      // colour with its opposite hue, which a
+                                                      // neutral dial has none of; red is the
+                                                      // usual second hand on a black face
         return out;
     }();
     return list;
