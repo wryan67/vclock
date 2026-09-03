@@ -102,13 +102,20 @@ ManageClocksDialog::ManageClocksDialog(QWidget *parent) : QDialog(nullptr)
     m_table->verticalHeader()->setVisible(false);
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_table->setSelectionMode(QAbstractItemView::SingleSelection);
-    // Editing is started by the pencil, never by clicking or typing at a row,
-    // so that a stray double click cannot quietly rename a clock.
+    // Editing goes through beginEdit() -- the pencil, or a double click on the
+    // name -- rather than the view's own triggers, so that the row's buttons
+    // always change over with it and a single click or a keystroke can never
+    // start a rename by accident.
     m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_table->horizontalHeader()->setSectionResizeMode(ColShow, QHeaderView::ResizeToContents);
     m_table->horizontalHeader()->setSectionResizeMode(ColName, QHeaderView::Stretch);
     m_table->horizontalHeader()->setSectionResizeMode(ColActions, QHeaderView::ResizeToContents);
     layout->addWidget(m_table, 1);
+
+    connect(m_table, &QTableWidget::itemDoubleClicked, this, [this](QTableWidgetItem *item) {
+        if (item && item->column() == ColName && !editing())
+            beginEdit(item->row());
+    });
 
     // The delegate tells commit from cancel: Enter reaches commitData first,
     // Escape closes the editor without it.

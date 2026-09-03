@@ -294,7 +294,8 @@ clocks come back the next time vclock is started on its own.
 
 Right click &#9656; Manage clocks, or `Ctrl`+K, lists every clock you have. Each
 row has a Show box, the clock's name, and buttons to open its settings, rename
-it, or delete it and the config it keeps its settings in.
+it, or delete it and the config it keeps its settings in. Double clicking a
+name renames it too. `Enter` saves the new name and `Escape` abandons it.
 
 Show puts a clock on screen and takes it off again. Whatever is showing when
 vclock stops is what comes back when it starts again, so there is nothing
