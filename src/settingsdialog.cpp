@@ -94,8 +94,15 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
 
     int row = 0;
 
-    // ------------------------------------------------------------- presets
-    addLabel(grid, QStringLiteral("Presets"), row);
+    // --------------------------------------------------- face chooser section
+    // Both ways of picking a face -- a ready-made look or a file of your own --
+    // belong together, since either one replaces the other.
+    auto *chooserBox = new QGroupBox(QStringLiteral("Clock face"), this);
+    auto *chooserGrid = new QGridLayout(chooserBox);
+    chooserGrid->setHorizontalSpacing(10);
+    int crow = 0;
+
+    addLabel(chooserGrid, QStringLiteral("Presets"), crow);
     auto *presetBox = new QHBoxLayout;
     presetBox->setSpacing(6);
     const qreal dpr = devicePixelRatioF();
@@ -110,11 +117,10 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
         presetBox->addWidget(button);
     }
     presetBox->addStretch(1);
-    grid->addLayout(presetBox, row, 1, 1, 3);
-    ++row;
+    chooserGrid->addLayout(presetBox, crow, 1);
+    ++crow;
 
-    // --------------------------------------------------------- face chooser
-    addLabel(grid, QStringLiteral("Clock face svg"), row);
+    addLabel(chooserGrid, QStringLiteral("Image"), crow);
     auto *faceRow = new QHBoxLayout;
     faceRow->setSpacing(6);
     m_faceEdit = new QLineEdit(this);
@@ -129,28 +135,39 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     connect(m_browse, &QPushButton::clicked, this, &SettingsDialog::onBrowse);
     faceRow->addWidget(m_faceEdit, 1);
     faceRow->addWidget(m_browse, 0);
-    grid->addLayout(faceRow, row, 1, 1, 3);
+    chooserGrid->addLayout(faceRow, crow, 1);
+    ++crow;
+    chooserGrid->setColumnStretch(1, 1);
+
+    grid->addWidget(chooserBox, row, 0, 1, 4);
     ++row;
 
-    // -------------------------------------------------------------- sliders
+    // -------------------------------------------------------- sizes section
+    auto *sizesBox = new QGroupBox(QStringLiteral("Sizes"), this);
+    auto *sizesGrid = new QGridLayout(sizesBox);
+    sizesGrid->setHorizontalSpacing(10);
+    sizesGrid->setVerticalSpacing(8);
+    int srow = 0;
 
     const int maxSize = m_clock->maxSize();
-    m_size = addSlider(grid, row++, QStringLiteral("Clock size (px)"), cfg.size, kSizeMin,
+    m_size = addSlider(sizesGrid, srow++, QStringLiteral("Clock size (px)"), cfg.size, kSizeMin,
                        maxSize, false);
-    m_handScale = addSlider(grid, row++, QStringLiteral("Hand size (%)"), cfg.handScale,
+    m_handScale = addSlider(sizesGrid, srow++, QStringLiteral("Hand size (%)"), cfg.handScale,
                             kHandScaleMin, kHandScaleMax, true);
-    m_markScale = addSlider(grid, row++, QStringLiteral("Hour mark size (%)"), cfg.markScale,
-                            kMarkScaleMin, kMarkScaleMax, true);
-    m_markPosition = addSlider(grid, row++, QStringLiteral("Hour mark position (%)"),
+    m_markScale = addSlider(sizesGrid, srow++, QStringLiteral("Hour mark size (%)"),
+                            cfg.markScale, kMarkScaleMin, kMarkScaleMax, true);
+    m_markPosition = addSlider(sizesGrid, srow++, QStringLiteral("Hour mark position (%)"),
                                cfg.markPosition, kMarkScaleMin, kMarkScaleMax, true);
-    m_minuteMarkScale = addSlider(grid, row++, QStringLiteral("Minute mark size (%)"),
+    m_minuteMarkScale = addSlider(sizesGrid, srow++, QStringLiteral("Minute mark size (%)"),
                                   cfg.minuteMarkScale, kMarkScaleMin, kMarkScaleMax, true);
     m_minuteMarkScale->setToolTip(
         QStringLiteral("Percentage of the hour mark size. 0 hides the minute marks."));
 
-    // The three independent options share one row, spread across the dialog:
-    // stacked they read as a list of three unrelated things taking three rows
-    // to say it.
+    grid->addWidget(sizesBox, row, 0, 1, 4);
+    ++row;
+
+    // The three options are each about one of the sections below, so each one
+    // now heads the section it governs rather than sitting in a row of its own.
     m_quarterMarks = new QCheckBox(QStringLiteral("quarter marks only"), this);
     m_quarterMarks->setChecked(cfg.quarterMarksOnly);
     m_quarterMarks->setToolTip(QStringLiteral(
@@ -168,16 +185,6 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
         "Run the hands anticlockwise. The clock still keeps the correct time, but each "
         "hand is mirrored about the 12, so you read it in a mirror."));
 
-    auto *optionRow = new QHBoxLayout;
-    optionRow->setContentsMargins(0, 0, 0, 0);
-    optionRow->addWidget(m_quarterMarks);
-    optionRow->addStretch(1);
-    optionRow->addWidget(m_smoothSweep);
-    optionRow->addStretch(1);
-    optionRow->addWidget(m_reverseTime);
-    grid->addLayout(optionRow, row, 1, 1, 3);
-    ++row;
-
     // --------------------------------------------------------------- colours
     // Three groups, because these are three separate jobs: what the hands look
     // like, what the dial's markings look like, and what the artwork behind
@@ -186,6 +193,11 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     auto *handsGrid = new QGridLayout(handsBox);
     handsGrid->setHorizontalSpacing(10);
     int hrow = 0;
+
+    handsGrid->addWidget(m_smoothSweep, hrow, 0, 1, 2);
+    ++hrow;
+    handsGrid->addWidget(m_reverseTime, hrow, 0, 1, 2);
+    ++hrow;
 
     addLabel(handsGrid, QStringLiteral("Second"), hrow);
     m_second = new ColorButton(QColor(cfg.secondColor), false,
@@ -208,13 +220,13 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     ++hrow;
 
     // The pivot is a property of the hands, so it belongs with them.
-    addLabel(handsGrid, QStringLiteral("Center"), hrow);
+    addLabel(handsGrid, QStringLiteral("Location"), hrow);
     m_pick = new QPushButton(QStringLiteral("Pick on clock\u2026"), this);
     m_pick->setToolTip(QStringLiteral(
         "Drag on the clock face, or use the arrow keys to move the pivot a pixel "
         "at a time (hold Shift for 10). Enter accepts, Esc cancels."));
     connect(m_pick, &QPushButton::clicked, this, [this] { m_clock->startPicking(); });
-    m_centerAuto = new QCheckBox(QStringLiteral("auto"), this);
+    m_centerAuto = new QCheckBox(QStringLiteral("auto location"), this);
     m_centerAuto->setToolTip(QStringLiteral("Pivot on the centre of the canvas."));
     m_centerAuto->setChecked(!m_clock->cfg().center.has_value());
     connect(m_centerAuto, &QCheckBox::toggled, this, [this](bool on) {
@@ -224,18 +236,25 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
         }
         refreshCenter();
     });
-    handsGrid->addLayout(withOption(m_pick, m_centerAuto), hrow, 1);
+    handsGrid->addWidget(m_pick, hrow, 1, Qt::AlignLeft);
+    ++hrow;
+    handsGrid->addWidget(m_centerAuto, hrow, 1);
     ++hrow;
 
+    addLabel(handsGrid, QStringLiteral("Current location:"), hrow);
     m_centerLabel = new QLabel(this);
     m_centerLabel->setTextFormat(Qt::RichText);
-    handsGrid->addWidget(m_centerLabel, hrow, 0, 1, 2);
+    handsGrid->addWidget(m_centerLabel, hrow, 1);
     ++hrow;
+    handsGrid->setRowStretch(hrow, 1);
 
     auto *marksBox = new QGroupBox(QStringLiteral("Marks"), this);
     auto *marksGrid = new QGridLayout(marksBox);
     marksGrid->setHorizontalSpacing(10);
     int mrow = 0;
+
+    marksGrid->addWidget(m_quarterMarks, mrow, 0, 1, 2);
+    ++mrow;
 
     addLabel(marksGrid, QStringLiteral("Hour"), mrow);
     m_hourMark = new ColorButton(QColor(cfg.hourMarkColor), false,
