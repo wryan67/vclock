@@ -32,10 +32,10 @@ public:
     explicit ColorWheel(QWidget *parent = nullptr);
 
     QSize sizeHint() const override;
-    void setColor(const QColor &color);
+    void setHsv(int h, int s, int v);
 
 signals:
-    void colorChanged(const QColor &color);
+    void hsvChanged(int h, int s, int v);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -58,20 +58,27 @@ private:
     int m_cacheVal = -1; // brightness the cache was built for
 };
 
-// The brightness bar: black at the left, the wheel's fully lit colour at the
-// right.
-class BrightnessSlider : public QWidget
+// A horizontal bar for one HSV channel.  Saturation runs grey to full colour,
+// brightness runs black to fully lit; both are drawn at the wheel's current
+// hue so the bar always previews what it will actually give you.
+//
+// Saturation is the centre-to-rim axis of the wheel, so this slider and the
+// wheel's handle move together -- the slider just makes that axis adjustable
+// on its own, without disturbing the hue.
+class ChannelSlider : public QWidget
 {
     Q_OBJECT
 
 public:
-    explicit BrightnessSlider(QWidget *parent = nullptr);
+    enum Channel { Saturation, Value };
+
+    explicit ChannelSlider(Channel channel, QWidget *parent = nullptr);
 
     QSize sizeHint() const override;
-    void setColor(const QColor &color);
+    void setHsv(int h, int s, int v);
 
 signals:
-    void colorChanged(const QColor &color);
+    void hsvChanged(int h, int s, int v);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -81,7 +88,9 @@ protected:
 private:
     void pickFrom(const QPoint &pos);
     qreal handleRadius() const;
+    int channelValue() const { return m_channel == Saturation ? m_sat : m_val; }
 
+    Channel m_channel;
     int m_hue = 0;
     int m_sat = 0;
     int m_val = 255;
@@ -129,6 +138,12 @@ private:
     // that originated the change and is left alone, so that editing the hex
     // field does not fight the caret, and dragging a handle does not snap.
     void applyColor(const QColor &color, QWidget *source);
+    // The dialog keeps hue, saturation and brightness itself rather than
+    // reading them back off the chosen colour.  RGB cannot express them all:
+    // black has no hue or saturation, and any grey has no hue, so a round trip
+    // through a colour would forget where the wheel handle and the saturation
+    // slider were as soon as either slider reached zero.
+    void applyHsv(int h, int s, int v, QWidget *source);
     void buildSwatches(class QGridLayout *grid);
     void addSwatch(class QGridLayout *grid, const QColor &c, int row, int col);
 
@@ -136,8 +151,12 @@ private:
     static constexpr int kSwatchRows = 7;
 
     QColor m_color;
+    int m_hue = 0;
+    int m_sat = 0;
+    int m_val = 0;
     ColorWheel *m_wheel = nullptr;
-    BrightnessSlider *m_slider = nullptr;
+    ChannelSlider *m_satSlider = nullptr;
+    ChannelSlider *m_valSlider = nullptr;
     ColorPreview *m_preview = nullptr;
     QLineEdit *m_hex = nullptr;
     QSpinBox *m_rgb[3] = {nullptr, nullptr, nullptr};

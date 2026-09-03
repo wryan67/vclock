@@ -165,11 +165,19 @@ size and centre back.
 
 ### Choosing colours
 
-Every colour swatch in Settings opens a small picker: a hue/saturation wheel, a
-brightness slider under it, a grid of preset swatches, and `HTML` and `RGB`
-fields. Everything stays in step — drag the wheel and the numbers follow; type
-`#ff8800` into the hex field, or put `255` in the red box, and the wheel and
-slider jump to match.
+Every colour swatch in Settings opens a small picker: a hue/saturation wheel,
+saturation and brightness sliders under it, a grid of preset swatches, and
+`HTML` and `RGB` fields. Everything stays in step — drag the wheel and the
+numbers follow; type `#ff8800` into the hex field, or put `255` in the red box,
+and the wheel and sliders jump to match.
+
+The wheel covers two of the three axes at once: hue is the angle round it, and
+saturation is the distance from the centre to the rim. The `S` slider is that
+second axis on its own, so you can wash a colour out or deepen it without
+nudging the hue, which is fiddly to do by dragging the handle exactly along a
+radius. Move it and you can watch the wheel handle slide straight in or out.
+The `B` slider is brightness. Both bars are painted using the other channels'
+current values, so each one previews the range it will actually move through.
 
 The presets are seven columns — red, orange, yellow, green, blue, purple, and a
 greyscale column — by seven rows. The top row is the pure colour and each row
@@ -182,6 +190,12 @@ The wheel is tinted by the current brightness so you see the colour in context,
 but it never dims past the point where the hues stop being distinguishable. That
 floor matters here because the default hand colour is nearly black, so without it
 the wheel would open unusable on most of these buttons.
+
+Hue and saturation are remembered even when the colour on its own could not
+carry them — black has neither and a grey has no hue, so taking either slider
+down to nothing and back used to lose your place on the wheel. The picker keeps
+the three channels itself rather than reading them back off the chosen colour,
+so the handle stays where you left it.
 
 The swatch beside the fields is split: the right half is the colour you are
 choosing, the left half is the colour you started with. Clicking the left half
@@ -249,7 +263,7 @@ A few details worth knowing:
 | `src/face.*` | SVG rasterising, recolouring, and content bounds |
 | `src/render.*` | hands, hour/minute indices, and the appearance presets |
 | `src/colorbutton.*` | a colour swatch button with a live preview |
-| `src/colorpicker.*` | the colour picker: wheel, brightness slider, hex and RGB fields |
+| `src/colorpicker.*` | the colour picker: wheel, S/B sliders, hex and RGB fields |
 | `src/settingsdialog.*` | the Settings window |
 | `src/clockwindow.*` | the translucent clock window itself |
 

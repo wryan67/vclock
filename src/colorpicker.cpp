@@ -74,17 +74,11 @@ qreal ColorWheel::radius() const
     return qMin(width(), height()) / 2.0 - 1.0;
 }
 
-void ColorWheel::setColor(const QColor &color)
+void ColorWheel::setHsv(int h, int s, int v)
 {
-    if (!color.isValid())
-        return;
-    const int h = color.hue();
-    // Greys have no hue of their own; keeping the last one stops the handle
-    // jumping to red when the brightness is taken all the way down.
-    if (h >= 0)
-        m_hue = h;
-    m_sat = color.saturation();
-    m_val = color.value();
+    m_hue = qBound(0, h, 359);
+    m_sat = qBound(0, s, 255);
+    m_val = qBound(0, v, 255);
     update();
 }
 
@@ -176,7 +170,7 @@ void ColorWheel::pickFrom(const QPoint &pos)
     // is what makes a wheel comfortable to use.
     m_sat = int(qBound(0.0, std::hypot(dx, dy) / rad, 1.0) * 255.0 + 0.5);
     update();
-    emit colorChanged(fromHsv(m_hue, m_sat, m_val));
+    emit hsvChanged(m_hue, m_sat, m_val);
 }
 
 void ColorWheel::mousePressEvent(QMouseEvent *event)
@@ -199,36 +193,36 @@ void ColorWheel::mouseMoveEvent(QMouseEvent *event)
     event->accept();
 }
 
-// ---------------------------------------------------------- BrightnessSlider
+// ------------------------------------------------------------- ChannelSlider
 
-BrightnessSlider::BrightnessSlider(QWidget *parent)
+ChannelSlider::ChannelSlider(Channel channel, QWidget *parent)
     : QWidget(parent)
+    , m_channel(channel)
 {
     setCursor(Qt::PointingHandCursor);
+    setToolTip(channel == Saturation ? QStringLiteral("Saturation — the wheel's centre-to-rim axis")
+                                     : QStringLiteral("Brightness"));
 }
 
-QSize BrightnessSlider::sizeHint() const
+QSize ChannelSlider::sizeHint() const
 {
     return QSize(kWheelSize, kSliderHeight);
 }
 
-qreal BrightnessSlider::handleRadius() const
+qreal ChannelSlider::handleRadius() const
 {
     return height() / 2.0 - 2.0;
 }
 
-void BrightnessSlider::setColor(const QColor &color)
+void ChannelSlider::setHsv(int h, int s, int v)
 {
-    if (!color.isValid())
-        return;
-    if (color.hue() >= 0)
-        m_hue = color.hue();
-    m_sat = color.saturation();
-    m_val = color.value();
+    m_hue = qBound(0, h, 359);
+    m_sat = qBound(0, s, 255);
+    m_val = qBound(0, v, 255);
     update();
 }
 
-void BrightnessSlider::paintEvent(QPaintEvent *)
+void ChannelSlider::paintEvent(QPaintEvent *)
 {
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing, true);
@@ -236,8 +230,15 @@ void BrightnessSlider::paintEvent(QPaintEvent *)
     const qreal r = height() / 2.0;
     const QRectF track(0.5, 0.5, width() - 1.0, height() - 1.0);
     QLinearGradient grad(track.left(), 0, track.right(), 0);
-    grad.setColorAt(0.0, Qt::black);
-    grad.setColorAt(1.0, fromHsv(m_hue, m_sat, 255));
+    // Each bar is drawn with the other two channels held where they are, so it
+    // shows the range it will actually move through.
+    if (m_channel == Saturation) {
+        grad.setColorAt(0.0, fromHsv(m_hue, 0, m_val));
+        grad.setColorAt(1.0, fromHsv(m_hue, 255, m_val));
+    } else {
+        grad.setColorAt(0.0, Qt::black);
+        grad.setColorAt(1.0, fromHsv(m_hue, m_sat, 255));
+    }
 
     QPainterPath path;
     path.addRoundedRect(track, r, r);
@@ -247,22 +248,26 @@ void BrightnessSlider::paintEvent(QPaintEvent *)
 
     const qreal hr = handleRadius();
     const qreal usable = width() - 2.0 * (hr + 2.0);
-    const qreal x = hr + 2.0 + (m_val / 255.0) * usable;
+    const qreal x = hr + 2.0 + (channelValue() / 255.0) * usable;
     drawHandle(painter, QPointF(x, height() / 2.0), hr - 1.0);
 }
 
-void BrightnessSlider::pickFrom(const QPoint &pos)
+void ChannelSlider::pickFrom(const QPoint &pos)
 {
     const qreal hr = handleRadius();
     const qreal usable = width() - 2.0 * (hr + 2.0);
     if (usable <= 0)
         return;
-    m_val = int(qBound(0.0, (pos.x() - hr - 2.0) / usable, 1.0) * 255.0 + 0.5);
+    const int level = int(qBound(0.0, (pos.x() - hr - 2.0) / usable, 1.0) * 255.0 + 0.5);
+    if (m_channel == Saturation)
+        m_sat = level;
+    else
+        m_val = level;
     update();
-    emit colorChanged(fromHsv(m_hue, m_sat, m_val));
+    emit hsvChanged(m_hue, m_sat, m_val);
 }
 
-void BrightnessSlider::mousePressEvent(QMouseEvent *event)
+void ChannelSlider::mousePressEvent(QMouseEvent *event)
 {
     if (event->button() != Qt::LeftButton) {
         QWidget::mousePressEvent(event);
@@ -272,7 +277,7 @@ void BrightnessSlider::mousePressEvent(QMouseEvent *event)
     event->accept();
 }
 
-void BrightnessSlider::mouseMoveEvent(QMouseEvent *event)
+void ChannelSlider::mouseMoveEvent(QMouseEvent *event)
 {
     if (!(event->buttons() & Qt::LeftButton)) {
         QWidget::mouseMoveEvent(event);
@@ -337,9 +342,16 @@ ColorPickerDialog::ColorPickerDialog(const QColor &initial, QWidget *parent)
 
     auto *left = new QVBoxLayout;
     m_wheel = new ColorWheel(this);
-    m_slider = new BrightnessSlider(this);
+    m_satSlider = new ChannelSlider(ChannelSlider::Saturation, this);
+    m_valSlider = new ChannelSlider(ChannelSlider::Value, this);
     left->addWidget(m_wheel);
-    left->addWidget(m_slider);
+    auto *sliders = new QGridLayout;
+    sliders->setSpacing(4);
+    sliders->addWidget(new QLabel(QStringLiteral("S"), this), 0, 0);
+    sliders->addWidget(m_satSlider, 0, 1);
+    sliders->addWidget(new QLabel(QStringLiteral("B"), this), 1, 0);
+    sliders->addWidget(m_valSlider, 1, 1);
+    left->addLayout(sliders);
     top->addLayout(left);
 
     auto *right = new QVBoxLayout;
@@ -384,10 +396,12 @@ ColorPickerDialog::ColorPickerDialog(const QColor &initial, QWidget *parent)
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
     outer->addWidget(buttons);
 
-    connect(m_wheel, &ColorWheel::colorChanged, this,
-            [this](const QColor &c) { applyColor(c, m_wheel); });
-    connect(m_slider, &BrightnessSlider::colorChanged, this,
-            [this](const QColor &c) { applyColor(c, m_slider); });
+    connect(m_wheel, &ColorWheel::hsvChanged, this,
+            [this](int h, int s, int v) { applyHsv(h, s, v, m_wheel); });
+    connect(m_satSlider, &ChannelSlider::hsvChanged, this,
+            [this](int h, int s, int v) { applyHsv(h, s, v, m_satSlider); });
+    connect(m_valSlider, &ChannelSlider::hsvChanged, this,
+            [this](int h, int s, int v) { applyHsv(h, s, v, m_valSlider); });
     connect(m_preview, &ColorPreview::revertRequested, this,
             [this, initial] { applyColor(initial, nullptr); });
     connect(m_hex, &QLineEdit::textEdited, this, [this](const QString &text) {
@@ -466,17 +480,34 @@ void ColorPickerDialog::applyColor(const QColor &color, QWidget *source)
 {
     if (!color.isValid() || m_updating)
         return;
-    m_updating = true;
-    m_color = QColor(color.red(), color.green(), color.blue());
+    const QColor rgb(color.red(), color.green(), color.blue());
+    // Hold on to the hue and saturation the colour cannot carry: a grey has no
+    // hue, and black has neither, so taking either slider to zero would
+    // otherwise throw away where the wheel handle was.
+    const int h = rgb.hue() >= 0 ? rgb.hue() : m_hue;
+    const int s = rgb.value() > 0 ? rgb.saturation() : m_sat;
+    applyHsv(h, s, rgb.value(), source);
+}
 
+void ColorPickerDialog::applyHsv(int h, int s, int v, QWidget *source)
+{
+    if (m_updating)
+        return;
+    m_updating = true;
+    m_hue = qBound(0, h, 359);
+    m_sat = qBound(0, s, 255);
+    m_val = qBound(0, v, 255);
+    m_color = fromHsv(m_hue, m_sat, m_val).toRgb();
+
+    // Every control but the one being used is refreshed.  Both sliders are
+    // redrawn whenever the other one moves, because each bar's gradient is
+    // painted at the other channels' current values.
     if (source != m_wheel)
-        m_wheel->setColor(m_color);
-    if (source != m_slider)
-        m_slider->setColor(m_color);
-    // The wheel owns hue and saturation, so the slider still has to follow it
-    // even while the wheel is the one being dragged.
-    if (source == m_wheel)
-        m_slider->setColor(m_color);
+        m_wheel->setHsv(m_hue, m_sat, m_val);
+    if (source != m_satSlider)
+        m_satSlider->setHsv(m_hue, m_sat, m_val);
+    if (source != m_valSlider)
+        m_valSlider->setHsv(m_hue, m_sat, m_val);
     if (source != m_hex)
         m_hex->setText(m_color.name(QColor::HexRgb));
     // m_rgb[0] stands for the whole row: whichever of the three was edited,
