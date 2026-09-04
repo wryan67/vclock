@@ -216,6 +216,15 @@ so you can dress the icon by editing that clock like any other, and the change
 shows the next time About or Help is opened. With no such clock the **Gradient**
 preset stands in.
 
+`vclock.svg` in the project root is that same dial written out as a standalone
+drawing, for anywhere an icon file is wanted rather than a running program: a
+desktop entry, a package, a readme. It is a snapshot rather than a live render,
+so it does not follow `icon.cfg` — if you change the icon clock and want the
+file to keep up, redraw it. One deliberate difference: the program floors every
+mark at one screen pixel so the dial stays legible when it is small, which a
+fixed drawing cannot do, so the file takes that floor at the size the About
+dialog uses.
+
 ### Choosing colours
 
 Every colour swatch in Settings opens a small picker: a hue/saturation wheel,
