@@ -89,6 +89,25 @@ defaults to every architecture each target has. A target only builds the
 architectures it has — `windows` is x64 only — so asking for `all` of both
 builds the combinations that exist rather than failing on the ones that do not.
 
+A run that builds several packages does not stop at the first one that fails,
+because one broken target is not a reason to throw away the four that would have
+worked. It finishes the rest and prints what happened to each, so a failure
+shows up as one line in a list rather than as a truncated run:
+
+```
+==> results
+  built    deb amd64    vclock_1.0_amd64.deb  172K
+  built    deb arm64    vclock_1.0_arm64.deb  172K
+  failed   rpm amd64    see the output above
+  skipped  macos arm64  needs Apple hardware; run distro/macos/package.sh on a Mac
+```
+
+Only packages produced by that run are listed, so a stale file left in
+`distro/out` by an earlier attempt is never mistaken for something just built —
+including the case where a target exits successfully but writes nothing, which
+counts as a failure. `--distro` exits non-zero if any build failed or if none
+ran, which is what a release script should be checking rather than the output.
+
 Each package is built inside a container for the distribution it targets, so
 what comes out depends on that distribution rather than on whatever is installed
 here — which is what makes it possible to build a Fedora rpm on Ubuntu, and an

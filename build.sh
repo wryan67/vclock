@@ -233,7 +233,20 @@ run_packaging() {
     [ "$wanted_all" -eq 0 ] && [ "$(echo $targets | wc -w)" -eq 1 ] &&
         [ "$(echo $arches | wc -w)" -eq 1 ] && explicit=1
 
-    local built=0 skipped=""
+    # One record per combination attempted, as status|target|arch|detail.  The
+    # summary is built from what this run did rather than from what is lying in
+    # the output directory, which would also count packages left by earlier
+    # runs and report a failed build as a success.
+    local records
+    records=$(mktemp) || die "could not create a temporary file"
+
+    local out=$SOURCE_DIR/distro/out
+    mkdir -p "$out"
+
+    local marker
+    marker=$(mktemp) || die "could not create a temporary file"
+
+    local t a name
     for t in $targets; do
         for a in $arches; do
             name=$(target_arch_name "$t" "$a")
@@ -252,35 +265,115 @@ run_packaging() {
             if [ "$t" = macos ]; then
                 [ "$explicit" -eq 1 ] &&
                     die "$t cannot be built here: $(skip_reason "$t" "$a")"
-                skipped="$skipped
-  $t $a -- $(skip_reason "$t" "$a")"
+                printf 'skipped|%s|%s|%s\n' "$t" "$name" "$(skip_reason "$t" "$a")" \
+                    >>"$records"
                 continue
             fi
 
-            "$SOURCE_DIR/distro/build-target.sh" "$t" "$name" || die "$t/$name failed"
-            built=$((built + 1))
+            # Anything written after this is this build's doing.  Comparing
+            # against a marker rather than a listing taken beforehand means a
+            # rebuild of a package that already exists is still recognised,
+            # since copying it over sets a new timestamp.
+            touch "$marker"
+
+            # A failure here does not stop the run.  Asked for five packages,
+            # the useful answer is the four that worked and which one did not,
+            # not an abort at the first problem with nothing to show.
+            if "$SOURCE_DIR/distro/build-target.sh" "$t" "$name"; then
+                local produced
+                produced=$(find "$out" -maxdepth 1 -type f -newer "$marker" \
+                                -printf '%f\n' 2>/dev/null | sort | tr '\n' ' ')
+                produced=${produced% }
+                if [ -n "$produced" ]; then
+                    printf 'built|%s|%s|%s\n' "$t" "$name" "$produced" >>"$records"
+                else
+                    # Reported success and left nothing behind, which is a bug
+                    # in the recipe rather than a package anyone can install.
+                    printf 'failed|%s|%s|%s\n' "$t" "$name" \
+                        "the build reported success but produced no package" \
+                        >>"$records"
+                fi
+            else
+                printf 'failed|%s|%s|%s\n' "$t" "$name" \
+                    "see the output above" >>"$records"
+            fi
         done
     done
+    rm -f "$marker"
+
+    summarise_packaging "$records"
+    local status=$?
+    rm -f "$records"
+    return $status
+}
+
+# The closing report.  Every combination attempted is named with what became of
+# it, so the absence of a package is as visible as its presence.
+summarise_packaging() {
+    local records=$1
+    local out=$SOURCE_DIR/distro/out
+    local n_built n_failed n_skipped width status target arch detail size
+
+    n_built=$(grep -c '^built|'   "$records" 2>/dev/null || true)
+    n_failed=$(grep -c '^failed|' "$records" 2>/dev/null || true)
+    n_skipped=$(grep -c '^skipped|' "$records" 2>/dev/null || true)
+    : "${n_built:=0}" "${n_failed:=0}" "${n_skipped:=0}"
+
+    if [ "$((n_built + n_failed + n_skipped))" -eq 0 ]; then
+        die "nothing to build for the targets requested"
+    fi
+
+    # Widest "target arch" there is, so the outcomes line up under each other
+    # and can be read down the page.
+    width=$(while IFS='|' read -r status target arch detail; do
+                printf '%s %s\n' "$target" "$arch"
+            done <"$records" | awk '{ if (length > n) n = length } END { print n + 0 }')
+    [ "$width" -ge 1 ] || width=12
 
     printf '\n'
-    if [ -n "$skipped" ]; then
-        warn "not built on this host:$skipped"
-        printf '\n'
+    info "results"
+    while IFS='|' read -r status target arch detail; do
+        case $status in
+            built)
+                # The size is what people are actually checking for, and a
+                # package far smaller than expected is the usual first sign
+                # that something was left out of it.
+                size=$(cd "$out" && du -h $detail 2>/dev/null |
+                       awk '{ printf "%s ", $1 }')
+                ok "$(printf '  %-8s %-*s %s' built "$width" "$target $arch" \
+                             "$detail  ${size% }")" ;;
+            failed)
+                printf '%s  %-8s %-*s %s%s\n' "$C_RED$C_BOLD" failed \
+                       "$width" "$target $arch" "$detail" "$C_RESET" ;;
+            skipped)
+                printf '%s  %-8s %-*s %s%s\n' "$C_YELLOW" skipped \
+                       "$width" "$target $arch" "$detail" "$C_RESET" ;;
+        esac
+    done <"$records"
+
+    printf '\n'
+    if [ "$n_built" -gt 0 ]; then
+        info "packages in $out"
     fi
 
-    if [ "$built" -eq 0 ]; then
-        die "nothing could be built for the targets requested"
+    # A run that could not produce what was asked for should say so through its
+    # exit status too, so a script calling this does not have to read the words.
+    if [ "$n_failed" -gt 0 ]; then
+        printf '%serror:%s %d of %d builds failed\n' "$C_RED$C_BOLD" "$C_RESET" \
+               "$n_failed" "$((n_built + n_failed))" >&2
+        return 1
     fi
-
-    info "packages in $SOURCE_DIR/distro/out"
-    ls -1sh "$SOURCE_DIR/distro/out" 2>/dev/null | tail -n +2 | while read -r line; do
-        ok "  $line"
-    done
+    if [ "$n_built" -eq 0 ]; then
+        printf '%serror:%s nothing could be built on this host\n' \
+               "$C_RED$C_BOLD" "$C_RESET" >&2
+        return 1
+    fi
+    return 0
 }
 
 if [ -n "$DISTRO_TARGETS" ]; then
     run_packaging
-    exit 0
+    exit $?
 fi
 
 [ -z "$DISTRO_ARCHES" ] || die "--arch only means something with --distro"
