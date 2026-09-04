@@ -316,6 +316,13 @@ run_packaging() {
     local out=$SOURCE_DIR/distro/out
     mkdir -p "$out"
 
+    # --this is a package for the machine running the command, so there is
+    # nothing for a container to hold steady and it can be built here.  Anything
+    # asked for by name might be going to somebody else's machine, and is built
+    # the portable way even when this host could manage it directly.
+    local how=()
+    [ "$PACKAGE_THIS" -eq 1 ] && how=(--native)
+
     local marker
     marker=$(mktemp) || die "could not create a temporary file"
 
@@ -352,7 +359,7 @@ run_packaging() {
             # A failure here does not stop the run.  Asked for five packages,
             # the useful answer is the four that worked and which one did not,
             # not an abort at the first problem with nothing to show.
-            if "$SOURCE_DIR/distro/build-target.sh" "$t" "$name"; then
+            if "$SOURCE_DIR/distro/build-target.sh" "${how[@]}" "$t" "$name"; then
                 local produced
                 produced=$(find "$out" -maxdepth 1 -type f -newer "$marker" \
                                 -printf '%f\n' 2>/dev/null | sort | tr '\n' ' ')

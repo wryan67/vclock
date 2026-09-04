@@ -91,7 +91,8 @@ machine's architecture and builds the package this system would install — a
 RHEL and openSUSE. It says which long form it settled on, so
 `./build.sh --this` on an Ubuntu x86_64 box reports that it is doing the same as
 `--distro deb --arch amd64`. Combining it with either of those is refused rather
-than resolved, since the two would be saying different things.
+than resolved, since the two would be saying different things. It is also the
+quick one: see below.
 
 Arch and Alpine have no package target here, so `--this` stops and says so.
 Neither is stuck: both can still build a deb or an rpm, because those are built
@@ -126,7 +127,8 @@ ran, which is what a release script should be checking rather than the output.
 Each package is built inside a container for the distribution it targets, so
 what comes out depends on that distribution rather than on whatever is installed
 here — which is what makes it possible to build a Fedora rpm on Ubuntu, and an
-aarch64 package on an x86\_64 machine. Docker is the only requirement.
+aarch64 package on an x86\_64 machine. Docker is the only requirement, except on
+the `--this` path described below.
 
 | Target | Architectures | Built by |
 | --- | --- | --- |
@@ -142,6 +144,19 @@ built on the current release would refuse to install on anything older. Its
 dependencies are worked out from what the binary actually links against rather
 than from a hand-written list, which would go stale the first time a Qt module
 was added.
+
+`--this` is the one exception: when the package is for the architecture it is
+running on, it builds here instead of in a container, which takes about ten
+seconds rather than several minutes. That trades away the compatibility
+guarantee above — built on a newer Ubuntu, the deb picks up that release's
+glibc and Qt and will not install on 24.04 — which is a fair trade for a package
+going straight back onto the machine that built it, and the wrong one for a
+package being handed to somebody else. So it applies to `--this` alone;
+`--distro` and `all` always use the container. The native path also stands down
+whenever it cannot do the job properly and says why, rather than producing
+something subtly different: a foreign architecture, a target other than deb or
+rpm, or a missing `cmake`, `rpmbuild` or `dpkg-deb` all fall back to the
+container.
 
 Building for a foreign architecture runs the container under qemu. That is
 several times slower than a native build but produces genuine native binaries.
