@@ -22,6 +22,7 @@ add_executable(vclock WIN32 MACOSX_BUNDLE
   src/colorpicker.cpp
   src/icons.cpp
   src/registry.cpp
+  src/autostart.cpp
   src/clockmanager.cpp
   src/manageclocksdialog.cpp
   src/settingsdialog.cpp

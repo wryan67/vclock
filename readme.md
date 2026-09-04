@@ -356,6 +356,26 @@ The list lives in `vclocks.cfg` in the config directory, alongside the per-clock
 configs. Names there are labels only; the config file a clock uses is fixed when
 it is made, so renaming never moves any settings.
 
+### Start at login
+
+The box at the bottom of Manage clocks starts vclock with the desktop session.
+It writes `vclock.desktop` to `~/.config/autostart`, which is the freedesktop
+convention every desktop with a "startup applications" list reads; unticking it
+deletes the file again. The box reads the file rather than remembering an answer
+of its own, so removing the entry by hand and reopening the dialog shows it
+unticked.
+
+There is one setting for the program, not one per clock, because what comes back
+at login is whatever was showing when the session ended — the same rule Show
+already follows.
+
+The entry points at the running program's own path, resolved through any symlink
+used to start it, so a build moved or deleted afterwards will not come back at
+login. It also needs an icon file, which a program that draws its own icon does
+not otherwise have, so ticking the box writes one to
+`~/.local/share/vclock/icon.png`. Unticking leaves it there: it costs a few
+kilobytes and saves redrawing it next time.
+
 `-h`, `--help` prints the options and exits.
 
 ### Monitors
@@ -404,6 +424,7 @@ A few details worth knowing:
 | `src/colorbutton.*` | a colour swatch button with a live preview |
 | `src/colorpicker.*` | the colour picker: wheel, S/B sliders, hex and RGB fields |
 | `src/settingsdialog.*` | the Settings window |
+| `src/autostart.*` | writing and removing the login startup entry |
 | `src/clockwindow.*` | the translucent clock window itself |
 
 ## Notes on the port

@@ -3,6 +3,7 @@
 
 #include <QDialog>
 
+class QCheckBox;
 class QPushButton;
 class QTableWidget;
 class QTableWidgetItem;
@@ -37,6 +38,9 @@ private:
     void openRowSettings(int row);
     void toggleOpen(int row, bool open);
 
+    // Turn starting at login on or off, and put the box back if it fails.
+    void setAutostart(bool on);
+
     // Which row a per-row button belongs to.  Rows shift as clocks are added
     // and removed, so the button is found rather than its index remembered.
     int rowOfWidget(QWidget *widget) const;
@@ -52,6 +56,7 @@ private:
 
     QTableWidget *m_table = nullptr;
     QPushButton *m_newButton = nullptr;
+    QCheckBox *m_autostart = nullptr;
 
     // -1 when nothing is being edited.
     int m_editRow = -1;

@@ -1,5 +1,6 @@
 #include "manageclocksdialog.h"
 
+#include "autostart.h"
 #include "clockmanager.h"
 #include "clockwindow.h"
 #include "config.h"
@@ -134,7 +135,21 @@ ManageClocksDialog::ManageClocksDialog(QWidget *parent) : QDialog(nullptr)
     close->setIcon(glyphIcon(Glyph::Cancel, GlyphRole::Neutral));
     close->setIconSize(QSize(18, 18));
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::close);
-    layout->addWidget(buttons);
+
+    // Whether the desktop starts vclock at login.  It belongs here rather than
+    // in a clock's own settings because it is about the program, not a clock:
+    // there is one answer however many clocks are in the list, and what comes
+    // back is whatever was showing when the session ended.
+    m_autostart = new QCheckBox(QStringLiteral("Start at login"));
+    m_autostart->setChecked(autostart::enabled());
+    m_autostart->setToolTip(
+        QStringLiteral("Start vclock when you log in, showing whatever clocks are showing now"));
+    connect(m_autostart, &QCheckBox::toggled, this, &ManageClocksDialog::setAutostart);
+
+    auto *bottom = new QHBoxLayout;
+    bottom->addWidget(m_autostart);
+    bottom->addWidget(buttons, 1);
+    layout->addLayout(bottom);
 
     connect(&ClockManager::instance(), &ClockManager::changed, this, [this] {
         // A clock closed from its own menu changes the Show column, but not
@@ -478,4 +493,20 @@ void ManageClocksDialog::openRowSettings(int row)
 void ManageClocksDialog::commitRegistry()
 {
     ClockManager::instance().setRegistry(ClockManager::instance().registry());
+}
+
+// Writing the entry can fail -- a read-only home, a full disk -- and a box
+// that stays ticked when nothing was written would be a lie, so the box goes
+// back to what is actually on disk and says why.
+void ManageClocksDialog::setAutostart(bool on)
+{
+    if (autostart::setEnabled(on))
+        return;
+
+    QMessageBox::warning(this, QStringLiteral("Start at login"),
+                         QStringLiteral("Could not %1 the startup entry: %2.")
+                             .arg(on ? QStringLiteral("write") : QStringLiteral("remove"),
+                                  autostart::reason()));
+    const QSignalBlocker block(m_autostart);
+    m_autostart->setChecked(autostart::enabled());
 }
