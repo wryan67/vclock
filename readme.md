@@ -85,7 +85,9 @@ build tree:
 Packages land in `distro/out`. `--arch` takes `amd64`, `arm64` or `all`, and
 accepts `x86_64`, `x64` and `aarch64` as names for the same two things; it
 defaults to this machine's architecture, except with `--distro all` which
-defaults to every architecture each target has.
+defaults to every architecture each target has. A target only builds the
+architectures it has — `windows` is x64 only — so asking for `all` of both
+builds the combinations that exist rather than failing on the ones that do not.
 
 Each package is built inside a container for the distribution it targets, so
 what comes out depends on that distribution rather than on whatever is installed
@@ -149,15 +151,9 @@ targets on Linux runners and macOS on GitHub's macOS runners, one job per
 architecture, since Qt from Homebrew is single-architecture and a universal
 binary is not an option.
 
-### What cannot be built
-
-* **Windows on Arm** — no distribution packages a MinGW-w64 Qt6 for aarch64, so
-  there is no cross toolchain to use. It needs Windows on Arm itself with the Qt
-  installer's MSVC arm64 package.
-* **macOS from Linux** — as above.
-
-`build.sh` reports these as skipped, with the reason, rather than quietly
-producing fewer packages than were asked for.
+`--distro all` builds every combination this host can reach and lists the macOS
+ones as skipped, with the reason, rather than quietly producing fewer packages
+than were asked for.
 
 ## Using it
 

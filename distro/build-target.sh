@@ -47,11 +47,6 @@ case $TARGET in
     windows)
         case $ARCH in
             x64) ;;
-            arm64)
-                die "there is no Windows arm64 build: no distribution packages a
-       MinGW-w64 Qt6 for aarch64, so there is no cross toolchain to use.
-       Building it needs Windows on Arm with the Qt installer's MSVC arm64
-       package, which is outside what this script can drive." ;;
             *) die "the Windows build takes x64" ;;
         esac
         # Cross-compiled, so the container matches the host and only the

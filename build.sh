@@ -154,6 +154,11 @@ case $BUILD_DIR in /*) ;; *) BUILD_DIR=$PWD/$BUILD_DIR ;; esac
 # Architecture names are not shared between package formats: dpkg says amd64,
 # Microsoft says x64 and Apple says x86_64, all for the same processor.  One
 # spelling is accepted on the command line and translated per target.
+#
+# An empty result means the target has no such build at all, which is different
+# from having one that cannot be built here.  Windows is x64 only: no
+# distribution packages a MinGW-w64 Qt6 for aarch64, so there is nothing to
+# cross-compile with.
 target_arch_name() {
     case "$1:$2" in
         deb:amd64|deb:arm64|rpm:amd64|rpm:arm64) printf '%s' "$2" ;;
@@ -164,16 +169,23 @@ target_arch_name() {
     esac
 }
 
-# Why a combination cannot be built, for the summary at the end.  A run that
-# quietly produces five files when eight were asked for is worse than one that
-# says which three are missing and why.
+# The architectures a target has, for saying so when one is asked for by name.
+target_arches() {
+    case $1 in
+        deb|rpm) printf 'amd64 or arm64' ;;
+        windows) printf 'x64' ;;
+        macos)   printf 'amd64 or arm64' ;;
+    esac
+}
+
+# Why a combination that exists cannot be built on this machine, for the summary
+# at the end.  A run that quietly produces fewer packages than were asked for is
+# worse than one that says which are missing and why.
 skip_reason() {
     case "$1:$2" in
-        windows:arm64)
-            printf 'no MinGW-w64 Qt6 for aarch64 exists to cross-compile with' ;;
         macos:*)
             printf 'needs Apple hardware; run distro/macos/package.sh on a Mac, or the release workflow' ;;
-        *)  printf 'unsupported combination' ;;
+        *)  printf 'not buildable on this host' ;;
     esac
 }
 
@@ -225,14 +237,26 @@ run_packaging() {
     for t in $targets; do
         for a in $arches; do
             name=$(target_arch_name "$t" "$a")
-            if [ -z "$name" ] || [ "$t" = macos ]; then
-                if [ "$explicit" -eq 1 ]; then
-                    die "$t has no $a build: $(skip_reason "$t" "$a")"
-                fi
+
+            # A combination the target simply does not have.  Asked for by
+            # name this is an error; swept up by 'all' or '--arch all' it is
+            # not worth mentioning, any more than the absence of a 32-bit
+            # build is.
+            if [ -z "$name" ]; then
+                [ "$explicit" -eq 1 ] &&
+                    die "there is no $t $a build; $t builds $(target_arches "$t")"
+                continue
+            fi
+
+            # One that exists but needs a machine this is not.
+            if [ "$t" = macos ]; then
+                [ "$explicit" -eq 1 ] &&
+                    die "$t cannot be built here: $(skip_reason "$t" "$a")"
                 skipped="$skipped
   $t $a -- $(skip_reason "$t" "$a")"
                 continue
             fi
+
             "$SOURCE_DIR/distro/build-target.sh" "$t" "$name" || die "$t/$name failed"
             built=$((built + 1))
         done
