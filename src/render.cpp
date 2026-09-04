@@ -3,6 +3,7 @@
 #include "face.h"
 
 #include <QColor>
+#include <QFile>
 #include <QImage>
 #include <QPainter>
 #include <QPen>
@@ -17,6 +18,28 @@ constexpr double kPi = 3.14159265358979323846;
 
 // A flattering time for the preview thumbnails.
 constexpr double kPresetHour = 10, kPresetMinute = 9, kPresetSecond = 30;
+
+// Multiplies the painter's opacity for as long as it is in scope.  Multiplied
+// rather than assigned so that a caller which has already faded the painter --
+// a thumbnail, say -- keeps its own fade.  QPainterStateGuard would do, but it
+// arrived in Qt 6.9 and vclock builds against older ones.
+class PainterOpacity
+{
+public:
+    PainterOpacity(QPainter &painter, int percent)
+        : m_painter(painter), m_previous(painter.opacity())
+    {
+        m_painter.setOpacity(m_previous * (std::clamp(percent, 0, 100) / 100.0));
+    }
+    ~PainterOpacity() { m_painter.setOpacity(m_previous); }
+
+    PainterOpacity(const PainterOpacity &) = delete;
+    PainterOpacity &operator=(const PainterOpacity &) = delete;
+
+private:
+    QPainter &m_painter;
+    qreal m_previous;
+};
 
 QColor colorOf(const QString &hex)
 {
@@ -56,7 +79,6 @@ const QVector<Preset> &presets()
             p.tip = tip;
             p.values.faceSvg = kBuiltinFacePrefix + QStringLiteral("icon");
             p.values.faceDefault = false;
-            p.values.faceTransparent = false;
             p.values.faceColor = bodyColor;
             p.values.wireColor = rimColor;
             p.values.hourColor = QStringLiteral("#f0f0f0");  // the icon's hands and ticks
@@ -104,7 +126,6 @@ const QVector<Preset> &presets()
         silver.tip = QStringLiteral("A brushed silver dial with a black rim and black hands");
         silver.values.faceSvg = kBuiltinFacePrefix + QStringLiteral("silver");
         silver.values.faceDefault = false;
-        silver.values.faceTransparent = false;
         silver.values.wireColor = QStringLiteral("#000000");
         silver.values.faceColor = QStringLiteral("#ffffff");
         silver.values.hourColor = QStringLiteral("#000000");
@@ -124,7 +145,6 @@ const QVector<Preset> &presets()
         comb.tip = QStringLiteral("A honeycomb in wax and honey, with hands in amber and cream");
         comb.values.faceSvg = kBuiltinFacePrefix + QStringLiteral("honeycomb");
         comb.values.faceDefault = false;
-        comb.values.faceTransparent = false;
         comb.values.wireColor = QStringLiteral("#000000");   // the walls and the rim
         comb.values.faceColor = QStringLiteral("#ffc94d");   // the honey in the cells
         comb.values.hourColor = QStringLiteral("#8f4300");
@@ -146,8 +166,12 @@ void drawMarks(QPainter &painter, const Config &cfg, double cx, double cy, doubl
     const double size = cfg.markScale / 100.0;
     const double position = cfg.markPosition / 100.0;
     const double minuteSize = cfg.minuteMarkScale / 100.0;
-    if (size <= 0.0 || position <= 0.0)
+    if (size <= 0.0 || position <= 0.0 || cfg.markOpacity <= 0)
         return;
+
+    // Set on the painter rather than folded into each colour so that marks
+    // which overlap do not show their join through one another.
+    const PainterOpacity fade(painter, cfg.markOpacity);
 
     // The indices hang off a common outer edge and grow inwards.  The edge is
     // clamped to the canvas so a high position cannot slice them off.
@@ -193,8 +217,15 @@ void drawMarks(QPainter &painter, const Config &cfg, double cx, double cy, doubl
 void drawHands(QPainter &painter, const Config &cfg, double cx, double cy, double radius,
                double w, double h, double hours, double minutes, double seconds)
 {
+    if (cfg.handOpacity <= 0)
+        return;
+
     const double handScale = cfg.handScale / 100.0;
     const QColor hourColor = colorOf(cfg.hourColor);
+
+    // On the painter, so the hands fade as one piece: fading each colour
+    // instead would let the hands show through one another where they cross.
+    const PainterOpacity fade(painter, cfg.handOpacity);
 
     // Hands longer than the canvas would be sliced off by the window edge, so
     // cap each one at the room actually available around the pivot.
@@ -233,7 +264,8 @@ QPixmap presetThumbnail(const Config &values, int size, qreal devicePixelRatio)
     const std::unique_ptr<Face> face = openFace(values.facePath());
     QImage art = face->render(pixels, pixels);
     if (values.faceRecolor)
-        art = recolor(art, values.wireColor, values.faceColor, values.faceTransparent);
+        art = recolor(art, values.wireColor, values.faceColor, values.faceOpacity,
+                      values.wireOpacity);
 
     QImage canvas(pixels, pixels, QImage::Format_ARGB32_Premultiplied);
     canvas.fill(Qt::transparent);

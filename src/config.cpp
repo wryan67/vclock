@@ -213,7 +213,23 @@ Config loadConfig(const QString &requested)
                                    kDefaults.markPosition);
     cfg.minuteMarkScale = readPercent(o, "minute_mark_scale", kMarkScaleMin,
                                       kMarkScaleMax, kDefaults.minuteMarkScale);
-    cfg.opacity = readPercent(o, "opacity", kOpacityMin, kOpacityMax, kDefaults.opacity);
+    // "opacity" faded the whole window, before each part of the drawing got a
+    // fade of its own.  Spreading it across all four keeps a clock that was set
+    // half faded looking the way it did.
+    const int windowOpacity = readPercent(o, "opacity", kOpacityMin, kOpacityMax, 100);
+    cfg.faceOpacity = readPercent(o, "face_opacity", kOpacityMin, kOpacityMax, windowOpacity);
+    cfg.wireOpacity = readPercent(o, "wire_opacity", kOpacityMin, kOpacityMax, windowOpacity);
+    cfg.handOpacity = readPercent(o, "hand_opacity", kOpacityMin, kOpacityMax, windowOpacity);
+    cfg.markOpacity = readPercent(o, "mark_opacity", kOpacityMin, kOpacityMax, windowOpacity);
+    // The face's own "transparent" tick was a face faded out entirely.
+    if (!o.contains(QLatin1String("face_opacity")) && readBool(o, "face_transparent", false))
+        cfg.faceOpacity = 0;
+    cfg.syncFaceWire = readBool(o, "sync_face_wire", kDefaults.syncFaceWire);
+    cfg.syncHandsMarks = readBool(o, "sync_hands_marks", kDefaults.syncHandsMarks);
+    if (cfg.syncFaceWire)
+        cfg.wireOpacity = cfg.faceOpacity;
+    if (cfg.syncHandsMarks)
+        cfg.markOpacity = cfg.handOpacity;
 
     cfg.quarterMarksOnly = readBool(o, "quarter_marks_only", kDefaults.quarterMarksOnly);
     cfg.alwaysOnTop = readBool(o, "always_on_top", kDefaults.alwaysOnTop);
@@ -224,7 +240,6 @@ Config loadConfig(const QString &requested)
     cfg.smoothSweep = readBool(o, "smooth_sweep",
                                readBool(o, "smooth_minute", kDefaults.smoothSweep));
     cfg.reverseTime = readBool(o, "reverse_time", kDefaults.reverseTime);
-    cfg.faceTransparent = readBool(o, "face_transparent", kDefaults.faceTransparent);
     cfg.faceRecolor = readBool(o, "face_recolor", kDefaults.faceRecolor);
 
     cfg.faceSvg = readString(o, "face_svg", kDefaults.faceSvg);
@@ -283,7 +298,12 @@ void saveConfig(const Config &cfg, const QString &requested)
     o.insert(QStringLiteral("mark_scale"), cfg.markScale);
     o.insert(QStringLiteral("mark_position"), cfg.markPosition);
     o.insert(QStringLiteral("minute_mark_scale"), cfg.minuteMarkScale);
-    o.insert(QStringLiteral("opacity"), cfg.opacity);
+    o.insert(QStringLiteral("face_opacity"), cfg.faceOpacity);
+    o.insert(QStringLiteral("wire_opacity"), cfg.wireOpacity);
+    o.insert(QStringLiteral("sync_face_wire"), cfg.syncFaceWire);
+    o.insert(QStringLiteral("hand_opacity"), cfg.handOpacity);
+    o.insert(QStringLiteral("mark_opacity"), cfg.markOpacity);
+    o.insert(QStringLiteral("sync_hands_marks"), cfg.syncHandsMarks);
     o.insert(QStringLiteral("quarter_marks_only"), cfg.quarterMarksOnly);
     o.insert(QStringLiteral("always_on_top"), cfg.alwaysOnTop);
     o.insert(QStringLiteral("face_svg"), cfg.faceSvg);
@@ -295,7 +315,6 @@ void saveConfig(const Config &cfg, const QString &requested)
     o.insert(QStringLiteral("smooth_sweep"), cfg.smoothSweep);
     o.insert(QStringLiteral("reverse_time"), cfg.reverseTime);
     o.insert(QStringLiteral("face_color"), cfg.faceColor);
-    o.insert(QStringLiteral("face_transparent"), cfg.faceTransparent);
     o.insert(QStringLiteral("face_recolor"), cfg.faceRecolor);
     o.insert(QStringLiteral("wire_color"), cfg.wireColor);
     o.insert(QStringLiteral("hour_mark_color"), cfg.hourMarkColor);
@@ -355,7 +374,12 @@ void copyPresetKeys(const Config &from, Config &to)
     to.minuteColor = from.minuteColor;
     to.minuteSameAsHour = from.minuteSameAsHour;
     to.faceColor = from.faceColor;
-    to.faceTransparent = from.faceTransparent;
+    to.faceOpacity = from.faceOpacity;
+    to.wireOpacity = from.wireOpacity;
+    to.syncFaceWire = from.syncFaceWire;
+    to.handOpacity = from.handOpacity;
+    to.markOpacity = from.markOpacity;
+    to.syncHandsMarks = from.syncHandsMarks;
     to.faceRecolor = from.faceRecolor;
     to.wireColor = from.wireColor;
     to.hourMarkColor = from.hourMarkColor;

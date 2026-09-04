@@ -116,7 +116,6 @@ private:
     void applyAlwaysOnTop();
     void syncAlwaysOnTop();
     void applyTickRate();
-    void applyOpacity();
     void buildMenu();
     void placeDialog(QWidget *dialog);
     void closeSettings();

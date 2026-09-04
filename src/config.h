@@ -30,10 +30,12 @@ inline constexpr double kMarkInner = 0.88, kMarkOuter = 0.98, kMarkWidth = 0.011
 inline constexpr int kHandScaleMin = 25, kHandScaleMax = 200;
 inline constexpr int kMarkScaleMin = 0, kMarkScaleMax = 200;  // 0 hides the indices
 
-// How solid the window is.  The floor is well above zero on purpose: a clock
-// faded to nothing would still be there, still taking clicks, with no way left
-// to see it or reach its menu to put it right.
-inline constexpr int kOpacityMin = 10, kOpacityMax = 100;
+// How solid each part of the clock is.  Any one part may fade away entirely --
+// a face of nothing but wire, or a dial with no hands, are both things people
+// ask for -- so the floor here is zero.  What stops the clock disappearing
+// altogether is that the window keeps taking clicks regardless, and the menu
+// can always be reached by right clicking where the clock is.
+inline constexpr int kOpacityMin = 0, kOpacityMax = 100;
 
 // Where the clock sat, and how big it was, on one particular monitor.
 //
@@ -57,7 +59,6 @@ struct Config
     int markScale = 100;                                   // percent of the built-in hour-index geometry
     int markPosition = 100;                                // percent of the built-in index radius
     int minuteMarkScale = 50;                              // percent of the hour-index size
-    int opacity = 100;                                     // percent; 100 is fully solid
     bool quarterMarksOnly = false;                         // draw hour indices at 12/3/6/9 only
     bool alwaysOnTop = true;                               // keep the widget above other windows
     QString faceSvg;                                       // path to a user-supplied face ("" = none)
@@ -72,10 +73,21 @@ struct Config
     // only makes sense for line art. A full-colour drawing has to be left alone.
     bool faceRecolor = true;
     QString faceColor = QStringLiteral("#ffffff");
-    bool faceTransparent = false;
     QString wireColor = QStringLiteral("#000000");
     QString hourMarkColor = QStringLiteral("#000000");
     QString minuteMarkColor = QStringLiteral("#000000");
+
+    // How solid each part of the drawing is, as a percentage.  These fade the
+    // parts against each other and against the desktop, so a face can be left
+    // as bare wire over the wallpaper while the hands stay solid.  The sync
+    // flags are remembered only so the boxes come back ticked; the values are
+    // always kept in step while one is set, so either of the pair can be read.
+    int faceOpacity = 100;
+    int wireOpacity = 100;
+    bool syncFaceWire = false;
+    int handOpacity = 100;
+    int markOpacity = 100;
+    bool syncHandsMarks = false;
 
     std::optional<QPointF> center;  // fractions of the canvas; unset = auto
     std::optional<int> x;

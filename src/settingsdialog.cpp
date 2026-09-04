@@ -164,8 +164,8 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     grid->addWidget(chooserBox, row, 0, 1, 4);
     ++row;
 
-    // ----------------------------------------------- sizes / opacity section
-    auto *sizesBox = new QGroupBox(QStringLiteral("Sizes / Opacity"), this);
+    // --------------------------------------------------------- sizes section
+    auto *sizesBox = new QGroupBox(QStringLiteral("Sizes"), this);
     auto *sizesGrid = new QGridLayout(sizesBox);
     sizesGrid->setHorizontalSpacing(10);
     sizesGrid->setVerticalSpacing(8);
@@ -184,13 +184,43 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
                                   cfg.minuteMarkScale, kMarkScaleMin, kMarkScaleMax, true);
     m_minuteMarkScale->setToolTip(
         QStringLiteral("Percentage of the hour mark size. 0 hides the minute marks."));
-    m_opacity = addSlider(sizesGrid, srow++, QStringLiteral("Opacity (%)"), cfg.opacity,
-                          kOpacityMin, kOpacityMax, true);
-    m_opacity->setToolTip(
-        QStringLiteral("How solid the clock is. It stops short of invisible so that "
-                       "there is always enough of it left to right click on."));
-
     grid->addWidget(sizesBox, row, 0, 1, 4);
+    ++row;
+
+    // ------------------------------------------------------- opacity section
+    //
+    // Each part of the drawing fades on its own, so a face can wash out to
+    // bare wire over the wallpaper while the hands stay solid.  The two sync
+    // boxes cover the common case of wanting a pair to move together.
+    auto *opacityBox = new QGroupBox(QStringLiteral("Opacity"), this);
+    auto *opacityGrid = new QGridLayout(opacityBox);
+    opacityGrid->setHorizontalSpacing(10);
+    opacityGrid->setVerticalSpacing(8);
+    int orow = 0;
+
+    m_faceOpacity = addSlider(opacityGrid, orow++, QStringLiteral("Face (%)"), cfg.faceOpacity,
+                              kOpacityMin, kOpacityMax, false);
+    m_faceOpacity->setToolTip(QStringLiteral(
+        "The body of the artwork. At 0 only the wire is left, and the desktop shows "
+        "through the face."));
+    m_wireOpacity = addSlider(opacityGrid, orow++, QStringLiteral("Wire (%)"), cfg.wireOpacity,
+                              kOpacityMin, kOpacityMax, false);
+    m_wireOpacity->setToolTip(
+        QStringLiteral("The line work of the artwork -- its outlines and shading."));
+    m_syncFaceWire = addSyncBox(opacityGrid, orow++, QStringLiteral("sync face/wire"),
+                                cfg.syncFaceWire, m_faceOpacity, m_wireOpacity);
+
+    m_handOpacity = addSlider(opacityGrid, orow++, QStringLiteral("Clock hands (%)"),
+                              cfg.handOpacity, kOpacityMin, kOpacityMax, false);
+    m_handOpacity->setToolTip(
+        QStringLiteral("The hour, minute and second hands, and the pin they turn on."));
+    m_markOpacity = addSlider(opacityGrid, orow++, QStringLiteral("Clock marks (%)"),
+                              cfg.markOpacity, kOpacityMin, kOpacityMax, false);
+    m_markOpacity->setToolTip(QStringLiteral("The hour and minute indices around the dial."));
+    m_syncHandsMarks = addSyncBox(opacityGrid, orow++, QStringLiteral("sync hands/marks"),
+                                  cfg.syncHandsMarks, m_handOpacity, m_markOpacity);
+
+    grid->addWidget(opacityBox, row, 0, 1, 4);
     ++row;
 
     // The three options are each about one of the sections below, so each one
@@ -316,11 +346,9 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     ++frow;
 
     addLabel(faceGrid, QStringLiteral("Face color"), frow);
-    // useAlpha lets the swatch show the checkerboard when transparent.
+    // useAlpha lets the swatch show the checkerboard when the face is faded.
     m_face = new ColorButton(QColor(cfg.faceColor), true, QStringLiteral("Face color"), this);
-    m_faceTransparent = new QCheckBox(QStringLiteral("transparent"), this);
-    m_faceTransparent->setChecked(cfg.faceTransparent);
-    faceGrid->addLayout(withOption(m_face, m_faceTransparent), frow, 1);
+    faceGrid->addWidget(m_face, frow, 1, Qt::AlignLeft);
     ++frow;
 
     addLabel(faceGrid, QStringLiteral("Wire color"), frow);
@@ -359,15 +387,16 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
 
     // ------------------------------------------------------------- wiring up
     for (QSlider *slider : {m_size, m_handScale, m_markScale, m_markPosition,
-                            m_minuteMarkScale, m_opacity}) {
+                            m_minuteMarkScale, m_faceOpacity, m_wireOpacity,
+                            m_handOpacity, m_markOpacity}) {
         connect(slider, &QSlider::valueChanged, this, [this] { onChanged(); });
     }
     for (ColorButton *button : {m_second, m_hour, m_minute, m_face, m_wire, m_hourMark,
                                 m_minuteMark}) {
         connect(button, &ColorButton::colorSet, this, [this, button] { onChanged(button); });
     }
-    for (QCheckBox *box : {m_minuteSame, m_faceTransparent, m_quarterMarks,
-                           m_smoothSweep, m_reverseTime}) {
+    for (QCheckBox *box : {m_minuteSame, m_quarterMarks, m_smoothSweep, m_reverseTime,
+                           m_syncFaceWire, m_syncHandsMarks}) {
         connect(box, &QCheckBox::toggled, this, [this] { onChanged(); });
     }
     connect(m_colorMode, &QComboBox::currentIndexChanged, this, [this] { onChanged(); });
@@ -435,6 +464,40 @@ QLabel *SettingsDialog::addLabel(QGridLayout *grid, const QString &text, int row
     label->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     grid->addWidget(label, row, col);
     return label;
+}
+
+// Keeps a pair of sliders on one value while the box is ticked.  Ticking it
+// pulls the second slider onto the first rather than averaging or leaving them
+// apart, so the tick has a visible, predictable effect: the value you were
+// last looking at wins.
+//
+// The two connections are plain setValue() calls, which emit nothing when the
+// value is already right, so the pair settles instead of ping-ponging.
+QCheckBox *SettingsDialog::addSyncBox(QGridLayout *grid, int row, const QString &caption,
+                                      bool checked, QSlider *first, QSlider *second)
+{
+    auto *box = new QCheckBox(caption, this);
+    box->setChecked(checked);
+    if (checked)
+        second->setValue(first->value());
+
+    const auto follow = [box](QSlider *from, QSlider *to) {
+        connect(from, &QSlider::valueChanged, to, [box, to](int value) {
+            if (box->isChecked())
+                to->setValue(value);
+        });
+    };
+    follow(first, second);
+    follow(second, first);
+    connect(box, &QCheckBox::toggled, second, [first, second](bool on) {
+        if (on)
+            second->setValue(first->value());
+    });
+
+    // Under the sliders and hard against them, in the same column, so it reads
+    // as belonging to the pair above rather than to the group as a whole.
+    grid->addWidget(box, row, 1, Qt::AlignLeft);
+    return box;
 }
 
 // A slider laid out like the Python version: value readout on the left, and
@@ -537,10 +600,16 @@ void SettingsDialog::applyPreset(const Config &values)
     m_markScale->setValue(values.markScale);
     m_markPosition->setValue(values.markPosition);
     m_minuteMarkScale->setValue(values.minuteMarkScale);
-    m_opacity->setValue(values.opacity);
+    // The sync boxes go first: with one ticked, setting either slider of the
+    // pair carries the other with it, which is what a preset wants anyway.
+    m_syncFaceWire->setChecked(values.syncFaceWire);
+    m_syncHandsMarks->setChecked(values.syncHandsMarks);
+    m_faceOpacity->setValue(values.faceOpacity);
+    m_wireOpacity->setValue(values.wireOpacity);
+    m_handOpacity->setValue(values.handOpacity);
+    m_markOpacity->setValue(values.markOpacity);
     m_quarterMarks->setChecked(values.quarterMarksOnly);
     m_minuteSame->setChecked(values.minuteSameAsHour);
-    m_faceTransparent->setChecked(values.faceTransparent);
     m_colorMode->setCurrentIndex(values.faceRecolor ? 0 : 1);
 
     m_faceOwn = values.faceColor;
@@ -559,7 +628,9 @@ void SettingsDialog::onChanged(const QObject *sender)
 {
     if (sender == m_minute && !m_minuteSame->isChecked())
         m_minuteOwn = hexOf(m_minute->color());
-    if (sender == m_face && !m_faceTransparent->isChecked())
+    // The swatch shows the face's opacity in its alpha, so only the colour
+    // itself is taken back from it -- hexOf() drops the alpha for us.
+    if (sender == m_face)
         m_faceOwn = hexOf(m_face->color());
     syncSwatches();
     if (m_live) {
@@ -580,14 +651,14 @@ void SettingsDialog::syncSwatches()
     // The face and wire colours are the recolour's two ends, so they mean
     // nothing at all when the artwork is drawn as authored.
     const bool recolor = recolorMode();
-    const bool clear = m_faceTransparent->isChecked();
-    m_face->setEnabled(recolor && !clear);
+    m_face->setEnabled(recolor);
     m_wire->setEnabled(recolor);
-    m_faceTransparent->setEnabled(recolor);
+    // The swatch carries the face's own opacity, so a face faded to nothing
+    // reads as the checkerboard rather than as a colour that does not show.
     QColor faceColor(m_faceOwn);
     if (!faceColor.isValid())
         faceColor = QColor(Qt::white);
-    faceColor.setAlpha(clear ? 0 : 255);
+    faceColor.setAlpha(qBound(0, m_faceOpacity->value(), 100) * 255 / 100);
     m_face->setColor(faceColor);
 }
 
@@ -652,7 +723,12 @@ Config SettingsDialog::values() const
     out.markScale = m_markScale->value();
     out.markPosition = m_markPosition->value();
     out.minuteMarkScale = m_minuteMarkScale->value();
-    out.opacity = m_opacity->value();
+    out.faceOpacity = m_faceOpacity->value();
+    out.wireOpacity = m_wireOpacity->value();
+    out.syncFaceWire = m_syncFaceWire->isChecked();
+    out.handOpacity = m_handOpacity->value();
+    out.markOpacity = m_markOpacity->value();
+    out.syncHandsMarks = m_syncHandsMarks->isChecked();
     out.quarterMarksOnly = m_quarterMarks->isChecked();
     out.faceSvg = faceSvg();
     out.faceDefault = faceDefault();
@@ -663,7 +739,6 @@ Config SettingsDialog::values() const
     out.smoothSweep = m_smoothSweep->isChecked();
     out.reverseTime = m_reverseTime->isChecked();
     out.faceColor = m_faceOwn;
-    out.faceTransparent = m_faceTransparent->isChecked();
     out.faceRecolor = recolorMode();
     out.wireColor = hexOf(m_wire->color());
     out.hourMarkColor = hexOf(m_hourMark->color());

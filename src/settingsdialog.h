@@ -38,6 +38,10 @@ private:
     QSlider *addSlider(QGridLayout *grid, int row, const QString &caption, int value, int low,
                        int high, bool markHundred);
 
+    // A "sync" box that keeps two sliders on the same value while it is ticked.
+    QCheckBox *addSyncBox(QGridLayout *grid, int row, const QString &caption, bool checked,
+                          QSlider *first, QSlider *second);
+
     // Size the dialog to its contents, or to the screen when the contents do
     // not fit and the scroll area has to take over.
     void resizeToFit(QWidget *content, QScrollArea *scroll, QWidget *buttons);
@@ -69,7 +73,12 @@ private:
     QSlider *m_markScale = nullptr;
     QSlider *m_markPosition = nullptr;
     QSlider *m_minuteMarkScale = nullptr;
-    QSlider *m_opacity = nullptr;
+    QSlider *m_faceOpacity = nullptr;
+    QSlider *m_wireOpacity = nullptr;
+    QSlider *m_handOpacity = nullptr;
+    QSlider *m_markOpacity = nullptr;
+    QCheckBox *m_syncFaceWire = nullptr;
+    QCheckBox *m_syncHandsMarks = nullptr;
     QCheckBox *m_quarterMarks = nullptr;
     QCheckBox *m_smoothSweep = nullptr;
     QCheckBox *m_reverseTime = nullptr;
@@ -82,10 +91,9 @@ private:
     ColorButton *m_hourMark = nullptr;
     ColorButton *m_minuteMark = nullptr;
     QCheckBox *m_minuteSame = nullptr;
-    QCheckBox *m_faceTransparent = nullptr;
 
-    // The user's own colours are remembered while the "same as hour" and
-    // "transparent" boxes are ticked, so unticking them brings the colour back.
+    // The user's own minute colour is remembered while "same as hour" is
+    // ticked, so unticking it brings the colour back.
     QString m_minuteOwn;
     QString m_faceOwn;
 

@@ -191,7 +191,6 @@ ClockWindow::ClockWindow(const QString &configPath)
         }
     });
     applyTickRate();
-    applyOpacity();
     m_tick->start();
 
     connect(qApp, &QGuiApplication::screenRemoved, this,
@@ -234,7 +233,8 @@ void ClockWindow::rebuildRaster()
 
     // In "original" mode the artwork is its own colour scheme; leave it be.
     m_raster = m_cfg.faceRecolor
-                   ? recolor(art, m_cfg.wireColor, m_cfg.faceColor, m_cfg.faceTransparent)
+                   ? recolor(art, m_cfg.wireColor, m_cfg.faceColor, m_cfg.faceOpacity,
+                             m_cfg.wireOpacity)
                    : art;
     m_raster.setDevicePixelRatio(dpr);
 }
@@ -1061,15 +1061,6 @@ void ClockWindow::applyAlwaysOnTop()
     }
 }
 
-// The window is faded as a whole, artwork and hands together, which is what a
-// user sliding an opacity control expects; fading the painting alone would
-// leave a solid-looking window over whatever is behind it.
-void ClockWindow::applyOpacity()
-{
-    const int percent = std::clamp(m_cfg.opacity, kOpacityMin, kOpacityMax);
-    setWindowOpacity(percent / 100.0);
-}
-
 // A sweeping minute hand has to be redrawn continuously; a stepping one only
 // needs to be checked often enough to land on the new second promptly.
 void ClockWindow::applyTickRate()
@@ -1247,20 +1238,18 @@ void ClockWindow::applySettings(const Config &values)
         values.faceSvg != m_cfg.faceSvg || values.faceDefault != m_cfg.faceDefault;
     const bool changedColor = values.wireColor != m_cfg.wireColor
                               || values.faceColor != m_cfg.faceColor
-                              || values.faceTransparent != m_cfg.faceTransparent
+                              || values.faceOpacity != m_cfg.faceOpacity
+                              || values.wireOpacity != m_cfg.wireOpacity
                               || values.faceRecolor != m_cfg.faceRecolor;
     const bool changedSize = values.size != m_cfg.size;
     const bool changedOnTop = values.alwaysOnTop != m_cfg.alwaysOnTop;
     const bool changedSmooth = values.smoothSweep != m_cfg.smoothSweep;
-    const bool changedOpacity = values.opacity != m_cfg.opacity;
 
     m_cfg = values;
     if (changedOnTop)
         syncAlwaysOnTop();
     if (changedSmooth)
         applyTickRate();
-    if (changedOpacity)
-        applyOpacity();
     if (newFace)
         m_face = openFace(m_cfg.facePath());
     if (newFace || changedColor) {

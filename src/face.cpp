@@ -129,8 +129,12 @@ std::unique_ptr<Face> openFace(const QString &path)
     return std::make_unique<Face>(QString());
 }
 
+// facePercent/wirePercent fade the two ends of the ramp independently, so the
+// body of the drawing can wash out while the lines over it stay solid, or the
+// other way about.  A face at 0 leaves bare wire over the desktop, which is
+// what the old "transparent" tick did.
 QImage recolor(const QImage &art, const QString &wireHex, const QString &faceHex,
-               bool faceTransparent)
+               int facePercent, int wirePercent)
 {
     QImage src = art;
     if (src.format() != QImage::Format_ARGB32)
@@ -145,13 +149,19 @@ QImage recolor(const QImage &art, const QString &wireHex, const QString &faceHex
     const int faceG = face.isValid() ? face.green() : 255;
     const int faceB = face.isValid() ? face.blue() : 255;
 
-    // lut[c][t]: the output channel for a source brightness of t.
+    const double faceAlpha = std::clamp(facePercent, 0, 100) / 100.0;
+    const double wireAlpha = std::clamp(wirePercent, 0, 100) / 100.0;
+
+    // lut[c][t]: the output channel for a source brightness of t, with lut[3]
+    // holding the fraction of the pixel's own alpha that survives.
     quint8 lut[3][256];
+    double alphaLut[256];
     for (int t = 0; t < 256; ++t) {
         const double ramp = t / 255.0;
         lut[0][t] = static_cast<quint8>(std::lround(wireR * (1.0 - ramp) + faceR * ramp));
         lut[1][t] = static_cast<quint8>(std::lround(wireG * (1.0 - ramp) + faceG * ramp));
         lut[2][t] = static_cast<quint8>(std::lround(wireB * (1.0 - ramp) + faceB * ramp));
+        alphaLut[t] = wireAlpha * (1.0 - ramp) + faceAlpha * ramp;
     }
 
     const int w = src.width();
@@ -165,13 +175,8 @@ QImage recolor(const QImage &art, const QString &wireHex, const QString &faceHex
             const int alpha = qAlpha(p);
             // t = 0 for pure black (wire), 255 for pure white (face body)
             const int t = std::max({qRed(p), qGreen(p), qBlue(p)});
-            if (faceTransparent) {
-                // Fade out the light body, keeping only the wire.
-                const int a = (alpha * (255 - t) + 127) / 255;
-                dst[x] = qRgba(wireR, wireG, wireB, a);
-            } else {
-                dst[x] = qRgba(lut[0][t], lut[1][t], lut[2][t], alpha);
-            }
+            const int a = static_cast<int>(std::lround(alpha * alphaLut[t]));
+            dst[x] = qRgba(lut[0][t], lut[1][t], lut[2][t], std::clamp(a, 0, 255));
         }
     }
     return out;

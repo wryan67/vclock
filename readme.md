@@ -121,10 +121,11 @@ the Settings **Face** box, directly above the two swatches it governs.
 
 **Recolor** — the default. Within the artwork white is treated as the face
 colour and black as the wire colour, and both can be set from Settings;
-anti-aliased pixels blend between the two, so edges stay smooth. Ticking
-**transparent** keeps only the line work and fades the body away. The mapping
+anti-aliased pixels blend between the two, so edges stay smooth. The mapping
 reads brightness alone, so a drawing that already had colours comes out in
-yours instead, its shading intact.
+yours instead, its shading intact. The two ends fade separately -- see
+**Opacity** below -- so the body can be dropped away to leave only the line
+work over the desktop.
 
 **Original** draws the file exactly as authored. The face and wire colours no
 longer mean anything, so they grey out; the hands and the marks still draw on
@@ -249,15 +250,30 @@ If the screen is not tall or wide enough for the whole dialog, the controls
 scroll and the Save and Cancel buttons stay pinned below them, so they are
 always reachable. Scrollbars appear only when they are actually needed.
 
-Every slider in Sizes / Opacity has its value in a box beside it that can be
+Every slider in Sizes and Opacity has its value in a box beside it that can be
 typed into as well as read, which is the only way to set an exact number on a
 slider whose range is wider than the pixels it is drawn in. A value outside the
 range is refused as it is typed, and a half-finished one is rounded to the
 nearest allowed value when you leave the box.
 
-Opacity fades the whole window, artwork and hands together. It stops short of
-invisible on purpose: a clock faded to nothing would still be there, still
-taking clicks, with no way left to see it or reach its menu to put it right.
+Opacity fades the four parts of the clock separately, each from solid down to
+gone:
+
+| Slider | What it fades |
+| --- | --- |
+| Face | The body of the artwork -- at 0 the desktop shows through it |
+| Wire | The artwork's line work, its outlines and shading |
+| Clock hands | The three hands and the pin they turn on |
+| Clock marks | The hour and minute indices around the dial |
+
+**sync face/wire** and **sync hands/marks** keep a pair on one value, for when
+you want to fade the whole drawing, or the whole dial, in one go. Ticking a box
+pulls the second slider onto the first, so the value you were looking at wins.
+
+Any part may fade away entirely, which is the point: a face at 0 leaves a wire
+outline over the wallpaper, and hands at 0 leave a dial with nothing on it. The
+clock itself never becomes unreachable, because the window goes on taking
+clicks wherever the clock is, so right clicking there still opens the menu.
 
 ## Configuration
 
@@ -266,6 +282,11 @@ The file format is unchanged from the earlier Python implementation, and configs
 written under the older `vclock.cfg` name, the older `~/.config/vclock` or
 `~/.config/fclock` paths, or the older `ship_color` / `ship_transparent` key
 names, are still read once and migrated on the next save.
+
+The same goes for the older `opacity`, which faded the whole window before each
+part of the drawing had a fade of its own: it is spread across all four, so a
+clock set half faded still looks the way it did. An older `face_transparent` is
+read as a face faded to 0, which is what that tick did.
 
 ### Command line
 
