@@ -180,6 +180,7 @@ than were asked for.
 
 | Action | Result |
 | --- | --- |
+| Hover | the date and time, spelled out |
 | Left drag | move the clock |
 | Double click | settings |
 | Right click | menu (Always on top, Manage clocks, Settings, Move, Reset defaults, Help, About, Hide, Quit) |
@@ -208,6 +209,22 @@ The clock refuses to be minimised, maximised, or made full screen, whether the
 request comes from the window manager, a "show desktop" key, or a tiling
 shortcut. Because it keeps out of the taskbar and the window switcher, being
 iconified would leave no way to get it back.
+
+### The date on hover
+
+Resting the pointer on a clock brings up a small bubble beside it:
+
+```
+     Thursday
+September 3rd, 2026
+   11:17:52 PM
+```
+
+An analog face gives the time to the nearest minute and says nothing at all
+about the date, so the bubble fills in both, down to the second. It waits for
+the pointer to settle before appearing, so crossing a clock on the way
+somewhere else does not summon it, and it goes as soon as the pointer leaves or
+a button goes down. The seconds keep running while it is up.
 
 ### Always on top
 
@@ -571,6 +588,7 @@ A few details worth knowing:
 | `src/settingsdialog.*` | the Settings window |
 | `src/autostart.*` | writing and removing the login startup entry |
 | `src/clockwindow.*` | the translucent clock window itself |
+| `src/timetip.*` | the date and time bubble shown on hover |
 | `src/windowgroup.*` | keeping each clock's stacking its own, on X11 |
 | `distro/` | packaging: one recipe per target, and the desktop entry a Linux install ships |
 | `distro/packaging.cmake` | the CPack settings the deb and rpm are built from |

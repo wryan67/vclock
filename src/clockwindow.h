@@ -19,6 +19,7 @@ class QMenu;
 class QScreen;
 class QTimer;
 class SettingsDialog;
+class TimeTip;
 
 class ClockWindow : public QWidget
 {
@@ -88,6 +89,9 @@ protected:
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
     void mouseDoubleClickEvent(QMouseEvent *event) override;
+    void enterEvent(QEnterEvent *event) override;
+    void leaveEvent(QEvent *event) override;
+    void hideEvent(QHideEvent *event) override;
     void showEvent(QShowEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
     void moveEvent(QMoveEvent *event) override;
@@ -127,6 +131,11 @@ private:
     void nudgeCenter(int dx, int dy);
     void drawPickHint(class QPainter &painter, double cx, double cy, double radius);
 
+    // The date-and-time bubble shown while the pointer rests on the face.
+    void armTimeTip();
+    void showTimeTip();
+    void hideTimeTip();
+
     Config m_cfg;
     std::unique_ptr<Face> m_face;
     QImage m_raster;                    // the recoloured, rasterised face
@@ -154,6 +163,9 @@ private:
 
     QMenu *m_menu = nullptr;
     QAction *m_onTopAction = nullptr;
+
+    TimeTip *m_timeTip = nullptr;
+    QTimer *m_tipDelay = nullptr;
 
     QTimer *m_tick = nullptr;
     QTimer *m_saveTimer = nullptr;

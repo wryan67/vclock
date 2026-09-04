@@ -27,6 +27,7 @@ add_executable(vclock WIN32 MACOSX_BUNDLE
   src/manageclocksdialog.cpp
   src/settingsdialog.cpp
   src/clockwindow.cpp
+  src/timetip.cpp
   src/windowgroup.cpp
   src/config.h
   src/embedded.h
@@ -41,6 +42,7 @@ add_executable(vclock WIN32 MACOSX_BUNDLE
   src/manageclocksdialog.h
   src/settingsdialog.h
   src/clockwindow.h
+  src/timetip.h
   src/windowgroup.h
 )
 

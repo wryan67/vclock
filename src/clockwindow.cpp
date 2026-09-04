@@ -6,6 +6,7 @@
 #include "manageclocksdialog.h"
 #include "render.h"
 #include "settingsdialog.h"
+#include "timetip.h"
 #include "windowgroup.h"
 
 #include <QAction>
@@ -40,6 +41,10 @@ namespace {
 // enough that a new second shows up promptly; sweeping, it is the frame rate.
 constexpr int kSteppedIntervalMs = 200;
 constexpr int kSmoothIntervalMs = 17;  // ~60 fps
+
+// How long the pointer has to settle before the date bubble appears. Long
+// enough that crossing the clock on the way somewhere else does not summon it.
+constexpr int kTipDelayMs = 450;
 
 #if defined(Q_OS_MACOS)
 // macOS users expect Cmd; Qt already maps Qt::ControlModifier onto it.
@@ -158,6 +163,11 @@ ClockWindow::ClockWindow(const QString &configPath)
     // Each clock stacks on its own, so "always on top" on one of them does not
     // drag the rest up with it.
     detachFromGroup();
+
+    m_tipDelay = new QTimer(this);
+    m_tipDelay->setSingleShot(true);
+    m_tipDelay->setInterval(kTipDelayMs);
+    connect(m_tipDelay, &QTimer::timeout, this, &ClockWindow::showTimeTip);
 
     m_face = openFace(m_cfg.facePath());
     m_cfg.size = std::min(m_cfg.size, maxSize());
@@ -532,7 +542,30 @@ void ClockWindow::changeEvent(QEvent *event)
     QWidget::changeEvent(event);
 }
 
-// --- stacking --------------------------------------------------------------
+// --- the date bubble ------------------------------------------------------
+//
+// The pointer arriving is only a hint that the bubble might be wanted; it has
+// to stay put for a moment first, so that sweeping the mouse across the desk
+// does not leave a trail of them.
+void ClockWindow::enterEvent(QEnterEvent *event)
+{
+    armTimeTip();
+    QWidget::enterEvent(event);
+}
+
+void ClockWindow::leaveEvent(QEvent *event)
+{
+    hideTimeTip();
+    QWidget::leaveEvent(event);
+}
+
+void ClockWindow::hideEvent(QHideEvent *event)
+{
+    // A bubble left behind by a clock that is no longer there would have
+    // nothing to point at.
+    hideTimeTip();
+    QWidget::hideEvent(event);
+}
 
 void ClockWindow::showEvent(QShowEvent *event)
 {
@@ -557,8 +590,39 @@ void ClockWindow::detachFromGroup()
     QTimer::singleShot(0, this, [this] { windowgroup::detach(this); });
 }
 
+void ClockWindow::armTimeTip()
+{
+    // Placing the hands or carrying the clock on the pointer are both jobs
+    // where a bubble under the cursor would be in the way.
+    if (m_picking || m_moveMode || m_dragging)
+        return;
+    m_tipDelay->start();
+}
+
+void ClockWindow::showTimeTip()
+{
+    if (m_picking || m_moveMode || m_dragging || !isVisible())
+        return;
+    // The pointer may have moved on since the delay started, and the bubble
+    // belongs where it is now rather than where it came in.
+    if (!rect().contains(mapFromGlobal(QCursor::pos())))
+        return;
+    if (!m_timeTip)
+        m_timeTip = new TimeTip(this);
+    m_timeTip->popUp(QCursor::pos());
+}
+
+void ClockWindow::hideTimeTip()
+{
+    if (m_tipDelay)
+        m_tipDelay->stop();
+    if (m_timeTip)
+        m_timeTip->hide();
+}
+
 void ClockWindow::closeEvent(QCloseEvent *event)
 {
+    hideTimeTip();
     closeSettings();
     flushSave();
     event->accept();
@@ -585,6 +649,7 @@ QString ClockWindow::configName() const
 
 void ClockWindow::mousePressEvent(QMouseEvent *event)
 {
+    hideTimeTip();
     // Any button settles a move in progress, and is swallowed so it cannot also
     // start a drag or open the menu.
     if (m_moveMode) {
@@ -801,6 +866,7 @@ void ClockWindow::keyPressEvent(QKeyEvent *event)
 // and follows it until any mouse button is pressed, which drops it there.
 void ClockWindow::startMoveMode()
 {
+    hideTimeTip();
     if (m_moveMode)
         return;
     cancelPicking();
@@ -860,6 +926,7 @@ void ClockWindow::centerOnCursor()
 
 void ClockWindow::startPicking()
 {
+    hideTimeTip();
     m_picking = true;
     m_draggingCenter = false;
     m_centerBeforePick = m_cfg.center;
