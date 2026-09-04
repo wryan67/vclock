@@ -1,6 +1,8 @@
 #include "timetip.h"
 
 #include <QAbstractTextDocumentLayout>
+#include <QColor>
+#include <QFont>
 #include <QGuiApplication>
 #include <QLocale>
 #include <QPainter>
@@ -46,6 +48,14 @@ QString ordinalSuffix(int day)
     }
 }
 
+// White on black, rather than the desktop's own tooltip colours.  A clock is
+// usually sitting on top of a photograph or a bright window, and a bubble in
+// the pale yellow most desktops use for tooltips gets lost against it; black
+// reads against anything.
+const QColor kBubbleColor(0, 0, 0);
+const QColor kTextColor(255, 255, 255);
+const QColor kBorderColor(90, 90, 90);
+
 }  // namespace
 
 TimeTip::TimeTip(QWidget *parent)
@@ -61,7 +71,13 @@ TimeTip::TimeTip(QWidget *parent)
     setFocusPolicy(Qt::NoFocus);
 
     m_doc = new QTextDocument(this);
-    m_doc->setDefaultFont(QToolTip::font());
+    // Greyscale antialiasing rather than the subpixel kind. Subpixel rendering
+    // works by lying about colour at the edge of every stroke, which passes
+    // unnoticed on the pale background a tooltip usually has and turns into a
+    // orange-and-blue fringe around white text on black.
+    QFont font = QToolTip::font();
+    font.setStyleStrategy(QFont::StyleStrategy(font.styleStrategy() | QFont::NoSubpixelAntialias));
+    m_doc->setDefaultFont(font);
     m_doc->setDocumentMargin(0);
 
     m_tick = new QTimer(this);
@@ -150,18 +166,16 @@ void TimeTip::paintEvent(QPaintEvent *)
     painter.setRenderHint(QPainter::Antialiasing, true);
     painter.setRenderHint(QPainter::TextAntialiasing, true);
 
-    const QPalette palette = QToolTip::palette();
-    QPainterPath bubble;
-    // Half a pixel in, so the one-pixel border lands on the pixel rather than
+    QPainterPath bubble;    // Half a pixel in, so the one-pixel border lands on the pixel rather than
     // straddling two of them.
     bubble.addRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), kRadius, kRadius);
-    painter.fillPath(bubble, palette.toolTipBase());
-    painter.setPen(QPen(palette.toolTipText().color().lighter(180), 1.0));
+    painter.fillPath(bubble, kBubbleColor);
+    painter.setPen(QPen(kBorderColor, 1.0));
     painter.drawPath(bubble);
 
     painter.translate(kPadX, kPadY);
     QAbstractTextDocumentLayout::PaintContext context;
-    context.palette.setColor(QPalette::Text, palette.toolTipText().color());
+    context.palette.setColor(QPalette::Text, kTextColor);
     context.clip = QRectF(0, 0, m_doc->size().width(), m_doc->size().height());
     m_doc->documentLayout()->draw(&painter, context);
 }

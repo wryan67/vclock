@@ -157,7 +157,13 @@ Registry loadRegistry()
 
     Registry registry;
     QSet<QString> seen;
-    const QJsonArray array = doc.object().value(QLatin1String("clocks")).toArray();
+    const QJsonObject root = doc.object();
+    // Read before the list, so that a file whose clocks turn out to be
+    // unusable still hands back the setting rather than quietly resetting it.
+    const int hoverDelayMs =
+        qBound(0, root.value(QLatin1String("hoverDelayMs")).toInt(kHoverDelayDefaultMs),
+               kHoverDelayMaxMs);
+    const QJsonArray array = root.value(QLatin1String("clocks")).toArray();
     for (const QJsonValue &value : array) {
         const QJsonObject o = value.toObject();
         ClockEntry entry;
@@ -178,8 +184,12 @@ Registry loadRegistry()
         registry.clocks.push_back(entry);
     }
 
-    if (registry.clocks.isEmpty())
-        return discoverExisting();
+    registry.hoverDelayMs = hoverDelayMs;
+    if (registry.clocks.isEmpty()) {
+        Registry found = discoverExisting();
+        found.hoverDelayMs = hoverDelayMs;
+        return found;
+    }
     // The default config is always listed: it is what a clock started with no
     // --config writes, so leaving it out would hide a clock the user can see.
     if (registry.indexOfFile(QStringLiteral("default.cfg")) < 0)
@@ -201,6 +211,7 @@ void saveRegistry(const Registry &registry)
     }
     QJsonObject root;
     root.insert(QLatin1String("clocks"), array);
+    root.insert(QLatin1String("hoverDelayMs"), registry.hoverDelayMs);
 
     QSaveFile file(registryPath());
     if (!file.open(QIODevice::WriteOnly))

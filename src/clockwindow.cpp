@@ -42,9 +42,8 @@ namespace {
 constexpr int kSteppedIntervalMs = 200;
 constexpr int kSmoothIntervalMs = 17;  // ~60 fps
 
-// How long the pointer has to settle before the date bubble appears. Long
-// enough that crossing the clock on the way somewhere else does not summon it.
-constexpr int kTipDelayMs = 450;
+// How long the pointer has to settle before the date bubble appears is a
+// program-wide setting, kept beside the clock list; see registry.h.
 
 #if defined(Q_OS_MACOS)
 // macOS users expect Cmd; Qt already maps Qt::ControlModifier onto it.
@@ -166,7 +165,6 @@ ClockWindow::ClockWindow(const QString &configPath)
 
     m_tipDelay = new QTimer(this);
     m_tipDelay->setSingleShot(true);
-    m_tipDelay->setInterval(kTipDelayMs);
     connect(m_tipDelay, &QTimer::timeout, this, &ClockWindow::showTimeTip);
 
     m_face = openFace(m_cfg.facePath());
@@ -596,7 +594,13 @@ void ClockWindow::armTimeTip()
     // where a bubble under the cursor would be in the way.
     if (m_picking || m_moveMode || m_dragging)
         return;
-    m_tipDelay->start();
+    // Read the wait each time rather than holding on to it, so that changing
+    // it in the manage dialog takes effect on the next hover instead of the
+    // next run.  Zero means the bubble is switched off.
+    const int delay = ClockManager::instance().registry().hoverDelayMs;
+    if (delay <= 0)
+        return;
+    m_tipDelay->start(delay);
 }
 
 void ClockWindow::showTimeTip()

@@ -226,6 +226,22 @@ the pointer to settle before appearing, so crossing a clock on the way
 somewhere else does not summon it, and it goes as soon as the pointer leaves or
 a button goes down. The seconds keep running while it is up.
 
+*Date on hover after*, at the foot of the manage dialog, sets how long that
+wait is; it starts at three seconds. Winding it down past zero reads *never*
+and stops the bubble appearing at all -- no time at all is not a wait anyone
+would ask for on purpose, which leaves the bottom of the range free to mean the
+one other thing you might want from the setting. Like *Start at login* it is
+one answer for the program rather than a property of any one clock, which is
+why it lives there and not in a clock's own settings. Clocks read it as they
+are hovered, so a change takes hold on the next hover rather than the next run.
+
+The bubble is white on black rather than the desktop's own tooltip colours: a
+clock usually sits over a photograph or a bright window, and the pale yellow
+most desktops use for tooltips gets lost against that. Its text is drawn with
+greyscale antialiasing rather than the subpixel kind, which works by lying
+about colour along the edge of every stroke -- unnoticeable on a pale
+background, and an orange-and-blue fringe around white letters on black.
+
 ### Always on top
 
 The clock is kept above other windows by default; *Always on top* in the menu
@@ -492,7 +508,9 @@ rather than the program starting with no windows at all.
 
 The list lives in `vclocks.cfg` in the config directory, alongside the per-clock
 configs. Names there are labels only; the config file a clock uses is fixed when
-it is made, so renaming never moves any settings.
+it is made, so renaming never moves any settings. The few settings that belong
+to the program rather than to a clock -- the hover wait, for one -- are kept in
+that file too, beside the list, rather than repeated in every config.
 
 ### Start at login
 

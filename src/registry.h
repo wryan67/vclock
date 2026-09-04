@@ -32,10 +32,25 @@ struct ClockEntry
     QString path() const;
 };
 
+// How long the pointer has to rest on a clock before the date bubble appears.
+// Long enough that it is a deliberate act rather than something that happens
+// on the way past.
+constexpr int kHoverDelayDefaultMs = 3000;
+constexpr int kHoverDelayMaxMs = 10000;
+
 class Registry
 {
 public:
     QVector<ClockEntry> clocks;
+
+    // Settings that belong to the program rather than to any one clock, and so
+    // are kept here beside the list rather than repeated in every config.
+    //
+    // The wait before a clock shows the date under the pointer.  Zero turns the
+    // bubble off: there is no separate switch, because a wait of no time at all
+    // is not something anybody would ask for on purpose, which leaves the value
+    // free to mean the one other thing you might want.
+    int hoverDelayMs = kHoverDelayDefaultMs;
 
     int indexOfFile(const QString &file) const;
     int indexOfPath(const QString &path) const;

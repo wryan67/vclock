@@ -10,6 +10,7 @@
 #include <QAbstractItemDelegate>
 #include <QCheckBox>
 #include <QDialogButtonBox>
+#include <QDoubleSpinBox>
 #include <QFile>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -153,6 +154,30 @@ ManageClocksDialog::ManageClocksDialog(QWidget *parent) : QDialog(nullptr)
         connect(m_autostart, &QCheckBox::toggled, this, &ManageClocksDialog::setAutostart);
         bottom->addWidget(m_autostart);
     }
+
+    // How long a clock waits before showing the date under the pointer. Like
+    // starting at login, it is one answer for the program rather than a
+    // property of any one clock, which is what puts it here.
+    m_hoverDelay = new QDoubleSpinBox;
+    m_hoverDelay->setDecimals(1);
+    m_hoverDelay->setSingleStep(0.5);
+    m_hoverDelay->setRange(0.0, kHoverDelayMaxMs / 1000.0);
+    m_hoverDelay->setSuffix(QStringLiteral(" s"));
+    // No time at all is not a wait anybody would ask for, so the bottom of the
+    // range is free to mean the other thing you might want from this setting.
+    m_hoverDelay->setSpecialValueText(QStringLiteral("never"));
+    m_hoverDelay->setValue(ClockManager::instance().registry().hoverDelayMs / 1000.0);
+    m_hoverDelay->setToolTip(
+        QStringLiteral("How long to rest the pointer on a clock before it shows the date.\n"
+                       "Wind it down past zero to stop it showing at all."));
+    auto *hoverLabel = new QLabel(QStringLiteral("Date on hover after"));
+    hoverLabel->setBuddy(m_hoverDelay);
+    connect(m_hoverDelay, &QDoubleSpinBox::valueChanged, this,
+            &ManageClocksDialog::setHoverDelay);
+
+    bottom->addSpacing(12);
+    bottom->addWidget(hoverLabel);
+    bottom->addWidget(m_hoverDelay);
     bottom->addWidget(buttons, 1);
     layout->addLayout(bottom);
 
@@ -514,4 +539,16 @@ void ManageClocksDialog::setAutostart(bool on)
                                   autostart::reason()));
     const QSignalBlocker block(m_autostart);
     m_autostart->setChecked(autostart::enabled());
+}
+
+// The clocks read this as they are hovered rather than being told about it, so
+// storing it is the whole job.
+void ManageClocksDialog::setHoverDelay(double seconds)
+{
+    Registry registry = ClockManager::instance().registry();
+    const int ms = qRound(seconds * 1000.0);
+    if (ms == registry.hoverDelayMs)
+        return;
+    registry.hoverDelayMs = ms;
+    ClockManager::instance().setRegistry(registry);
 }
