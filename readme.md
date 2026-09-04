@@ -448,22 +448,46 @@ it is made, so renaming never moves any settings.
 ### Start at login
 
 The box at the bottom of Manage clocks starts vclock with the desktop session.
-It writes `vclock.desktop` to `~/.config/autostart`, which is the freedesktop
-convention every desktop with a "startup applications" list reads; unticking it
-deletes the file again. The box reads the file rather than remembering an answer
-of its own, so removing the entry by hand and reopening the dialog shows it
-unticked.
+The box reads the system rather than remembering an answer of its own, so
+removing the entry by hand and reopening the dialog shows it unticked, and the
+two can never disagree.
+
+Every desktop has this and no two agree on how, so there are three
+implementations behind the one box. All are per user and none needs
+administrator rights, which is what makes a checkbox an honest interface for
+them:
+
+| Platform | What ticking the box writes |
+| --- | --- |
+| Linux, BSD | `vclock.desktop` in `~/.config/autostart`, the freedesktop convention every "startup applications" list reads |
+| macOS | `org.vclock.vclock.plist` in `~/Library/LaunchAgents`, a launchd agent with `RunAtLoad` |
+| Windows | a `vclock` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` |
+
+Anywhere else the box is left out of the dialog entirely rather than shown
+disabled: a box that cannot be ticked only invites the question of how to make
+it tickable, and there would be no answer.
 
 There is one setting for the program, not one per clock, because what comes back
 at login is whatever was showing when the session ended — the same rule Show
 already follows.
 
 The entry points at the running program's own path, resolved through any symlink
-used to start it, so a build moved or deleted afterwards will not come back at
-login. It also needs an icon file, which a program that draws its own icon does
-not otherwise have, so ticking the box writes one to
-`~/.local/share/vclock/icon.png`. Unticking leaves it there: it costs a few
-kilobytes and saves redrawing it next time.
+used to start it, so it names the binary that is actually running. Running from
+a build directory this means the entry follows that directory, and a build
+deleted afterwards will not come back at login; it is worth installing properly
+before relying on it.
+
+The Linux entry also needs an icon, which a program that draws its own does not
+otherwise have. An installed package puts `vclock.svg` in the icon theme and the
+entry simply names it. Running from a build directory there is no such file, so
+ticking the box draws one to `~/.local/share/vclock/icon.png` instead. Unticking
+leaves it: it costs a few kilobytes and saves redrawing it next time.
+
+The macOS agent sets `KeepAlive` false, or quitting the program would bring it
+straight back, and `LimitLoadToSessionType` to `Aqua`, or it would also be
+started for ssh and cron sessions where there is no display to draw a clock on.
+On Windows the uninstaller clears the Run value, since an entry naming a deleted
+program is one Windows goes looking for at every login.
 
 `-h`, `--help` prints the options and exits.
 

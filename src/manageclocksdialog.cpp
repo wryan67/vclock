@@ -140,14 +140,19 @@ ManageClocksDialog::ManageClocksDialog(QWidget *parent) : QDialog(nullptr)
     // in a clock's own settings because it is about the program, not a clock:
     // there is one answer however many clocks are in the list, and what comes
     // back is whatever was showing when the session ended.
-    m_autostart = new QCheckBox(QStringLiteral("Start at login"));
-    m_autostart->setChecked(autostart::enabled());
-    m_autostart->setToolTip(
-        QStringLiteral("Start vclock when you log in, showing whatever clocks are showing now"));
-    connect(m_autostart, &QCheckBox::toggled, this, &ManageClocksDialog::setAutostart);
-
+    //
+    // Left out entirely where the platform has no startup mechanism vclock can
+    // write, rather than shown disabled: a box that cannot be ticked invites
+    // the question of how to make it tickable, and there is no answer.
     auto *bottom = new QHBoxLayout;
-    bottom->addWidget(m_autostart);
+    if (autostart::supported()) {
+        m_autostart = new QCheckBox(QStringLiteral("Start at login"));
+        m_autostart->setChecked(autostart::enabled());
+        m_autostart->setToolTip(
+            QStringLiteral("Start vclock when you log in, showing whatever clocks are showing now"));
+        connect(m_autostart, &QCheckBox::toggled, this, &ManageClocksDialog::setAutostart);
+        bottom->addWidget(m_autostart);
+    }
     bottom->addWidget(buttons, 1);
     layout->addLayout(bottom);
 
