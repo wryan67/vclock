@@ -134,7 +134,7 @@ ClockWindow::ClockWindow(const QString &configPath)
     // Several clocks can be running at once, so the title says which one this
     // is.
     refreshTitle();
-    setWindowIcon(QIcon(QPixmap::fromImage(appIconImage(64))));
+    setWindowIcon(QIcon(QPixmap::fromImage(appIconImage(256))));
 
     // Undecorated, kept out of the taskbar and the window switcher, and painted
     // straight onto a translucent surface so everything outside the artwork is
@@ -1181,7 +1181,7 @@ void ClockWindow::showHelp()
     auto *box = new QMessageBox(this);
     box->setAttribute(Qt::WA_DeleteOnClose, true);
     box->setWindowTitle(QStringLiteral("vclock help"));
-    box->setIconPixmap(QPixmap::fromImage(appIconImage(96)));
+    box->setIconPixmap(appIconPixmap(96, devicePixelRatioF()));
     box->setTextFormat(Qt::RichText);
     box->setText(QStringLiteral("<b>vclock help</b>"));
     box->setInformativeText(
@@ -1222,7 +1222,7 @@ void ClockWindow::showAbout()
     auto *box = new QMessageBox(this);
     box->setAttribute(Qt::WA_DeleteOnClose, true);
     box->setWindowTitle(QStringLiteral("About vclock"));
-    box->setIconPixmap(QPixmap::fromImage(appIconImage(96)));
+    box->setIconPixmap(appIconPixmap(96, devicePixelRatioF()));
     box->setText(QStringLiteral("<b>vclock</b>"));
     box->setInformativeText(QString::fromUtf8(aboutText())
                             + QStringLiteral("\n\nWritten by Wade Ryan\nSeptember, 2026"));

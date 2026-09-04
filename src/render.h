@@ -38,3 +38,9 @@ QPixmap presetThumbnail(const Config &values, int size, qreal devicePixelRatio);
 // there is one, else the "Gradient" preset.  So the icon is sharp at any size
 // and is always a real vclock rather than a stale likeness of one.
 QImage appIconImage(int size);
+
+// The same icon at a point size, drawn at the display's true pixel density
+// so that it is not scaled up afterwards.  Use this anywhere the icon is put
+// on screen at a known size; appIconImage() is for QIcon, which asks in
+// device pixels itself.
+QPixmap appIconPixmap(int size, qreal devicePixelRatio);

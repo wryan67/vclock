@@ -329,3 +329,12 @@ QImage appIconImage(int size)
 {
     return drawClock(iconClock(), std::max(1, size));
 }
+
+QPixmap appIconPixmap(int size, qreal devicePixelRatio)
+{
+    const qreal dpr = devicePixelRatio > 0 ? devicePixelRatio : 1.0;
+    const int pixels = std::max(1, static_cast<int>(std::lround(size * dpr)));
+    QImage canvas = drawClock(iconClock(), pixels);
+    canvas.setDevicePixelRatio(dpr);
+    return QPixmap::fromImage(canvas);
+}

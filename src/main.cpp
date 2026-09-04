@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
     app.setApplicationDisplayName(QStringLiteral("vclock"));
     installGlyphStyle();
     app.setOrganizationName(QStringLiteral("vclock"));
-    app.setWindowIcon(QIcon(QPixmap::fromImage(appIconImage(64))));
+    app.setWindowIcon(QIcon(QPixmap::fromImage(appIconImage(256))));
     // The clock closes itself (flushing its config first), and its dialogs must
     // not be able to end the program by being the last window shut.
     app.setQuitOnLastWindowClosed(false);
