@@ -15,6 +15,8 @@ RUN dnf install -y \
       file \
       qt6-qtbase-devel \
       qt6-qtsvg-devel \
+      libxcb-devel \
+      pkgconf-pkg-config \
  && dnf clean all
 
 COPY package.sh /usr/local/bin/package.sh

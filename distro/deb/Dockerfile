@@ -18,6 +18,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       qt6-base-dev \
       qt6-svg-dev \
       libgl1-mesa-dev \
+      libxcb1-dev \
+      pkg-config \
  && rm -rf /var/lib/apt/lists/*
 
 COPY package.sh /usr/local/bin/package.sh

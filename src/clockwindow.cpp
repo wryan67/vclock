@@ -6,6 +6,7 @@
 #include "manageclocksdialog.h"
 #include "render.h"
 #include "settingsdialog.h"
+#include "windowgroup.h"
 
 #include <QAction>
 #include <QApplication>
@@ -154,6 +155,9 @@ ClockWindow::ClockWindow(const QString &configPath)
     setFocusPolicy(Qt::StrongFocus);
     setMouseTracking(false);
     applyAlwaysOnTop();
+    // Each clock stacks on its own, so "always on top" on one of them does not
+    // drag the rest up with it.
+    detachFromGroup();
 
     m_face = openFace(m_cfg.facePath());
     m_cfg.size = std::min(m_cfg.size, maxSize());
@@ -526,6 +530,31 @@ void ClockWindow::changeEvent(QEvent *event)
         }
     }
     QWidget::changeEvent(event);
+}
+
+// --- stacking --------------------------------------------------------------
+
+void ClockWindow::showEvent(QShowEvent *event)
+{
+    QWidget::showEvent(event);
+    // Being shown may have built a fresh native window, and Qt puts the group
+    // hint back every time it does.
+    detachFromGroup();
+    // Qt sets the window's state from its own flag as it maps it, and that
+    // flag stops being the truth the moment the setting is changed on a clock
+    // that is already up. Say it again once the mapping has gone through.
+    QTimer::singleShot(0, this, [this] { windowgroup::setAlwaysOnTop(this, m_cfg.alwaysOnTop); });
+}
+
+// Qt does not rebuild the native window while it is being asked to: the old
+// one is dropped and the replacement appears once the event loop comes round
+// again, with the group hint freshly set on it. Clearing it now covers the
+// window that is there already, and clearing it again on the next turn covers
+// the one that is about to be.
+void ClockWindow::detachFromGroup()
+{
+    windowgroup::detach(this);
+    QTimer::singleShot(0, this, [this] { windowgroup::detach(this); });
 }
 
 void ClockWindow::closeEvent(QCloseEvent *event)
@@ -1048,6 +1077,13 @@ void ClockWindow::manageClocks()
 
 void ClockWindow::applyAlwaysOnTop()
 {
+    // Where the window manager can simply be told, tell it. Reaching the same
+    // end through Qt's window flag makes Qt throw the native window away and
+    // build another, which loses the position, drops the mapping for a moment,
+    // and hands back the group hint that makes every clock stack as one.
+    if (windowgroup::setAlwaysOnTop(this, m_cfg.alwaysOnTop))
+        return;
+
     if (windowFlags().testFlag(Qt::WindowStaysOnTopHint) == m_cfg.alwaysOnTop)
         return;
     const bool wasVisible = isVisible();
@@ -1058,6 +1094,7 @@ void ClockWindow::applyAlwaysOnTop()
         // placement and the mapping.
         show();
         move(where);
+        detachFromGroup();
     }
 }
 

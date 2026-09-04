@@ -59,12 +59,14 @@ cmake -S . -B build -DCMAKE_PREFIX_PATH=/path/to/Qt/6.5.3/gcc_64
 
 ### Dependencies by platform
 
-* **Linux** — `qt6-base-dev qt6-svg-dev` (Debian/Ubuntu), `qt6-qtbase-devel
-  qt6-qtsvg-devel` (Fedora, RHEL via EPEL), `qt6-base qt6-svg` (Arch),
-  `qt6-base-devel qt6-svg-devel` (openSUSE) or `qt6-qtbase-dev qt6-qtsvg-dev`
-  (Alpine); `./build.sh --check-deps` works this out for you. A compositing
-  window manager is needed for the transparent background; without one the
-  window falls back to an opaque rectangle.
+* **Linux** — `qt6-base-dev qt6-svg-dev libxcb1-dev` (Debian/Ubuntu),
+  `qt6-qtbase-devel qt6-qtsvg-devel libxcb-devel` (Fedora, RHEL via EPEL),
+  `qt6-base qt6-svg libxcb` (Arch), `qt6-base-devel qt6-svg-devel libxcb-devel`
+  (openSUSE) or `qt6-qtbase-dev qt6-qtsvg-dev libxcb-dev` (Alpine);
+  `./build.sh --check-deps` works this out for you. The xcb headers are for one
+  thing only: telling the window manager which clocks belong on top, one clock
+  at a time. A compositing window manager is needed for the transparent
+  background; without one the window falls back to an opaque rectangle.
 * **macOS** — Qt from Homebrew (`brew install qt`) or the Qt installer. The
   build produces a `vclock.app` bundle.
 * **Windows** — Qt from the Qt installer with MSVC or MinGW. The executable is
@@ -207,8 +209,23 @@ request comes from the window manager, a "show desktop" key, or a tiling
 shortcut. Because it keeps out of the taskbar and the window switcher, being
 iconified would leave no way to get it back.
 
+### Always on top
+
 The clock is kept above other windows by default; *Always on top* in the menu
 turns that off. Existing configs keep whatever they already had.
+
+It is a setting per clock, and it now behaves as one. On X11 every window a
+program opens belongs to a single window group, and window managers stack a
+group as a unit -- whichever member is highest, the rest are raised to meet it.
+That is right for a document and its dialogs and quite wrong for a set of
+clocks, whose only relationship is having been started together: turning
+*Always on top* on for one of them turned it on for all of them. Each clock is
+now taken out of that group, so it stacks on its own.
+
+The switch also asks the window manager directly rather than going through Qt's
+window flag. Changing that flag makes Qt destroy the native window and build
+another, which loses the clock's position and unmaps it for a moment; asking
+the window manager leaves the window alone.
 
 ### Move mode
 
@@ -554,6 +571,7 @@ A few details worth knowing:
 | `src/settingsdialog.*` | the Settings window |
 | `src/autostart.*` | writing and removing the login startup entry |
 | `src/clockwindow.*` | the translucent clock window itself |
+| `src/windowgroup.*` | keeping each clock's stacking its own, on X11 |
 | `distro/` | packaging: one recipe per target, and the desktop entry a Linux install ships |
 | `distro/packaging.cmake` | the CPack settings the deb and rpm are built from |
 | `.github/workflows/` | the release build, and the only place macOS is built |

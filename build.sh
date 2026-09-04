@@ -455,6 +455,12 @@ package_for() {
         suse:qtsvg)      echo qt6-svg-devel ;;
         alpine:qtsvg)    echo qt6-qtsvg-dev ;;
 
+        debian:xcb)      echo libxcb1-dev ;;
+        rhel:xcb)        echo libxcb-devel ;;
+        arch:xcb)        echo libxcb ;;
+        suse:xcb)        echo libxcb-devel ;;
+        alpine:xcb)      echo libxcb-dev ;;
+
         debian:xkb)      echo libxkbcommon-dev ;;
         rhel:xkb)        echo libxkbcommon-devel ;;
         arch:xkb)        echo libxkbcommon ;;
@@ -496,6 +502,20 @@ xkb_present() {
     return 1
 }
 
+# The clock reaches past Qt to X11 to keep each window stacking on its own, so
+# the xcb headers are needed rather than merely nice to have. The library
+# itself is already there: Qt's own X11 plugin is built on it.
+xcb_present() {
+    if command -v pkg-config >/dev/null 2>&1 && pkg-config --exists xcb; then
+        return 0
+    fi
+    local dir
+    for dir in /usr/include /usr/local/include; do
+        [ -f "$dir/xcb/xcb.h" ] && return 0
+    done
+    return 1
+}
+
 as_root() {
     if [ "$(id -u)" -eq 0 ]; then
         "$@"
@@ -511,6 +531,11 @@ as_root() {
 check_dependencies() {
     MISSING_KEYS=(); MISSING_LABELS=()
     OPTIONAL_KEYS=(); OPTIONAL_LABELS=()
+
+    # Only on X11-capable systems: the macOS and Windows builds do not use it.
+    if [ "$(uname -s)" = "Linux" ] && ! xcb_present; then
+        want xcb "xcb development files (needed so each clock stacks on its own)"
+    fi
 
     if ! xkb_present; then
         want_optional xkb "xkbcommon development files (optional; without them CMake reports \"Could NOT find XKB\")"

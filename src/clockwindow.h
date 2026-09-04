@@ -88,6 +88,7 @@ protected:
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
     void mouseDoubleClickEvent(QMouseEvent *event) override;
+    void showEvent(QShowEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
     void moveEvent(QMoveEvent *event) override;
     void changeEvent(QEvent *event) override;
@@ -114,6 +115,7 @@ private:
     void queueSave();
     void flushSave();
     void applyAlwaysOnTop();
+    void detachFromGroup();
     void syncAlwaysOnTop();
     void applyTickRate();
     void buildMenu();

@@ -27,6 +27,7 @@ add_executable(vclock WIN32 MACOSX_BUNDLE
   src/manageclocksdialog.cpp
   src/settingsdialog.cpp
   src/clockwindow.cpp
+  src/windowgroup.cpp
   src/config.h
   src/embedded.h
   src/face.h
@@ -40,12 +41,25 @@ add_executable(vclock WIN32 MACOSX_BUNDLE
   src/manageclocksdialog.h
   src/settingsdialog.h
   src/clockwindow.h
+  src/windowgroup.h
 )
 
 target_link_libraries(vclock PRIVATE
   Qt${QT_VERSION_MAJOR}::Widgets
   Qt${QT_VERSION_MAJOR}::Svg
 )
+
+# On X11 every window a process opens shares one window group, and window
+# managers stack a group together: one clock set to stay on top would carry the
+# others up with it.  Breaking that needs to reach past Qt to the WM_HINTS
+# record, which is a few lines of xcb.  The library is already there underneath
+# Qt's own X11 plugin; only its headers are an extra build dependency.
+if(UNIX AND NOT APPLE)
+  find_package(PkgConfig REQUIRED)
+  pkg_check_modules(XCB REQUIRED IMPORTED_TARGET xcb)
+  target_link_libraries(vclock PRIVATE PkgConfig::XCB)
+  target_compile_definitions(vclock PRIVATE VCLOCK_HAVE_XCB)
+endif()
 
 set_target_properties(vclock PROPERTIES
   MACOSX_BUNDLE_BUNDLE_NAME "vclock"
