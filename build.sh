@@ -31,6 +31,7 @@ RUN_AFTER=0
 VERBOSE=0
 DISTRO_TARGETS=
 DISTRO_ARCHES=
+PACKAGE_THIS=0
 
 # ---------------------------------------------------------------------------
 # Output helpers
@@ -81,12 +82,17 @@ ${C_BOLD}Packaging:${C_RESET}
                         Defaults to this machine's, except with --distro all
                         which defaults to every architecture a target has.
                         x86_64 and x64 mean amd64; aarch64 means arm64.
+      --this            Build the package this machine would install, for the
+                        architecture it runs: a .deb on Debian and Ubuntu, an
+                        .rpm on Fedora, RHEL and openSUSE. Shorthand for the
+                        --distro and --arch you would otherwise work out.
 
 ${C_BOLD}Examples:${C_RESET}
   ./build.sh                                  # release build
   ./build.sh -t Debug -j 4                    # debug build, 4 jobs
   ./build.sh --clean --qt-dir ~/Qt/6.7.2/gcc_64
   ./build.sh --install --prefix ~/.local      # install into ~/.local/bin
+  ./build.sh --this                           # the package this machine installs
   ./build.sh --distro deb                     # a .deb for this machine
   ./build.sh --distro deb --arch arm64        # a .deb for aarch64
   ./build.sh --distro all                     # everything this host can build
@@ -111,6 +117,7 @@ while [ $# -gt 0 ]; do
                          DISTRO_TARGETS="$DISTRO_TARGETS $(echo "$2" | tr ',' ' ')"; shift 2 ;;
         --arch)          [ $# -ge 2 ] || die "$1 requires an argument"
                          DISTRO_ARCHES="$DISTRO_ARCHES $(echo "$2" | tr ',' ' ')"; shift 2 ;;
+        --this)          PACKAGE_THIS=1; shift ;;
         -r|--run)        RUN_AFTER=1; shift ;;
         -v|--verbose)    VERBOSE=1; shift ;;
         -h|--help)       usage; exit 0 ;;
@@ -184,7 +191,14 @@ target_arches() {
 skip_reason() {
     case "$1:$2" in
         macos:*)
-            printf 'needs Apple hardware; run distro/macos/package.sh on a Mac, or the release workflow' ;;
+            # Saying it needs Apple hardware to somebody sitting at a Mac would
+            # be no help at all; there the obstacle is build.sh, which drives
+            # container builds and has no container to drive for this one.
+            if [ "$(uname -s)" = Darwin ]; then
+                printf 'build.sh builds in containers; run distro/macos/package.sh directly'
+            else
+                printf 'needs Apple hardware; run distro/macos/package.sh on a Mac, or the release workflow'
+            fi ;;
         *)  printf 'not buildable on this host' ;;
     esac
 }
@@ -195,6 +209,65 @@ normalise_arch() {
         arm64|aarch64)           printf 'arm64' ;;
         *)                       printf '%s' "$1" ;;
     esac
+}
+
+# What to call this machine when talking about it.  DISTRO_NAME is read from
+# /etc/os-release and so says "unknown Linux" anywhere that has no such file.
+host_description() {
+    case $(uname -s) in
+        Darwin)               printf 'macOS' ;;
+        MINGW*|MSYS*|CYGWIN*) printf 'Windows' ;;
+        Linux)                printf '%s' "$DISTRO_NAME" ;;
+        *)                    printf '%s' "$(uname -s)" ;;
+    esac
+}
+
+# The package format this machine installs, for --this.  Empty where vclock has
+# no recipe for it: Arch and Alpine have no package target here, though both can
+# still build a deb or an rpm, since those are built in containers rather than
+# out of whatever the host happens to be.
+#
+# Wants detect_distro to have run.
+host_target() {
+    case $(uname -s) in
+        Darwin)               printf 'macos' ;;
+        MINGW*|MSYS*|CYGWIN*) printf 'windows' ;;
+        Linux)
+            case $DISTRO_FAMILY in
+                debian)    printf 'deb' ;;
+                # openSUSE installs rpms too.  The recipe builds in a Fedora
+                # container, but what it produces asks for its Qt by library
+                # soname rather than by package name, so it resolves there.
+                rhel|suse) printf 'rpm' ;;
+                *)         printf '' ;;
+            esac ;;
+        *) printf '' ;;
+    esac
+}
+
+# Turn --this into the target and architecture it stands for.  Done here rather
+# than while reading the arguments because it has to wait for detect_distro.
+resolve_this_host() {
+    local target arch
+
+    # Both of these say something --this has already answered, and an argument
+    # that contradicts the one beside it is a mistake worth stopping for rather
+    # than quietly resolving one way or the other.
+    [ -z "$DISTRO_TARGETS" ] ||
+        die "--this and --distro say different things; --this is the shorthand for whichever --distro this machine needs"
+    [ -z "$DISTRO_ARCHES" ] ||
+        die "--this and --arch say different things; --this builds for this machine's own architecture"
+
+    target=$(host_target)
+    if [ -z "$target" ]; then
+        die "--this has no package for $(host_description); deb and rpm are built
+       in containers, so --distro deb or --distro rpm still works here"
+    fi
+    arch=$(normalise_arch "$(uname -m)")
+
+    DISTRO_TARGETS="$DISTRO_TARGETS $target"
+    DISTRO_ARCHES="$DISTRO_ARCHES $arch"
+    info "$(host_description) on $(uname -m): the same as --distro $target --arch $arch"
 }
 
 run_packaging() {
@@ -353,7 +426,9 @@ summarise_packaging() {
 
     printf '\n'
     if [ "$n_built" -gt 0 ]; then
-        info "packages in $out"
+        # Where they went, not a listing: the table above has already named
+        # every package and how big it is.
+        info "packages are in $out"
     fi
 
     # A run that could not produce what was asked for should say so through its
@@ -370,14 +445,6 @@ summarise_packaging() {
     fi
     return 0
 }
-
-if [ -n "$DISTRO_TARGETS" ]; then
-    run_packaging
-    exit $?
-fi
-
-[ -z "$DISTRO_ARCHES" ] || die "--arch only means something with --distro"
-
 
 # ---------------------------------------------------------------------------
 # Dependencies
@@ -431,6 +498,21 @@ detect_distro() {
         *)      PKG_TOOL= ;;
     esac
 }
+
+# Packaging takes over from the ordinary build entirely, so this sits above the
+# host dependency checks and below detect_distro, which --this needs in order to
+# know what this machine installs.
+if [ -n "$DISTRO_TARGETS" ] || [ "$PACKAGE_THIS" -eq 1 ]; then
+    if [ "$PACKAGE_THIS" -eq 1 ]; then
+        detect_distro
+        resolve_this_host
+    fi
+    run_packaging
+    exit $?
+fi
+
+[ -z "$DISTRO_ARCHES" ] || die "--arch only means something with --distro"
+
 
 # The package that provides a given requirement on the detected distribution.
 package_for() {

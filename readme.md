@@ -78,11 +78,24 @@ cmake -S . -B build -DCMAKE_PREFIX_PATH=/path/to/Qt/6.5.3/gcc_64
 build tree:
 
 ```sh
+./build.sh --this                        # the package this machine installs
 ./build.sh --distro deb                  # a .deb for this machine
 ./build.sh --distro deb --arch arm64     # a .deb for aarch64
 ./build.sh --distro rpm,windows          # more than one target
 ./build.sh --distro all                  # everything this host can build
 ```
+
+`--this` works out both halves for you: it reads `/etc/os-release` and the
+machine's architecture and builds the package this system would install — a
+`.deb` on Debian and Ubuntu and anything derived from them, an `.rpm` on Fedora,
+RHEL and openSUSE. It says which long form it settled on, so
+`./build.sh --this` on an Ubuntu x86_64 box reports that it is doing the same as
+`--distro deb --arch amd64`. Combining it with either of those is refused rather
+than resolved, since the two would be saying different things.
+
+Arch and Alpine have no package target here, so `--this` stops and says so.
+Neither is stuck: both can still build a deb or an rpm, because those are built
+in containers rather than out of whatever the host happens to be.
 
 Packages land in `distro/out`. `--arch` takes `amd64`, `arm64` or `all`, and
 accepts `x86_64`, `x64` and `aarch64` as names for the same two things; it
@@ -157,7 +170,9 @@ macOS is the one target that cannot be built here. This is not a gap in the
 tooling: Apple's SDK licence restricts building to Apple hardware, and since
 Catalina an app that is neither signed nor notarised is refused by Gatekeeper
 rather than merely warned about. `./build.sh --distro macos` says so rather than
-pretending.
+pretending. Run on a Mac, `--this` names that target and then points at the
+script below, rather than repeating that Apple hardware is required to somebody
+who is sitting at some.
 
 The recipe is `distro/macos/package.sh`, which runs on a Mac and produces a
 `vclock.app` and a disk image. It uses `macdeployqt` to copy the Qt frameworks
