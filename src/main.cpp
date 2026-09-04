@@ -41,6 +41,7 @@ int main(int argc, char *argv[])
     app.setApplicationName(QStringLiteral("vclock"));
     app.setApplicationDisplayName(QStringLiteral("vclock"));
     installGlyphStyle();
+    installAccentColour();
     app.setOrganizationName(QStringLiteral("vclock"));
     app.setWindowIcon(QIcon(QPixmap::fromImage(appIconImage(256))));
     // The clock closes itself (flushing its config first), and its dialogs must

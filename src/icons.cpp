@@ -2,6 +2,7 @@
 
 #include <QApplication>
 #include <QByteArray>
+#include <QColor>
 #include <QHash>
 #include <QIconEngine>
 #include <QPainter>
@@ -295,4 +296,27 @@ public:
 void installGlyphStyle()
 {
     QApplication::setStyle(new GlyphStyle);
+}
+
+// Sliders and other highlighted controls are drawn by the platform style in
+// whatever colour the desktop nominates: the theme's highlight on Linux, and on
+// Windows the system accent colour, which the Windows 11 style paints slider
+// grooves with directly.  That makes the same dialog a different colour on
+// every machine, and red on one whose owner picked red for the taskbar.  The
+// clock is a piece of decoration whose whole point is how it looks, so it
+// settles this itself rather than inheriting an unrelated choice.  The colour
+// is Fusion's default highlight, which is what the Linux build has always
+// shown.
+void installAccentColour()
+{
+    const QColor accent(0x30, 0x8c, 0xc6);
+
+    QPalette palette = QApplication::palette();
+    palette.setColor(QPalette::Highlight, accent);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
+    // The role the Windows 11 style actually reads; it does not exist before
+    // 6.6, where Highlight alone covers it.
+    palette.setColor(QPalette::Accent, accent);
+#endif
+    QApplication::setPalette(palette);
 }

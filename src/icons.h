@@ -43,6 +43,11 @@ QIcon checkIcon(GlyphRole role);
 // Install it once, on the application, and every checkbox follows.
 void installGlyphStyle();
 
+// Fixes the highlight/accent colour the platform style uses for sliders and
+// selections, so the settings dialog looks the same everywhere instead of
+// taking the desktop theme's colour on Linux and the system accent on Windows.
+void installAccentColour();
+
 // Whether the palette in force is a dark one.
 bool darkTheme();
 
