@@ -29,6 +29,8 @@ DO_INSTALL=0
 INSTALL_PREFIX=
 RUN_AFTER=0
 VERBOSE=0
+DISTRO_TARGETS=
+DISTRO_ARCHES=
 
 # ---------------------------------------------------------------------------
 # Output helpers
@@ -69,11 +71,25 @@ ${C_BOLD}Options:${C_RESET}
   -v, --verbose         Show the full compiler command lines
   -h, --help            This message
 
+${C_BOLD}Packaging:${C_RESET}
+      --distro TARGET   Build installable packages instead of building here.
+                        One or more of deb, rpm, windows, macos, or 'all'.
+                        Packages are built in containers, so the result
+                        depends on the distribution targeted rather than on
+                        this machine. Output goes to distro/out.
+      --arch ARCH       Architectures to package for: amd64, arm64, or 'all'.
+                        Defaults to this machine's, except with --distro all
+                        which defaults to every architecture a target has.
+                        x86_64 and x64 mean amd64; aarch64 means arm64.
+
 ${C_BOLD}Examples:${C_RESET}
   ./build.sh                                  # release build
   ./build.sh -t Debug -j 4                    # debug build, 4 jobs
   ./build.sh --clean --qt-dir ~/Qt/6.7.2/gcc_64
   ./build.sh --install --prefix ~/.local      # install into ~/.local/bin
+  ./build.sh --distro deb                     # a .deb for this machine
+  ./build.sh --distro deb --arch arm64        # a .deb for aarch64
+  ./build.sh --distro all                     # everything this host can build
 EOF
 }
 
@@ -91,6 +107,10 @@ while [ $# -gt 0 ]; do
         --install-deps)  INSTALL_DEPS=1; shift ;;
         --check-deps)    CHECK_DEPS=1; shift ;;
         --install)       DO_INSTALL=1; shift ;;
+        --distro)        [ $# -ge 2 ] || die "$1 requires an argument"
+                         DISTRO_TARGETS="$DISTRO_TARGETS $(echo "$2" | tr ',' ' ')"; shift 2 ;;
+        --arch)          [ $# -ge 2 ] || die "$1 requires an argument"
+                         DISTRO_ARCHES="$DISTRO_ARCHES $(echo "$2" | tr ',' ' ')"; shift 2 ;;
         -r|--run)        RUN_AFTER=1; shift ;;
         -v|--verbose)    VERBOSE=1; shift ;;
         -h|--help)       usage; exit 0 ;;
@@ -120,6 +140,127 @@ fi
 case $BUILD_DIR in /*) ;; *) BUILD_DIR=$PWD/$BUILD_DIR ;; esac
 
 [ -f "$SOURCE_DIR/CMakeLists.txt" ] || die "CMakeLists.txt not found in $SOURCE_DIR"
+
+# ---------------------------------------------------------------------------
+# Packaging
+#
+# --distro takes over from the ordinary build entirely: nothing is compiled on
+# this machine, so none of the host dependency checking below applies.  Each
+# package is built inside a container for the distribution it targets, which is
+# what makes it possible to build a Fedora rpm on Ubuntu, and an aarch64 package
+# on an x86_64 machine.
+# ---------------------------------------------------------------------------
+
+# Architecture names are not shared between package formats: dpkg says amd64,
+# Microsoft says x64 and Apple says x86_64, all for the same processor.  One
+# spelling is accepted on the command line and translated per target.
+target_arch_name() {
+    case "$1:$2" in
+        deb:amd64|deb:arm64|rpm:amd64|rpm:arm64) printf '%s' "$2" ;;
+        windows:amd64) printf 'x64' ;;
+        macos:amd64)   printf 'x86_64' ;;
+        macos:arm64)   printf 'arm64' ;;
+        *)             printf '' ;;
+    esac
+}
+
+# Why a combination cannot be built, for the summary at the end.  A run that
+# quietly produces five files when eight were asked for is worse than one that
+# says which three are missing and why.
+skip_reason() {
+    case "$1:$2" in
+        windows:arm64)
+            printf 'no MinGW-w64 Qt6 for aarch64 exists to cross-compile with' ;;
+        macos:*)
+            printf 'needs Apple hardware; run distro/macos/package.sh on a Mac, or the release workflow' ;;
+        *)  printf 'unsupported combination' ;;
+    esac
+}
+
+normalise_arch() {
+    case $1 in
+        amd64|x86_64|x64|x86-64) printf 'amd64' ;;
+        arm64|aarch64)           printf 'arm64' ;;
+        *)                       printf '%s' "$1" ;;
+    esac
+}
+
+run_packaging() {
+    local targets="" arches="" t a name wanted_all=0
+
+    for t in $DISTRO_TARGETS; do
+        case $t in
+            all) targets="deb rpm windows macos"; wanted_all=1 ;;
+            deb|rpm|windows|macos) targets="$targets $t" ;;
+            *) die "unknown --distro target '$t' (expected deb, rpm, windows, macos or all)" ;;
+        esac
+    done
+
+    for a in $DISTRO_ARCHES; do
+        case $a in
+            all) arches="amd64 arm64" ;;
+            *)   name=$(normalise_arch "$a")
+                 case $name in
+                     amd64|arm64) arches="$arches $name" ;;
+                     *) die "unknown --arch '$a' (expected amd64, arm64 or all)" ;;
+                 esac ;;
+        esac
+    done
+
+    if [ -z "$arches" ]; then
+        if [ "$wanted_all" -eq 1 ]; then
+            arches="amd64 arm64"
+        else
+            arches=$(normalise_arch "$(uname -m)")
+        fi
+    fi
+
+    # An explicit single target with an architecture it does not have should
+    # fail rather than be silently skipped: it is a typo, not a gap.
+    local explicit=0
+    [ "$wanted_all" -eq 0 ] && [ "$(echo $targets | wc -w)" -eq 1 ] &&
+        [ "$(echo $arches | wc -w)" -eq 1 ] && explicit=1
+
+    local built=0 skipped=""
+    for t in $targets; do
+        for a in $arches; do
+            name=$(target_arch_name "$t" "$a")
+            if [ -z "$name" ] || [ "$t" = macos ]; then
+                if [ "$explicit" -eq 1 ]; then
+                    die "$t has no $a build: $(skip_reason "$t" "$a")"
+                fi
+                skipped="$skipped
+  $t $a -- $(skip_reason "$t" "$a")"
+                continue
+            fi
+            "$SOURCE_DIR/distro/build-target.sh" "$t" "$name" || die "$t/$name failed"
+            built=$((built + 1))
+        done
+    done
+
+    printf '\n'
+    if [ -n "$skipped" ]; then
+        warn "not built on this host:$skipped"
+        printf '\n'
+    fi
+
+    if [ "$built" -eq 0 ]; then
+        die "nothing could be built for the targets requested"
+    fi
+
+    info "packages in $SOURCE_DIR/distro/out"
+    ls -1sh "$SOURCE_DIR/distro/out" 2>/dev/null | tail -n +2 | while read -r line; do
+        ok "  $line"
+    done
+}
+
+if [ -n "$DISTRO_TARGETS" ]; then
+    run_packaging
+    exit 0
+fi
+
+[ -z "$DISTRO_ARCHES" ] || die "--arch only means something with --distro"
+
 
 # ---------------------------------------------------------------------------
 # Dependencies

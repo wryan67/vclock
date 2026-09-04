@@ -53,3 +53,7 @@ Thumbs.db
 *~
 *.swp
 *.swo
+
+# ------------------------------------------------------------ distro output
+# Built packages; artifacts, not sources.
+distro/out/

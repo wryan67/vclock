@@ -35,6 +35,7 @@ add_executable(vclock WIN32 MACOSX_BUNDLE
   src/colorpicker.h
   src/icons.h
   src/registry.h
+  src/autostart.h
   src/clockmanager.h
   src/manageclocksdialog.h
   src/settingsdialog.h
@@ -52,8 +53,43 @@ set_target_properties(vclock PROPERTIES
   MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
 )
 
+# The program draws its own icon and so ships no icon file; distro/macos builds
+# one from vclock.svg and points this at it.  Without it the bundle gets the
+# generic application icon, which is only a cosmetic loss.
+if(APPLE AND VCLOCK_MACOS_ICON)
+  target_sources(vclock PRIVATE ${VCLOCK_MACOS_ICON})
+  get_filename_component(_vclock_icon_name ${VCLOCK_MACOS_ICON} NAME)
+  set_source_files_properties(${VCLOCK_MACOS_ICON} PROPERTIES
+    MACOSX_PACKAGE_LOCATION Resources)
+  set_target_properties(vclock PROPERTIES
+    MACOSX_BUNDLE_ICON_FILE ${_vclock_icon_name})
+endif()
+
 include(GNUInstallDirs)
+
+# Directories inside a package must not be group writable; without this they
+# inherit the build user's umask, which on a developer machine is usually 002.
+set(CMAKE_INSTALL_DEFAULT_DIRECTORY_PERMISSIONS
+  OWNER_READ OWNER_WRITE OWNER_EXECUTE
+  GROUP_READ GROUP_EXECUTE
+  WORLD_READ WORLD_EXECUTE)
+
 install(TARGETS vclock
   BUNDLE  DESTINATION .
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
+
+# A packaged install gets a real icon file and a menu entry.  The program draws
+# its own icon at runtime and so needs neither to work, but a package that puts
+# nothing in the menu is one you can only start from a terminal, and the
+# autostart entry has somewhere to point instead of writing a PNG of its own.
+if(UNIX AND NOT APPLE)
+  install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/vclock.svg
+    DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps
+  )
+  install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/distro/vclock.desktop
+    DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/applications
+  )
+endif()
+
+include(distro/packaging.cmake)

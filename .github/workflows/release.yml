@@ -1,0 +1,108 @@
+# Release builds.
+#
+# Everything except macOS is built in a container, so those jobs only need
+# Docker and produce the same packages ./build.sh --distro produces locally.
+# macOS is the exception: Apple's SDK licence restricts building to Apple
+# hardware, so it runs on GitHub's macOS runners, which is the only part of
+# this that cannot also be done on your own machine.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  linux:
+    name: ${{ matrix.target }} ${{ matrix.arch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [deb, rpm]
+        arch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+
+      # The runner is x86_64; without this the arm64 containers start and every
+      # process in them dies with "exec format error".
+      - name: Enable foreign architectures
+        if: matrix.arch == 'arm64'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Build
+        run: ./distro/build-target.sh ${{ matrix.target }} ${{ matrix.arch }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vclock-${{ matrix.target }}-${{ matrix.arch }}
+          path: distro/out/*
+
+  windows:
+    name: windows x64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Cross-compiled with MinGW-w64 rather than built on a Windows runner:
+      # the toolchain is a package rather than a 3 GB Qt installer download,
+      # and it is the same recipe that runs locally.
+      - name: Build
+        run: ./distro/build-target.sh windows x64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vclock-windows-x64
+          path: distro/out/*
+
+  macos:
+    name: macos ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The runner's own architecture decides the build's: Qt from Homebrew
+          # is single-architecture, so a universal binary is not an option and
+          # each architecture needs a runner of its own.
+          - { runner: macos-13, arch: x86_64 }
+          - { runner: macos-14, arch: arm64 }
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt and the SVG rasteriser
+        run: brew install qt librsvg
+
+      - name: Build
+        env:
+          # Set these as repository secrets to produce a signed build.  Without
+          # them the app still builds, but Gatekeeper refuses it on any machine
+          # other than the one that built it.
+          CODESIGN_IDENTITY: ${{ secrets.CODESIGN_IDENTITY }}
+        run: ./distro/macos/package.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vclock-macos-${{ matrix.arch }}
+          path: distro/out/*
+
+  release:
+    name: publish
+    needs: [linux, windows, macos]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=vclock
+GenericName=Clock
+Comment=A transparent analog desktop clock
+Exec=vclock
+Icon=vclock
+Terminal=false
+StartupNotify=false
+StartupWMClass=vclock
+Categories=Utility;Clock;
+Keywords=clock;time;analog;desktop;

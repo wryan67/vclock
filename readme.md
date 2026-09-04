@@ -70,6 +70,95 @@ cmake -S . -B build -DCMAKE_PREFIX_PATH=/path/to/Qt/6.5.3/gcc_64
 * **Windows** — Qt from the Qt installer with MSVC or MinGW. The executable is
   built with `WIN32`, so it does not open a console window.
 
+## Packaging
+
+`./build.sh --distro` builds installable packages rather than a binary in the
+build tree:
+
+```sh
+./build.sh --distro deb                  # a .deb for this machine
+./build.sh --distro deb --arch arm64     # a .deb for aarch64
+./build.sh --distro rpm,windows          # more than one target
+./build.sh --distro all                  # everything this host can build
+```
+
+Packages land in `distro/out`. `--arch` takes `amd64`, `arm64` or `all`, and
+accepts `x86_64`, `x64` and `aarch64` as names for the same two things; it
+defaults to this machine's architecture, except with `--distro all` which
+defaults to every architecture each target has.
+
+Each package is built inside a container for the distribution it targets, so
+what comes out depends on that distribution rather than on whatever is installed
+here — which is what makes it possible to build a Fedora rpm on Ubuntu, and an
+aarch64 package on an x86\_64 machine. Docker is the only requirement.
+
+| Target | Architectures | Built by |
+| --- | --- | --- |
+| `deb` | amd64, arm64 | Ubuntu 24.04 container, CPack |
+| `rpm` | amd64, arm64 | Fedora container, CPack |
+| `windows` | x64 | MinGW-w64 cross-compile in a Fedora container, NSIS installer |
+| `macos` | x86\_64, arm64 | a Mac — see below |
+
+The deb is built on the oldest release vclock supports rather than the newest,
+because glibc and Qt symbol versioning are backward compatible but not forward:
+a package built on 24.04 installs on 24.04 and everything after it, while one
+built on the current release would refuse to install on anything older. Its
+dependencies are worked out from what the binary actually links against rather
+than from a hand-written list, which would go stale the first time a Qt module
+was added.
+
+Building for a foreign architecture runs the container under qemu. That is
+several times slower than a native build but produces genuine native binaries.
+It needs the qemu handlers registered with the kernel once:
+
+```sh
+docker run --privileged --rm tonistiigi/binfmt --install arm64
+```
+
+That is a host-wide change which survives reboot; `--uninstall` undoes it.
+Without it the container starts and every process in it dies with `exec format
+error`, so `build.sh` checks first and says this instead.
+
+The Windows installer is cross-compiled rather than built on Windows. Fedora is
+the only mainstream distribution that packages a MinGW-w64 build of Qt6, which
+is why that container is a Fedora one. The Qt DLLs are found by walking the
+import tables of the binary and then of each DLL it names, so nothing has to be
+listed by hand; the plugins Qt loads by directory — `qwindows.dll` above all —
+are copied separately, because nothing links against them and the walk cannot
+see them. The build fails rather than ships if `qwindows.dll` is missing, since
+without it the program starts and immediately aborts.
+
+### macOS
+
+macOS is the one target that cannot be built here. This is not a gap in the
+tooling: Apple's SDK licence restricts building to Apple hardware, and since
+Catalina an app that is neither signed nor notarised is refused by Gatekeeper
+rather than merely warned about. `./build.sh --distro macos` says so rather than
+pretending.
+
+The recipe is `distro/macos/package.sh`, which runs on a Mac and produces a
+`vclock.app` and a disk image. It uses `macdeployqt` to copy the Qt frameworks
+into the bundle and rewrite the binary's load paths to point inside it, so the
+result runs on a machine that has no Qt installed. It builds the `.icns` from
+`vclock.svg`, since the program otherwise ships no icon file. Set
+`CODESIGN_IDENTITY` to sign; without it the build still works but Gatekeeper
+will object anywhere but the machine that built it.
+
+`.github/workflows/release.yml` runs all of this on a tag — the container
+targets on Linux runners and macOS on GitHub's macOS runners, one job per
+architecture, since Qt from Homebrew is single-architecture and a universal
+binary is not an option.
+
+### What cannot be built
+
+* **Windows on Arm** — no distribution packages a MinGW-w64 Qt6 for aarch64, so
+  there is no cross toolchain to use. It needs Windows on Arm itself with the Qt
+  installer's MSVC arm64 package.
+* **macOS from Linux** — as above.
+
+`build.sh` reports these as skipped, with the reason, rather than quietly
+producing fewer packages than were asked for.
+
 ## Using it
 
 | Action | Result |
@@ -426,6 +515,9 @@ A few details worth knowing:
 | `src/settingsdialog.*` | the Settings window |
 | `src/autostart.*` | writing and removing the login startup entry |
 | `src/clockwindow.*` | the translucent clock window itself |
+| `distro/` | packaging: one recipe per target, and the desktop entry a Linux install ships |
+| `distro/packaging.cmake` | the CPack settings the deb and rpm are built from |
+| `.github/workflows/` | the release build, and the only place macOS is built |
 
 ## Notes on the port
 
