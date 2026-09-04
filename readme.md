@@ -488,6 +488,17 @@ outline over the wallpaper, and hands at 0 leave a dial with nothing on it. The
 clock itself never becomes unreachable, because the window goes on taking
 clicks wherever the clock is, so right clicking there still opens the menu.
 
+The blue on the sliders, on the selected row in Manage clocks and on selected
+text is the program's own, not the desktop's. Qt draws those in whatever colour
+the system nominates: the theme's highlight on Linux, and on Windows the system
+accent colour, which the Windows 11 style paints slider grooves with directly —
+so on a machine whose owner had picked red for the taskbar, every slider in the
+dialog came out red. A clock is a piece of decoration, and looking the same
+everywhere is worth more here than following a setting that was chosen for
+something else, so it fixes the colour itself. Only the surrounding controls are
+affected; the clock face, the hands and the colour picker all work out their own
+colours and never consult the palette.
+
 ## Configuration
 
 Settings are JSON in `default.cfg` inside the platform config directory above.
