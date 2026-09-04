@@ -90,6 +90,7 @@ private:
     ColorButton *m_wire = nullptr;
     ColorButton *m_hourMark = nullptr;
     ColorButton *m_minuteMark = nullptr;
+    QCheckBox *m_secondShown = nullptr;
     QCheckBox *m_minuteSame = nullptr;
 
     // The user's own minute colour is remembered while "same as hour" is

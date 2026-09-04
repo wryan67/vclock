@@ -259,7 +259,12 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     addLabel(handsGrid, QStringLiteral("Second"), hrow);
     m_second = new ColorButton(QColor(cfg.secondColor), false,
                                QStringLiteral("Second hand color"), this);
-    handsGrid->addWidget(m_second, hrow, 1, Qt::AlignLeft);
+    // Untick to drop the second hand entirely.  The colour stays put while it
+    // is off, so ticking it back on returns the hand you had.
+    m_secondShown = new QCheckBox(QStringLiteral("enabled"), this);
+    m_secondShown->setChecked(cfg.showSecond);
+    m_secondShown->setToolTip(QStringLiteral("Draw the second hand"));
+    handsGrid->addLayout(withOption(m_second, m_secondShown), hrow, 1);
     ++hrow;
 
     addLabel(handsGrid, QStringLiteral("Hour"), hrow);
@@ -395,8 +400,8 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
                                 m_minuteMark}) {
         connect(button, &ColorButton::colorSet, this, [this, button] { onChanged(button); });
     }
-    for (QCheckBox *box : {m_minuteSame, m_quarterMarks, m_smoothSweep, m_reverseTime,
-                           m_syncFaceWire, m_syncHandsMarks}) {
+    for (QCheckBox *box : {m_minuteSame, m_secondShown, m_quarterMarks, m_smoothSweep,
+                           m_reverseTime, m_syncFaceWire, m_syncHandsMarks}) {
         connect(box, &QCheckBox::toggled, this, [this] { onChanged(); });
     }
     connect(m_colorMode, &QComboBox::currentIndexChanged, this, [this] { onChanged(); });
@@ -610,6 +615,7 @@ void SettingsDialog::applyPreset(const Config &values)
     m_markOpacity->setValue(values.markOpacity);
     m_quarterMarks->setChecked(values.quarterMarksOnly);
     m_minuteSame->setChecked(values.minuteSameAsHour);
+    m_secondShown->setChecked(values.showSecond);
     m_colorMode->setCurrentIndex(values.faceRecolor ? 0 : 1);
 
     m_faceOwn = values.faceColor;
@@ -647,6 +653,10 @@ void SettingsDialog::syncSwatches()
     const bool same = m_minuteSame->isChecked();
     m_minute->setEnabled(!same);
     m_minute->setColor(same ? m_hour->color() : QColor(m_minuteOwn));
+
+    // A hand that is not drawn has no colour worth setting.  The value is kept,
+    // so ticking it back on returns the colour that was there.
+    m_second->setEnabled(m_secondShown->isChecked());
 
     // The face and wire colours are the recolour's two ends, so they mean
     // nothing at all when the artwork is drawn as authored.
@@ -736,6 +746,7 @@ Config SettingsDialog::values() const
     out.hourColor = hexOf(m_hour->color());
     out.minuteColor = m_minuteOwn;
     out.minuteSameAsHour = m_minuteSame->isChecked();
+    out.showSecond = m_secondShown->isChecked();
     out.smoothSweep = m_smoothSweep->isChecked();
     out.reverseTime = m_reverseTime->isChecked();
     out.faceColor = m_faceOwn;

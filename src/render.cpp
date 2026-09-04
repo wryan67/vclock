@@ -246,8 +246,9 @@ void drawHands(QPainter &painter, const Config &cfg, double cx, double cy, doubl
          kHourWidth * radius * handScale, hourColor);
     hand(minutes * kPi / 30.0, length(kMinuteLen), kMinuteWidth * radius * handScale,
          colorOf(cfg.minuteHandColor()));
-    hand(seconds * kPi / 30.0, length(kSecondLen), kSecondWidth * radius * handScale,
-         colorOf(cfg.secondColor));
+    if (cfg.showSecond)
+        hand(seconds * kPi / 30.0, length(kSecondLen), kSecondWidth * radius * handScale,
+             colorOf(cfg.secondColor));
 
     painter.setPen(Qt::NoPen);
     painter.setBrush(hourColor);

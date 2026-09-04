@@ -244,6 +244,7 @@ Config loadConfig(const QString &requested)
 
     cfg.faceSvg = readString(o, "face_svg", kDefaults.faceSvg);
     cfg.secondColor = readString(o, "second_color", kDefaults.secondColor);
+    cfg.showSecond = readBool(o, "show_second", kDefaults.showSecond);
     cfg.hourColor = readString(o, "hour_color", kDefaults.hourColor);
     cfg.minuteColor = readString(o, "minute_color", kDefaults.minuteColor);
     cfg.faceColor = readString(o, "face_color", kDefaults.faceColor);
@@ -309,6 +310,7 @@ void saveConfig(const Config &cfg, const QString &requested)
     o.insert(QStringLiteral("face_svg"), cfg.faceSvg);
     o.insert(QStringLiteral("face_default"), cfg.faceDefault);
     o.insert(QStringLiteral("second_color"), cfg.secondColor);
+    o.insert(QStringLiteral("show_second"), cfg.showSecond);
     o.insert(QStringLiteral("hour_color"), cfg.hourColor);
     o.insert(QStringLiteral("minute_color"), cfg.minuteColor);
     o.insert(QStringLiteral("minute_same_as_hour"), cfg.minuteSameAsHour);
@@ -370,6 +372,7 @@ void copyPresetKeys(const Config &from, Config &to)
     to.faceSvg = from.faceSvg;
     to.faceDefault = from.faceDefault;
     to.secondColor = from.secondColor;
+    to.showSecond = from.showSecond;
     to.hourColor = from.hourColor;
     to.minuteColor = from.minuteColor;
     to.minuteSameAsHour = from.minuteSameAsHour;

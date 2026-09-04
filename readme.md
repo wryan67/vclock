@@ -163,6 +163,17 @@ sweeps cheaply. That is why it is opt-in.
 Configs written while this option was briefly called `smooth_minute` are still
 read, so the setting survives the rename.
 
+### The second hand
+
+The **enabled** box beside the second hand's colour in Settings ▸ *Hands* turns
+that hand off, for a quieter clock or one where a sweeping hand is a
+distraction. Only the second hand can be dropped this way; an analog clock
+without an hour or minute hand has stopped being a clock.
+
+The colour is remembered while the hand is off — the swatch merely greys out —
+so ticking it back on returns the hand you had rather than a default one. Every
+preset draws a second hand, so clicking a preset turns it back on.
+
 ### Reverse time
 
 Ticking **Reverse time** in Settings runs all three hands anticlockwise. The

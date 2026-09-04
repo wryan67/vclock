@@ -64,6 +64,7 @@ struct Config
     QString faceSvg;                                       // path to a user-supplied face ("" = none)
     bool faceDefault = true;                               // ignore faceSvg and use the built-in face
     QString secondColor = QStringLiteral("#8b0000");       // dark red
+    bool showSecond = true;                                // draw the second hand at all
     QString hourColor = QStringLiteral("#363d45");         // charcoal
     QString minuteColor = QStringLiteral("#000000");
     bool minuteSameAsHour = false;
