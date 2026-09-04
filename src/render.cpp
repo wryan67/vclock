@@ -257,11 +257,13 @@ void drawHands(QPainter &painter, const Config &cfg, double cx, double cy, doubl
     painter.setBrush(Qt::NoBrush);
 }
 
-QPixmap presetThumbnail(const Config &values, int size, qreal devicePixelRatio)
-{
-    const qreal dpr = devicePixelRatio > 0 ? devicePixelRatio : 1.0;
-    const int pixels = std::max(1, static_cast<int>(std::lround(size * dpr)));
+namespace {
 
+// Draw a settings record the way the clock draws it, into a square image.
+// Shared by the Settings thumbnails and the application icon so that neither
+// can drift away from what the running clock actually looks like.
+QImage drawClock(const Config &values, int pixels)
+{
     const std::unique_ptr<Face> face = openFace(values.facePath());
     QImage art = face->render(pixels, pixels);
     if (values.faceRecolor)
@@ -289,6 +291,41 @@ QPixmap presetThumbnail(const Config &values, int size, qreal devicePixelRatio)
         drawHands(painter, values, cx, cy, radius, pixels, pixels, kPresetHour, kPresetMinute,
                   kPresetSecond);
     }
+    return canvas;
+}
+
+// The clock the application icon is drawn from.  A config named "icon" in the
+// config directory wins when there is one, so the icon can be dressed by
+// editing that clock like any other; failing that the built-in "Gradient"
+// preset stands in.  The preset is found by name rather than by index so that
+// reordering the list cannot silently change the icon.
+//
+// Deliberately not cached: re-reading the file costs nothing at the handful of
+// sizes the icon is ever asked for, and it means an edit to the icon clock
+// shows up the next time About or Help is opened.
+Config iconClock()
+{
+    const QString path = resolveConfigPath(QStringLiteral("icon"));
+    if (QFile::exists(path))
+        return loadConfig(path);
+    for (const Preset &preset : presets())
+        if (preset.name == QLatin1String("Gradient"))
+            return preset.values;
+    return presets().front().values;
+}
+
+}  // namespace
+
+QPixmap presetThumbnail(const Config &values, int size, qreal devicePixelRatio)
+{
+    const qreal dpr = devicePixelRatio > 0 ? devicePixelRatio : 1.0;
+    const int pixels = std::max(1, static_cast<int>(std::lround(size * dpr)));
+    QImage canvas = drawClock(values, pixels);
     canvas.setDevicePixelRatio(dpr);
     return QPixmap::fromImage(canvas);
+}
+
+QImage appIconImage(int size)
+{
+    return drawClock(iconClock(), std::max(1, size));
 }

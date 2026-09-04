@@ -4,6 +4,7 @@
 
 #include "config.h"
 
+#include <QImage>
 #include <QPixmap>
 #include <QString>
 #include <QVector>
@@ -31,3 +32,9 @@ void drawHands(QPainter &painter, const Config &cfg, double cx, double cy, doubl
 
 // Render a preset the way the clock would draw it.
 QPixmap presetThumbnail(const Config &values, int size, qreal devicePixelRatio);
+
+// Render the application icon at a pixel size.  It is a clock drawn by the
+// code above rather than a picture of its own: the config named "icon" if
+// there is one, else the "Gradient" preset.  So the icon is sharp at any size
+// and is always a real vclock rather than a stale likeness of one.
+QImage appIconImage(int size);

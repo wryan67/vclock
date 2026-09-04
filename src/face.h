@@ -54,6 +54,3 @@ QImage recolor(const QImage &art, const QString &wireHex, const QString &faceHex
 
 // Bounding box (inclusive) of the artwork's non-transparent pixels.
 QRect contentBounds(const QImage &art);
-
-// Render the built-in application icon at a pixel size.
-QImage appIconImage(int size);

@@ -136,8 +136,9 @@ the mode is whatever you last set it to and stays there when you change faces.
 Recolouring a full-colour picture is a legitimate thing to want — it flattens
 the artwork to your own two colours and can look rather good.
 
-Four faces are built in and need no files: the plain default ring, the app
-icon's gradient dial (stored in the config as `builtin:icon`), and a silver dial
+Four faces are built in and need no files: the plain default ring, the
+gradient dial the app icon is drawn from (stored in the config as
+`builtin:icon`), and a silver dial
 under a dark rim (`builtin:silver`), which is the same gradient running the other
 way, and a honeycomb (`builtin:honeycomb`), whose lit wax walls take the face
 colour and whose cells take the wire colour. Whichever is in use, the *Clock face svg* field names it when no file of
@@ -206,6 +207,14 @@ gives you exactly the clock in the thumbnail. Where the window sits on screen is
 left alone, since that is a placement choice rather than a look. As with any
 other change, the preset is only a preview until Save; Cancel puts the previous
 size and centre back.
+
+The application icon is a clock drawn by the same code that draws the
+thumbnails and the clock itself, rather than a picture of its own — so it is
+sharp at any size and is always a real vclock. Which clock it is comes from the
+config directory: a clock named **icon** (`icon.cfg`) is used when there is one,
+so you can dress the icon by editing that clock like any other, and the change
+shows the next time About or Help is opened. With no such clock the **Gradient**
+preset stands in.
 
 ### Choosing colours
 
@@ -379,10 +388,10 @@ A few details worth knowing:
 
 | File | Contents |
 | --- | --- |
-| `src/embedded.h` | the built-in SVG faces and app icon |
+| `src/embedded.h` | the built-in SVG faces |
 | `src/config.*` | the settings record, its defaults, and JSON load/save |
 | `src/face.*` | SVG rasterising, recolouring, and content bounds |
-| `src/render.*` | hands, hour/minute indices, and the appearance presets |
+| `src/render.*` | hands, hour/minute indices, the appearance presets, and the app icon |
 | `src/colorbutton.*` | a colour swatch button with a live preview |
 | `src/colorpicker.*` | the colour picker: wheel, S/B sliders, hex and RGB fields |
 | `src/settingsdialog.*` | the Settings window |

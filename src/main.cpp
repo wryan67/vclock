@@ -3,6 +3,7 @@
 #include "clockwindow.h"
 #include "config.h"
 #include "face.h"
+#include "render.h"
 
 #include <QApplication>
 #include <QCommandLineOption>

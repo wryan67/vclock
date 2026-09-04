@@ -210,16 +210,3 @@ QRect contentBounds(const QImage &art)
     return QRect(QPoint(x0, y0), QPoint(x1, y1));
 }
 
-QImage appIconImage(int size)
-{
-    size = std::max(1, size);
-    QSvgRenderer renderer;
-    QImage image(size, size, QImage::Format_ARGB32_Premultiplied);
-    image.fill(Qt::transparent);
-    if (!renderer.load(appIconSvg()))
-        return image;
-    QPainter painter(&image);
-    painter.setRenderHint(QPainter::Antialiasing, true);
-    renderer.render(&painter, QRectF(0, 0, size, size));
-    return image;
-}
