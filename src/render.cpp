@@ -17,7 +17,7 @@ namespace {
 constexpr double kPi = 3.14159265358979323846;
 
 // A flattering time for the preview thumbnails.
-constexpr double kPresetHour = 10, kPresetMinute = 9, kPresetSecond = 30;
+constexpr double kPresetHour = 10, kPresetMinute = 9, kPresetSecond = 23;
 
 // Multiplies the painter's opacity for as long as it is in scope.  Multiplied
 // rather than assigned so that a caller which has already faded the painter --
