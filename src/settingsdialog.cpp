@@ -377,6 +377,24 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
 
     // --------------------------------------------------------------- buttons
     auto *buttons = new QDialogButtonBox(this);
+
+    // Settings is otherwise a dead end: it governs this clock alone, and while
+    // it has focus the Ctrl+K that would reach Manage clocks goes to the dialog
+    // rather than to the clock behind it.  So the one route from the part to
+    // the whole is a button on the part.
+    //
+    // ResetRole to keep it away from Save and Cancel -- it commits nothing, and
+    // a third button in that cluster would read as though it did.  No icon: the
+    // two beside it are go/stop, where the glyph carries the meaning, and the
+    // only glyphs to hand mean something else already (the gear is this dialog,
+    // the pen is renaming a row in the very dialog this opens).
+    QPushButton *manage = buttons->addButton(QStringLiteral("Manage clocks..."),
+                                             QDialogButtonBox::ResetRole);
+    connect(manage, &QPushButton::clicked, this, [this] {
+        if (m_clock)
+            m_clock->manageClocks();
+    });
+
     QPushButton *save = buttons->addButton(QStringLiteral("Save"),
                                            QDialogButtonBox::AcceptRole);
     QPushButton *cancel = buttons->addButton(QStringLiteral("Cancel"),

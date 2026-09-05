@@ -606,6 +606,13 @@ If the screen is not tall or wide enough for the whole dialog, the controls
 scroll and the Save and Cancel buttons stay pinned below them, so they are
 always reachable. Scrollbars appear only when they are actually needed.
 
+**Manage clocks…** sits apart from Save and Cancel, at the far left, because it
+commits nothing. Settings governs one clock, and while it has focus the Ctrl+K
+that would otherwise reach Manage clocks goes to the dialog rather than to the
+clock behind it — so without that button the per-clock view is a dead end. Both
+windows then stay open together: the hub can reach any clock's settings, and now
+a clock's settings can reach the hub.
+
 Every slider in Sizes and Opacity has its value in a box beside it that can be
 typed into as well as read, which is the only way to set an exact number on a
 slider whose range is wider than the pixels it is drawn in. A value outside the
