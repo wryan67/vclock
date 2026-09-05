@@ -1090,13 +1090,8 @@ void ClockWindow::buildMenu()
     m_onTopAction = m_menu->addAction(QStringLiteral("Always on top"));
     m_onTopAction->setCheckable(true);
     m_onTopAction->setChecked(m_cfg.alwaysOnTop);
-    connect(m_onTopAction, &QAction::toggled, this, [this](bool on) {
-        if (m_cfg.alwaysOnTop == on)
-            return;
-        m_cfg.alwaysOnTop = on;
-        applyAlwaysOnTop();
-        queueSave();
-    });
+    connect(m_onTopAction, &QAction::toggled, this,
+            [this](bool on) { setAlwaysOnTop(on); });
 
     // "K" because C, M, S, H, A, R and Q are all spoken for -- Ctrl+C is one
     // of the ways out of the program.
@@ -1188,8 +1183,18 @@ void ClockWindow::applyTickRate()
     m_lastSecond = -1;
 }
 
+void ClockWindow::setAlwaysOnTop(bool on)
+{
+    if (m_cfg.alwaysOnTop == on)
+        return;
+    m_cfg.alwaysOnTop = on;
+    syncAlwaysOnTop();
+    queueSave();
+}
+
 // Keep the check mark in step when the setting changes elsewhere.
-void ClockWindow::syncAlwaysOnTop(){
+void ClockWindow::syncAlwaysOnTop()
+{
     applyAlwaysOnTop();
     if (m_onTopAction && m_onTopAction->isChecked() != m_cfg.alwaysOnTop) {
         const QSignalBlocker blocker(m_onTopAction);

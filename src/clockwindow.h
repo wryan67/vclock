@@ -34,6 +34,11 @@ public:
 
     const Config &cfg() const { return m_cfg; }
 
+    // Raise or drop this one clock, and write the change out.  The menu item
+    // and the box in the manage dialog are two views of it, so both go through
+    // here rather than each setting the flag and saving in their own way.
+    void setAlwaysOnTop(bool on);
+
     // Base name of this clock's config, or empty when it is the default one.
     QString configName() const;
 

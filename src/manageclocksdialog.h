@@ -5,6 +5,7 @@
 
 class QCheckBox;
 class QDoubleSpinBox;
+class QEvent;
 class QPushButton;
 class QTableWidget;
 class QTableWidgetItem;
@@ -38,6 +39,14 @@ private:
     // it is hidden -- there is nothing to change the look of otherwise.
     void openRowSettings(int row);
     void toggleOpen(int row, bool open);
+
+    // Whether a clock is set to stay above other windows.  A clock that is not
+    // on screen has no window to ask, so its config file is read instead.
+    bool alwaysOnTopOf(const QString &file) const;
+    void setAlwaysOnTop(int row, bool on);
+    void refreshAlwaysOnTop();
+
+    void changeEvent(QEvent *event) override;
 
     // Turn starting at login on or off, and put the box back if it fails.
     void setAutostart(bool on);

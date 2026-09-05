@@ -688,9 +688,15 @@ clocks come back the next time vclock is started on its own.
 ## Managing clocks
 
 Right click &#9656; Manage clocks, or `Ctrl`+K, lists every clock you have. Each
-row has a Show box, the clock's name, and buttons to open its settings, rename
-it, or delete it and the config it keeps its settings in. Double clicking a
-name renames it too. `Enter` saves the new name and `Escape` abandons it.
+row has a Show box, the clock's name, and then four narrow columns: Set opens
+that clock's settings, Top keeps it above other windows, Name renames it, and
+Del deletes it and the config it keeps its settings in. Double clicking a name
+renames it too. `Enter` saves the new name and `Escape` abandons it.
+
+Top is the same setting as Always on top in a clock's own menu, gathered here so
+the whole set can be seen and changed in one place. It applies to that one clock
+only. On a clock that is not showing there is no window to raise, so the setting
+is written to its config and takes effect when it next comes on screen.
 
 Show puts a clock on screen and takes it off again. Whatever is showing when
 vclock stops is what comes back when it starts again, so there is nothing

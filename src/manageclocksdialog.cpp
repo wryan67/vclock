@@ -11,6 +11,7 @@
 #include <QCheckBox>
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
+#include <QEvent>
 #include <QFile>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -27,7 +28,18 @@
 namespace {
 
 // The columns, so the numbers below read as something.
-enum Column { ColShow = 0, ColName = 1, ColActions = 2, ColumnCount = 3 };
+enum Column {
+    ColShow = 0,
+    ColName = 1,
+    ColSettings = 2,
+    ColTop = 3,
+    ColRename = 4,
+    ColDelete = 5,
+    ColumnCount = 6
+};
+
+// The per-row commands sit in columns of their own so each can carry a title.
+constexpr int kFirstCommandColumn = ColSettings;
 
 // The file a row stands for, empty while a new row is still being named.
 constexpr int kFileRole = Qt::UserRole + 1;
@@ -65,6 +77,16 @@ QToolButton *iconButton(Glyph glyph, GlyphRole role, const QString &tip)
     return button;
 }
 
+// The control a row keeps in one of its command columns.  Each sits in a
+// holder that centres it under its title, so the cell widget is the holder
+// rather than the control itself.
+template <typename T>
+T *controlIn(const QTableWidget *table, int row, int column)
+{
+    QWidget *cell = table->cellWidget(row, column);
+    return cell ? cell->findChild<T *>() : nullptr;
+}
+
 }  // namespace
 
 ManageClocksDialog *ManageClocksDialog::s_instance = nullptr;
@@ -99,8 +121,9 @@ ManageClocksDialog::ManageClocksDialog(QWidget *parent) : QDialog(nullptr)
     layout->addWidget(blurb);
 
     m_table = new QTableWidget(0, ColumnCount, this);
-    m_table->setHorizontalHeaderLabels(
-        {QStringLiteral("Show"), QStringLiteral("Name"), QString()});
+    m_table->setHorizontalHeaderLabels({QStringLiteral("Show"), QStringLiteral("Name"),
+                                        QStringLiteral("Set"), QStringLiteral("Top"),
+                                        QStringLiteral("Name"), QStringLiteral("Del")});
     m_table->verticalHeader()->setVisible(false);
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_table->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -111,7 +134,8 @@ ManageClocksDialog::ManageClocksDialog(QWidget *parent) : QDialog(nullptr)
     m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_table->horizontalHeader()->setSectionResizeMode(ColShow, QHeaderView::ResizeToContents);
     m_table->horizontalHeader()->setSectionResizeMode(ColName, QHeaderView::Stretch);
-    m_table->horizontalHeader()->setSectionResizeMode(ColActions, QHeaderView::ResizeToContents);
+    for (int col = kFirstCommandColumn; col < ColumnCount; ++col)
+        m_table->horizontalHeader()->setSectionResizeMode(col, QHeaderView::ResizeToContents);
     layout->addWidget(m_table, 1);
 
     connect(m_table, &QTableWidget::itemDoubleClicked, this, [this](QTableWidgetItem *item) {
@@ -246,11 +270,6 @@ void ManageClocksDialog::addRow(const QString &file, const QString &name, bool o
     item->setFlags(item->flags() & ~Qt::ItemIsEditable);
     m_table->setItem(row, ColName, item);
 
-    auto *actions = new QWidget;
-    auto *actionLayout = new QHBoxLayout(actions);
-    actionLayout->setContentsMargins(2, 0, 2, 0);
-    actionLayout->setSpacing(2);
-
     auto *settings = iconButton(Glyph::Settings, GlyphRole::Neutral,
                                 QStringLiteral("Settings for this clock"));
     settings->setObjectName(QStringLiteral("settings"));
@@ -259,7 +278,19 @@ void ManageClocksDialog::addRow(const QString &file, const QString &name, bool o
         if (r >= 0 && !editing())
             openRowSettings(r);
     });
-    actionLayout->addWidget(settings);
+    m_table->setCellWidget(row, ColSettings, centred(settings));
+
+    auto *onTop = checkButton(alwaysOnTopOf(file),
+                              QStringLiteral("Keep this clock above other windows"));
+    onTop->setObjectName(QStringLiteral("ontop"));
+    connect(onTop, &QCheckBox::toggled, this, [this, onTop](bool on) {
+        if (m_populating)
+            return;
+        const int r = rowOfWidget(onTop);
+        if (r >= 0)
+            setAlwaysOnTop(r, on);
+    });
+    m_table->setCellWidget(row, ColTop, centred(onTop));
 
     auto *edit = iconButton(Glyph::Edit, GlyphRole::Neutral, QStringLiteral("Rename"));
     edit->setObjectName(QStringLiteral("edit"));
@@ -272,7 +303,7 @@ void ManageClocksDialog::addRow(const QString &file, const QString &name, bool o
         else if (!editing())
             beginEdit(r);
     });
-    actionLayout->addWidget(edit);
+    m_table->setCellWidget(row, ColRename, centred(edit));
 
     auto *remove = iconButton(Glyph::Delete, GlyphRole::Stop, QStringLiteral("Delete"));
     remove->setObjectName(QStringLiteral("delete"));
@@ -287,9 +318,7 @@ void ManageClocksDialog::addRow(const QString &file, const QString &name, bool o
         if (r >= 0 && !editing())
             deleteRow(r);
     });
-    actionLayout->addWidget(remove);
-
-    m_table->setCellWidget(row, ColActions, actions);
+    m_table->setCellWidget(row, ColDelete, centred(remove));
 }
 
 int ManageClocksDialog::rowOfWidget(QWidget *widget) const
@@ -334,13 +363,14 @@ void ManageClocksDialog::setRowEditing(int row, bool on)
 {
     m_newButton->setEnabled(!on);
 
-    QWidget *actions = m_table->cellWidget(row, ColActions);
-    if (!actions)
-        return;
-    if (auto *gear = actions->findChild<QToolButton *>(QStringLiteral("settings")))
+    if (auto *gear = controlIn<QToolButton>(m_table, row, ColSettings))
         gear->setEnabled(!on);
-    auto *edit = actions->findChild<QToolButton *>(QStringLiteral("edit"));
-    auto *remove = actions->findChild<QToolButton *>(QStringLiteral("delete"));
+    // Renaming is about the row's name, not the clock on screen; raising it
+    // mid-edit would be a second, unrelated change, so the box waits.
+    if (auto *top = controlIn<QCheckBox>(m_table, row, ColTop))
+        top->setEnabled(!on);
+    auto *edit = controlIn<QToolButton>(m_table, row, ColRename);
+    auto *remove = controlIn<QToolButton>(m_table, row, ColDelete);
     if (edit) {
         edit->setIcon(glyphIcon(on ? Glyph::Save : Glyph::Edit,
                                 on ? GlyphRole::Go : GlyphRole::Neutral));
@@ -482,6 +512,69 @@ void ManageClocksDialog::toggleOpen(int row, bool open)
         ClockManager::instance().closeClock(path);
 }
 
+bool ManageClocksDialog::alwaysOnTopOf(const QString &file) const
+{
+    const Config defaults;
+    if (file.isEmpty())
+        return defaults.alwaysOnTop;
+    const Registry &registry = ClockManager::instance().registry();
+    const int index = registry.indexOfFile(file);
+    if (index < 0)
+        return defaults.alwaysOnTop;
+    const QString path = registry.clocks.at(index).path();
+    // A clock on screen may have been changed since it was last written out,
+    // so ask the window first and fall back to the file for one that is down.
+    if (const ClockWindow *clock = ClockManager::instance().clockAt(path))
+        return clock->cfg().alwaysOnTop;
+    return loadConfig(path).alwaysOnTop;
+}
+
+void ManageClocksDialog::setAlwaysOnTop(int row, bool on)
+{
+    const QString file = fileAt(row);
+    if (file.isEmpty())
+        return;
+    const Registry &registry = ClockManager::instance().registry();
+    const int index = registry.indexOfFile(file);
+    if (index < 0)
+        return;
+    const QString path = registry.clocks.at(index).path();
+    // A clock that is showing has to be raised or dropped there and then; one
+    // that is not has only its config, which is what it reads when it opens.
+    if (ClockWindow *clock = ClockManager::instance().clockAt(path)) {
+        clock->setAlwaysOnTop(on);
+        return;
+    }
+    Config cfg = loadConfig(path);
+    if (cfg.alwaysOnTop == on)
+        return;
+    cfg.alwaysOnTop = on;
+    saveConfig(cfg, path);
+}
+
+// The setting can also be changed from a clock's own menu or its settings,
+// neither of which comes back through here, so the boxes are read again
+// whenever the dialog is brought to the front.
+void ManageClocksDialog::refreshAlwaysOnTop()
+{
+    for (int row = 0; row < m_table->rowCount(); ++row) {
+        auto *box = controlIn<QCheckBox>(m_table, row, ColTop);
+        if (!box)
+            continue;
+        const bool on = alwaysOnTopOf(fileAt(row));
+        if (box->isChecked() != on) {
+            const QSignalBlocker blocker(box);
+            box->setChecked(on);
+        }
+    }
+}
+
+void ManageClocksDialog::changeEvent(QEvent *event)
+{
+    QDialog::changeEvent(event);
+    if (event->type() == QEvent::ActivationChange && isActiveWindow())
+        refreshAlwaysOnTop();
+}
 
 void ManageClocksDialog::scheduleRebuild()
 {
