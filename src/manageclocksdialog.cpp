@@ -19,6 +19,7 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QScreen>
+#include <QShortcut>
 #include <QSignalBlocker>
 #include <QTableWidget>
 #include <QTimer>
@@ -141,6 +142,17 @@ ManageClocksDialog::ManageClocksDialog(QWidget *parent) : QDialog(nullptr)
     connect(m_table, &QTableWidget::itemDoubleClicked, this, [this](QTableWidgetItem *item) {
         if (item && item->column() == ColName && !editing())
             beginEdit(item->row());
+    });
+
+    // F2 renames, as it does in a file manager.  A shortcut rather than a key
+    // handler because the table would otherwise see the key first, and it has
+    // its own idea of what F2 means.
+    auto *rename = new QShortcut(QKeySequence(Qt::Key_F2), this);
+    rename->setContext(Qt::WidgetWithChildrenShortcut);
+    connect(rename, &QShortcut::activated, this, [this] {
+        const int row = m_table->currentRow();
+        if (row >= 0 && !editing())
+            beginEdit(row);
     });
 
     // The delegate tells commit from cancel: Enter reaches commitData first,
@@ -448,8 +460,17 @@ void ManageClocksDialog::finishEdit(bool committed)
         registry.clocks.push_back(entry);
         item->setData(kFileRole, entry.file);
         ClockManager::instance().setRegistry(registry);
-        // A clock you have just made and named is one you want to see.
-        ClockManager::instance().openClock(entry.path());
+        // A clock you have just made and named is one you want to see, and
+        // making one is the moment you have something in mind for it, so its
+        // settings come up with it rather than waiting to be asked for.
+        const QString path = entry.path();
+        QTimer::singleShot(0, this, [path] {
+            ClockManager &manager = ClockManager::instance();
+            if (!manager.isOpen(path))
+                manager.openClock(path);
+            if (ClockWindow *clock = manager.clockAt(path))
+                clock->openSettings();
+        });
         return;
     }
 
