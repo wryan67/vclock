@@ -77,6 +77,15 @@ public:
     void showHelp();
     void showAbout();
     void confirmReset();
+
+    // Put the "are you sure?" question without acting on the answer, so the
+    // menu item and the Settings dialog's Reset button ask it the same way.
+    static bool askReset(class QWidget *parent);
+
+    // What a reset restores: the defaults, sized for the monitor this clock is
+    // on now.  Settings uses it to snap its controls to the same values.
+    Config defaultConfig() const;
+
     void manageClocks();
 
     // Re-read this clock's display name, which the manage dialog can change

@@ -613,6 +613,19 @@ clock behind it — so without that button the per-clock view is a dead end. Bot
 windows then stay open together: the hub can reach any clock's settings, and now
 a clock's settings can reach the hub.
 
+**Reset** is centred between them, and it puts every control in the dialog back
+to its default so you can see the result before deciding. It asks first, with
+the same question as *Reset defaults* in the clock's own menu, since it throws
+away a whole clock's worth of choices at once. Where the two differ is what
+happens after you say yes: the menu item saves straight away, while the button
+only moves the controls and previews the clock, so Cancel puts everything back
+and nothing is written until Save. That follows the rule the rest of the dialog
+already keeps — while Settings is open, Save and Cancel decide.
+
+Because it acts on the dialog's own controls, the button resets only what the
+dialog shows. Always on top has no control here, so it is left as it is; the
+menu's *Reset defaults* covers that one too.
+
 Every slider in Sizes and Opacity has its value in a box beside it that can be
 typed into as well as read, which is the only way to set an exact number on a
 slider whose range is wider than the pixels it is drawn in. A value outside the

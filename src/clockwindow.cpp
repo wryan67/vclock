@@ -1362,7 +1362,15 @@ void ClockWindow::closeSettings()
 
 void ClockWindow::confirmReset()
 {
-    QMessageBox box(this);
+    if (askReset(this))
+        resetDefaults();
+}
+
+// Asked from the menu and from the Settings dialog's Reset button, so the two
+// put the same question in the same words.
+bool ClockWindow::askReset(QWidget *parent)
+{
+    QMessageBox box(parent);
     box.setWindowTitle(QStringLiteral("vclock"));
     box.setIcon(QMessageBox::Question);
     box.setText(QStringLiteral("Are you sure?"));
@@ -1371,22 +1379,27 @@ void ClockWindow::confirmReset()
         "clock face."));
     box.setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel);
     box.setDefaultButton(QMessageBox::Cancel);
-    if (box.exec() == QMessageBox::Ok)
-        resetDefaults();
+    return box.exec() == QMessageBox::Ok;
+}
+
+// The settings a reset restores: the program's defaults, sized for the monitor
+// this clock is on now rather than the one it started on.  Shared with the
+// Settings dialog's Reset button so the two cannot restore different things.
+Config ClockWindow::defaultConfig() const
+{
+    Config values = m_cfg;
+    copyResetKeys(Config(), values);
+    if (values.size <= 0)
+        values.size = defaultSizeOn(screen());
+    values.size = std::min(values.size, maxSize());
+    return values;
 }
 
 // Restore every setting except the on-screen position.
 void ClockWindow::resetDefaults()
 {
     closeSettings();
-    Config values = m_cfg;
-    copyResetKeys(Config(), values);
-    // Reset means what a new clock would get, and a new clock is sized from
-    // the screen it opens on -- this one, not the one it started on.
-    if (values.size <= 0)
-        values.size = defaultSizeOn(screen());
-    values.size = std::min(values.size, maxSize());
-    applySettings(values);
+    applySettings(defaultConfig());
     flushSave();
 }
 

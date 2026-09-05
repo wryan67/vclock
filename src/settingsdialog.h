@@ -49,7 +49,8 @@ private:
     void onChanged(const QObject *sender = nullptr);
     void onBrowse();
     void onPresetClicked(const Preset &preset);
-    void applyPreset(const Config &values);
+    void onResetClicked();
+    void applyValues(const Config &values, bool full);
     void syncSwatches();
 
     QString faceSvg() const;

@@ -71,6 +71,25 @@ QSpinBox *makeReadout(int low, int high)
     return box;
 }
 
+// Put the middle item of a three-part row in the centre of the row rather than
+// in the centre of the gap between its neighbours.  A stretch either side only
+// shares out what is left over, so the middle lands off-centre by half the
+// difference between the outer two; padding the narrower of them until they
+// match makes the two shares equal and the middle truly central.
+void centreMiddleItem(QHBoxLayout *row, QWidget *left, QWidget *right)
+{
+    left->ensurePolished();
+    right->ensurePolished();
+    const int leftWidth = left->sizeHint().width();
+    const int rightWidth = right->sizeHint().width();
+    if (leftWidth == rightWidth)
+        return;
+    if (leftWidth < rightWidth)
+        row->insertSpacing(row->indexOf(left), rightWidth - leftWidth);
+    else
+        row->addSpacing(leftWidth - rightWidth);
+}
+
 }  // namespace
 
 SettingsDialog::SettingsDialog(ClockWindow *clock)
@@ -376,23 +395,33 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     ++row;
 
     // --------------------------------------------------------------- buttons
+    // Save and Cancel go in a button box so the platform puts them in its own
+    // order; the other two are placed by hand, since a button box would gather
+    // them into the same cluster and they are not part of that decision.
     auto *buttons = new QDialogButtonBox(this);
 
     // Settings is otherwise a dead end: it governs this clock alone, and while
     // it has focus the Ctrl+K that would reach Manage clocks goes to the dialog
     // rather than to the clock behind it.  So the one route from the part to
-    // the whole is a button on the part.
-    //
-    // ResetRole to keep it away from Save and Cancel -- it commits nothing, and
-    // a third button in that cluster would read as though it did.
-    QPushButton *manage = buttons->addButton(QStringLiteral("Manage clocks..."),
-                                             QDialogButtonBox::ResetRole);
+    // the whole is a button on the part.  It is kept away from Save and Cancel
+    // -- it commits nothing, and a third button in that cluster would read as
+    // though it did.
+    auto *manage = new QPushButton(QStringLiteral("Manage clocks..."));
     manage->setIcon(glyphIcon(Glyph::List, GlyphRole::Info));
     manage->setIconSize(QSize(18, 18));
+    manage->setAutoDefault(false);
     connect(manage, &QPushButton::clicked, this, [this] {
         if (m_clock)
             m_clock->manageClocks();
     });
+
+    // Reset throws away every setting in the dialog, so it is kept as far from
+    // Save as the row allows rather than sitting beside it.
+    auto *reset = new QPushButton(QStringLiteral("Reset"));
+    reset->setIcon(glyphIcon(Glyph::Reset, GlyphRole::Warn));
+    reset->setIconSize(QSize(18, 18));
+    reset->setAutoDefault(false);
+    connect(reset, &QPushButton::clicked, this, &SettingsDialog::onResetClicked);
 
     QPushButton *save = buttons->addButton(QStringLiteral("Save"),
                                            QDialogButtonBox::AcceptRole);
@@ -405,7 +434,20 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     save->setDefault(true);
     connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
-    outer->addWidget(buttons);
+
+    // Reset is meant to sit in the middle of the row, so the space either side
+    // of it is shared out to make it so however wide its neighbours are: a pair
+    // of stretches alone would only centre it between them.
+    auto *bottom = new QWidget(this);
+    auto *bottomRow = new QHBoxLayout(bottom);
+    bottomRow->setContentsMargins(0, 0, 0, 0);
+    bottomRow->addWidget(manage);
+    bottomRow->addStretch(1);
+    bottomRow->addWidget(reset);
+    bottomRow->addStretch(1);
+    bottomRow->addWidget(buttons);
+    centreMiddleItem(bottomRow, manage, buttons);
+    outer->addWidget(bottom);
 
     // ------------------------------------------------------------- wiring up
     for (QSlider *slider : {m_size, m_handScale, m_markScale, m_markPosition,
@@ -427,7 +469,7 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     refreshCenter();
     m_live = true;
 
-    resizeToFit(content, scroll, buttons);
+    resizeToFit(content, scroll, bottom);
 }
 
 // Open at the dialog's natural size where the screen allows it, and no larger
@@ -595,11 +637,24 @@ void SettingsDialog::onPresetClicked(const Preset &preset)
 {
     Config values = m_clock->cfg();
     copyPresetKeys(preset.values, values);
-    applyPreset(values);
+    applyValues(values, false);
 }
 
-// Snap every appearance control to a preset, then preview it once.
-void SettingsDialog::applyPreset(const Config &values)
+void SettingsDialog::onResetClicked()
+{
+    if (!m_clock || !ClockWindow::askReset(this))
+        return;
+    // The controls go back to the defaults and preview like any other change,
+    // so Save commits the reset and Cancel puts the clock back as it was.  The
+    // menu's Reset defaults saves at once because there is no dialog there to
+    // take the decision.
+    applyValues(m_clock->defaultConfig(), true);
+}
+
+// Snap every appearance control to a set of values, then preview it once.  A
+// preset is a change of looks and leaves the size and the running behaviour
+// alone; a reset restores those too, which is what "full" means here.
+void SettingsDialog::applyValues(const Config &values, bool full)
 {
     const bool wasLive = m_live;
     m_live = false;  // move the widgets without a preview per widget
@@ -611,13 +666,19 @@ void SettingsDialog::applyPreset(const Config &values)
     m_faceEdit->clear();
     m_faceEdit->setToolTip(QString());
 
-    // A preset is a whole default clock, so it restores the size and the hand
-    // pivot too.  The centre lives on the clock rather than in a widget, so it
-    // has to be set there; refreshCenter() then re-syncs the "auto" checkbox.
+    if (full) {
+        m_size->setValue(values.size);
+        m_smoothSweep->setChecked(values.smoothSweep);
+        m_reverseTime->setChecked(values.reverseTime);
+    }
+
+    // A preset is a change of looks, so it leaves the clock's size alone; it
+    // does restore the hand pivot, which is part of the drawing.  The centre
+    // lives on the clock rather than in a widget, so it has to be set there;
+    // refreshCenter() then re-syncs the "auto" checkbox.
     m_clock->stopPicking();
     m_clock->setCenter(values.center, false);
 
-    m_size->setValue(values.size);
     m_handScale->setValue(values.handScale);
     m_markScale->setValue(values.markScale);
     m_markPosition->setValue(values.markPosition);

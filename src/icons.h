@@ -21,6 +21,7 @@ enum class Glyph {
     Checked,   // fa-solid fa-check
     Unchecked, // fa-regular fa-square
     List,      // fa-solid fa-list
+    Reset,     // fa-solid fa-clock-rotate-left
 };
 
 // What an icon means, rather than what colour it is.  The colour is settled at
@@ -31,6 +32,7 @@ enum class GlyphRole {
     Neutral,  // an ordinary action: takes the theme's foreground
     Go,       // save, add
     Stop,     // cancel, delete
+    Warn,     // undoes work without destroying anything: reset
     Info,     // goes somewhere else rather than changing anything
 };
 
