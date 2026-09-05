@@ -31,6 +31,7 @@ enum class GlyphRole {
     Neutral,  // an ordinary action: takes the theme's foreground
     Go,       // save, add
     Stop,     // cancel, delete
+    Info,     // goes somewhere else rather than changing anything
 };
 
 QIcon glyphIcon(Glyph glyph, GlyphRole role);

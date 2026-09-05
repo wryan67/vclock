@@ -232,6 +232,15 @@ QColor glyphColor(GlyphRole role)
         return dark ? QColor(0x66, 0xbb, 0x6a) : QColor(0x2e, 0x7d, 0x32);
     case GlyphRole::Stop:
         return dark ? QColor(0xef, 0x53, 0x50) : QColor(0xc6, 0x28, 0x28);
+    case GlyphRole::Info:
+        // The accent blue the sliders and selections use, so the program has
+        // one blue rather than two -- but at the weight the other glyphs are
+        // drawn in.  The accent itself is a mid-tone meant to be seen as a
+        // filled slider groove several pixels wide; as an 18-pixel outline
+        // beside these greens and reds it reads as washed out and lighter than
+        // its neighbours.  Same hue and saturation, lightness moved until it
+        // carries about as far as Go and Stop do.
+        return dark ? QColor(0x67, 0xae, 0xda) : QColor(0x26, 0x6e, 0x9c);
     }
     return Qt::black;
 }

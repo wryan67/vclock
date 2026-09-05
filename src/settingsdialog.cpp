@@ -387,7 +387,7 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     // a third button in that cluster would read as though it did.
     QPushButton *manage = buttons->addButton(QStringLiteral("Manage clocks..."),
                                              QDialogButtonBox::ResetRole);
-    manage->setIcon(glyphIcon(Glyph::List, GlyphRole::Neutral));
+    manage->setIcon(glyphIcon(Glyph::List, GlyphRole::Info));
     manage->setIconSize(QSize(18, 18));
     connect(manage, &QPushButton::clicked, this, [this] {
         if (m_clock)
