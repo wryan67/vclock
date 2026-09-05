@@ -15,12 +15,12 @@ inline const QString kDefaultFaceLabel = QStringLiteral("built-in");
 inline constexpr int kSizeMin = 50;
 inline constexpr int kSizeMaxFallback = 500;  // only used if no screen can be queried
 
-// A clock nobody has sized yet is a twentieth of its screen's height.  A fixed
+// A clock nobody has sized yet is a fifteenth of its screen's height.  A fixed
 // pixel count cannot suit every panel: what fills a corner of a 1080 screen is
 // a stamp on a 4K one, and the clock is meant to sit on the desktop rather than
 // take it over.  Height rather than width because that is what the size is
 // already measured and capped against.
-inline constexpr double kSizeDefaultFraction = 0.05;
+inline constexpr double kSizeDefaultFraction = 1.0 / 15.0;
 inline constexpr int kSizeDefaultFallback = 100;  // only used if no screen can be queried
 
 // Hand geometry, as fractions of the usable face radius.  Expressing widths
