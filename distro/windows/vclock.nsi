@@ -27,6 +27,13 @@ VIAddVersionKey "ProductVersion" "${VERSION}"
 VIAddVersionKey "LegalCopyright" ""
 
 !define MUI_ABORTWARNING
+
+; Without these the installer and the Add/Remove Programs entry wear NSIS's
+; default icon rather than the program's.  The paths are supplied by
+; package.sh, since makensis resolves them relative to its working directory.
+!define MUI_ICON "${ICON}"
+!define MUI_UNICON "${ICON}"
+
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH

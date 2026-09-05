@@ -59,17 +59,36 @@ echo "==> building vclock $version for macOS $arch"
 
 # ------------------------------------------------------------------- the icon
 #
-# The program draws its own icon, so there is no .icns in the tree to point the
-# bundle at.  vclock.svg is the same artwork as a file, and iconutil turns a
-# directory of PNGs into the .icns that Finder and the Dock want.
+# The bundle needs an icon file, because Finder and the Dock show one before
+# the program has run and drawn its own.  distro/macos/vclock.icns is committed
+# for exactly that reason and is what a plain cmake build uses.
+#
+# iconutil is Apple's own tool and always present here, so when a rasteriser is
+# available too the file is rebuilt from vclock.svg rather than trusted -- that
+# way an edit to the artwork reaches the bundle even if the committed icon has
+# not been refreshed.  Without a rasteriser the committed file is used as it
+# is, which is right far more often than shipping no icon at all.
 
+icns=$ROOT/distro/macos/vclock.icns
 iconset=$BUILD/vclock.iconset
-icns=$BUILD/vclock.icns
-rm -rf "$iconset"; mkdir -p "$iconset"
 
-if command -v rsvg-convert >/dev/null 2>&1; then
+rasteriser=
+for tool in rsvg-convert magick convert; do
+    command -v "$tool" >/dev/null 2>&1 && rasteriser=$tool && break
+done
+
+if [ -n "$rasteriser" ]; then
+    rm -rf "$iconset"; mkdir -p "$iconset"
     for size in 16 32 64 128 256 512 1024; do
-        rsvg-convert -w $size -h $size "$ROOT/vclock.svg" -o "$iconset/icon_${size}x${size}.png"
+        case $rasteriser in
+            rsvg-convert)
+                rsvg-convert -w $size -h $size "$ROOT/vclock.svg" \
+                             -o "$iconset/icon_${size}x${size}.png" ;;
+            *)
+                "$rasteriser" -background none -density 512 \
+                              "$ROOT/vclock.svg" -resize ${size}x${size} \
+                              "$iconset/icon_${size}x${size}.png" ;;
+        esac
     done
     # Retina variants are the same image at twice the pixels, named for the
     # size they stand in for.
@@ -78,18 +97,27 @@ if command -v rsvg-convert >/dev/null 2>&1; then
            "$iconset/icon_${size}x${size}@2x.png" 2>/dev/null || true
     done
     rm -f "$iconset/icon_1024x1024.png"
-    iconutil -c icns "$iconset" -o "$icns" 2>/dev/null || icns=""
+
+    if iconutil -c icns "$iconset" -o "$BUILD/vclock.icns" 2>/dev/null; then
+        icns=$BUILD/vclock.icns
+    else
+        echo "    (iconutil failed; using the committed icon)"
+    fi
 else
-    echo "    (no rsvg-convert; building without a bundle icon)"
-    icns=""
+    echo "    (no SVG rasteriser; using the committed icon)"
 fi
+
+[ -f "$icns" ] || {
+    echo "error: no icon file at $icns" >&2
+    exit 1
+}
 
 # ------------------------------------------------------------------ the build
 
 cmake_args=(-S "$ROOT" -B "$BUILD" -DCMAKE_BUILD_TYPE=Release
             -DCMAKE_PREFIX_PATH="$QT_PREFIX"
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0)
-[ -n "$icns" ] && cmake_args+=(-DVCLOCK_MACOS_ICON="$icns")
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0
+            -DVCLOCK_MACOS_ICON="$icns")
 
 cmake "${cmake_args[@]}"
 cmake --build "$BUILD" -j"$(sysctl -n hw.ncpu)"

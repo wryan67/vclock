@@ -82,6 +82,7 @@ echo "bundled $(find "$STAGE" -name '*.dll' | wc -l) DLLs"
 makensis -NOCD \
     -DVERSION="$version" \
     -DSTAGE="$STAGE" \
+    -DICON="/src/distro/windows/vclock.ico" \
     -DOUTFILE="/tmp/vclock-$version-windows-x64-setup.exe" \
     /src/distro/windows/vclock.nsi >/tmp/nsis.log 2>&1 ||
     { echo "makensis failed"; tail -20 /tmp/nsis.log; exit 1; }

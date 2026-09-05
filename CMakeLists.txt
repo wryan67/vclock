@@ -63,15 +63,33 @@ if(UNIX AND NOT APPLE)
   target_compile_definitions(vclock PRIVATE VCLOCK_HAVE_XCB)
 endif()
 
+# The program draws its own icon and so ships no icon file -- except for the
+# two platforms that show an icon for the executable before it has run.  Both
+# are built from vclock.svg by distro/make-icons.sh and committed, because
+# neither can be produced from the SVG on the machine that builds them: a
+# Windows box has no SVG rasteriser, and the Windows package is cross-compiled
+# from a container that has no Windows resource compiler beyond windres.
+if(WIN32)
+  # project() above lists CXX only, so the resource compiler is not enabled and
+  # a .rc would be passed to the linker as an unknown file.
+  enable_language(RC)
+  target_sources(vclock PRIVATE distro/windows/vclock.rc)
+endif()
+
 set_target_properties(vclock PROPERTIES
   MACOSX_BUNDLE_BUNDLE_NAME "vclock"
   MACOSX_BUNDLE_GUI_IDENTIFIER "org.vclock.vclock"
   MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
 )
 
-# The program draws its own icon and so ships no icon file; distro/macos builds
-# one from vclock.svg and points this at it.  Without it the bundle gets the
-# generic application icon, which is only a cosmetic loss.
+# distro/macos/package.sh regenerates this with iconutil, which is the
+# authoritative tool and always present on a Mac; the committed file is what a
+# plain cmake build gets, so that building by hand does not quietly produce a
+# bundle wearing the generic application icon.
+if(APPLE AND NOT VCLOCK_MACOS_ICON)
+  set(VCLOCK_MACOS_ICON ${CMAKE_CURRENT_SOURCE_DIR}/distro/macos/vclock.icns)
+endif()
+
 if(APPLE AND VCLOCK_MACOS_ICON)
   target_sources(vclock PRIVATE ${VCLOCK_MACOS_ICON})
   get_filename_component(_vclock_icon_name ${VCLOCK_MACOS_ICON} NAME)

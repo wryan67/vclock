@@ -1,0 +1,13 @@
+/* The icon Windows shows for the file itself -- in Explorer, on the Start menu
+ * and in the taskbar before the program has drawn anything.  The window icon is
+ * set at runtime from the same artwork, but that only applies once the program
+ * is running, and the first thing a new user sees is the file.
+ *
+ * The path is relative to this file, which is where both windres and rc.exe
+ * look first.  vclock.ico is built from vclock.svg by distro/make-icons.sh.
+ *
+ * The lowest-numbered icon in the resources is the one Explorer uses for the
+ * executable, so this stays the only one.
+ */
+
+1 ICON "vclock.ico"

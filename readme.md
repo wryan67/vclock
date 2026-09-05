@@ -179,6 +179,38 @@ are copied separately, because nothing links against them and the walk cannot
 see them. The build fails rather than ships if `qwindows.dll` is missing, since
 without it the program starts and immediately aborts.
 
+### Icons on Windows and macOS
+
+Everywhere else the program draws its own icon once it is running, and that is
+enough: Linux takes the window icon from the running process and the installed
+`vclock.svg` for the menu. Windows and macOS both want an icon *in the file*,
+because both show one before the program has started — in Explorer, on the
+Start menu, in Finder and in the Dock. A build without one is not broken, but
+the first thing a new user sees is a blank page glyph.
+
+So two icon files are committed, both built from `vclock.svg` by
+`distro/make-icons.sh`:
+
+| File | Used by |
+| --- | --- |
+| `distro/windows/vclock.ico` | `distro/windows/vclock.rc`, compiled into the `.exe`; also the installer and uninstaller icons |
+| `distro/macos/vclock.icns` | copied into `vclock.app/Contents/Resources` |
+
+They are committed rather than generated during the build because neither
+platform can produce them where it is built: a Windows machine has no SVG
+rasteriser, and macOS has no command-line one either unless somebody has
+installed `librsvg`. Generating them would mean the icon quietly disappearing on
+the machines least able to notice. `distro/macos/package.sh` still rebuilds the
+`.icns` with `iconutil` — Apple's own tool, always present — when a rasteriser
+is there to feed it, so an edit to the artwork reaches the bundle even if the
+committed file has not been refreshed; the committed one is the floor, not the
+ceiling. Run `distro/make-icons.sh` after changing `vclock.svg`; it needs
+`librsvg2-bin`, `imagemagick` and `icnsutils`.
+
+The `.ico` holds nine sizes from 16 to 256 rather than one. Windows picks
+between them by context, and a file offering a single size gets a scaled copy
+of it everywhere else — which is what a blurry icon in a title bar usually is.
+
 ### macOS
 
 macOS is the one target that cannot be built here. This is not a gap in the
@@ -192,10 +224,9 @@ who is sitting at some.
 The recipe is `distro/macos/package.sh`, which runs on a Mac and produces a
 `vclock.app` and a disk image. It uses `macdeployqt` to copy the Qt frameworks
 into the bundle and rewrite the binary's load paths to point inside it, so the
-result runs on a machine that has no Qt installed. It builds the `.icns` from
-`vclock.svg`, since the program otherwise ships no icon file. Set
-`CODESIGN_IDENTITY` to sign; without it the build still works but Gatekeeper
-will object anywhere but the machine that built it.
+result runs on a machine that has no Qt installed. Set `CODESIGN_IDENTITY` to
+sign; without it the build still works but Gatekeeper will object anywhere but
+the machine that built it.
 
 `.github/workflows/release.yml` runs all of this on a tag — the container
 targets on Linux runners and macOS on GitHub's macOS runners, one job per
@@ -651,6 +682,7 @@ A few details worth knowing:
 | `src/windowgroup.*` | keeping each clock's stacking its own, on X11 |
 | `distro/` | packaging: one recipe per target, and the desktop entry a Linux install ships |
 | `distro/packaging.cmake` | the CPack settings the deb and rpm are built from |
+| `distro/make-icons.sh` | rebuilds the Windows and macOS icon files from `vclock.svg` |
 | `.github/workflows/` | the release build, and the only place macOS is built |
 
 ## Notes on the port
