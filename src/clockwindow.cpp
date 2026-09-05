@@ -624,6 +624,12 @@ void ClockWindow::hideTimeTip()
         m_timeTip->hide();
 }
 
+void ClockWindow::hideClock()
+{
+    m_hiding = true;
+    close();
+}
+
 void ClockWindow::closeEvent(QCloseEvent *event)
 {
     hideTimeTip();
@@ -632,7 +638,7 @@ void ClockWindow::closeEvent(QCloseEvent *event)
     event->accept();
     // The manager decides whether this was the last clock; it may be holding
     // the program open for a dialog of its own.
-    emit closed();
+    emit closed(m_hiding);
 }
 
 void ClockWindow::refreshTitle()
@@ -816,12 +822,12 @@ void ClockWindow::keyPressEvent(QKeyEvent *event)
         else if (m_picking)
             cancelPicking();
         else
-            close();
+            hideClock();
         return;
     }
 #if !defined(Q_OS_MACOS)
     if (key == Qt::Key_F4 && mods.testFlag(Qt::AltModifier)) {
-        close();
+        hideClock();
         return;
     }
 #endif
@@ -840,7 +846,7 @@ void ClockWindow::keyPressEvent(QKeyEvent *event)
             startMoveMode();
             return;
         case Qt::Key_H:
-            close();
+            hideClock();
             return;
         case Qt::Key_A:
             showAbout();
@@ -854,7 +860,7 @@ void ClockWindow::keyPressEvent(QKeyEvent *event)
 #if defined(Q_OS_MACOS)
         // Cmd+W closes a window on macOS; here that means hiding this clock.
         case Qt::Key_W:
-            close();
+            hideClock();
             return;
 #endif
         default:
@@ -1133,7 +1139,7 @@ void ClockWindow::buildMenu()
     // left to run for, so the program ends -- which is what closing the last
     // window has always done.
     QAction *hide = m_menu->addAction(menuHotkey(QStringLiteral("Hide"), "H"));
-    connect(hide, &QAction::triggered, this, [this] { close(); });
+    connect(hide, &QAction::triggered, this, [this] { hideClock(); });
 
     // Quit ends the program whatever else is open.  That is the difference
     // between it and Hide, which is only ever about this window.

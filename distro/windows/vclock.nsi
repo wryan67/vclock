@@ -51,8 +51,61 @@ Function .onInit
     SetRegView 64
 FunctionEnd
 
+; Windows locks a running program's file, so installing over a copy that is
+; still on screen fails partway through with "Error opening file for writing"
+; -- having already replaced some of the DLLs.  The running copy is therefore
+; asked to close before a single file is touched.
+;
+; taskkill without /F posts WM_CLOSE, which vclock handles: it writes out its
+; settings and, because the close did not come from the Hide menu, treats it as
+; the program stopping rather than as putting one clock away.  Every clock that
+; was on screen stays marked as showing and they all come back afterwards.
+; /F skips all of that, so it is only used as a last resort for a copy that has
+; stopped answering.
+;
+; taskkill is part of Windows, so this needs no NSIS plugin beyond nsExec,
+; which ships with NSIS itself.  Expanded twice, once for the installer and
+; once for the uninstaller, which cannot share a function.
+!macro CloseRunningVclock un
+Function ${un}CloseRunningVclock
+    Push $0
+    Push $1
+    Push $2
+
+    StrCpy $1 0
+    ; Exit code 0 means taskkill found the process and asked it to close, so
+    ; there is something to wait for; anything else means none was running.
+    ask:
+        nsExec::ExecToStack '"$SYSDIR\taskkill.exe" /IM vclock.exe'
+        Pop $0
+        Pop $2
+        StrCmp $0 0 0 gone
+        Sleep 1000
+        IntOp $1 $1 + 1
+        IntCmp $1 10 force ask force
+
+    force:
+        nsExec::ExecToStack '"$SYSDIR\taskkill.exe" /F /IM vclock.exe'
+        Pop $0
+        Pop $2
+        ; Killing the process does not release its file handles instantly.
+        Sleep 1000
+
+    gone:
+    Pop $2
+    Pop $1
+    Pop $0
+FunctionEnd
+!macroend
+
+!insertmacro CloseRunningVclock ""
+!insertmacro CloseRunningVclock "un."
+
 Section "vclock" SecMain
     SectionIn RO
+
+    Call CloseRunningVclock
+
     SetOutPath "$INSTDIR"
 
     File "${STAGE}\vclock.exe"
@@ -100,6 +153,11 @@ SectionEnd
 
 Section "Uninstall"
     SetRegView 64
+
+    ; Same problem as installing: the files cannot be deleted while they are in
+    ; use, and an uninstall that leaves the program behind is worse than one
+    ; that closes it.
+    Call un.CloseRunningVclock
 
     ; The program writes this itself when "Start at login" is ticked, so it has
     ; to be cleared here or Windows goes looking for a deleted executable at

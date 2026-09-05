@@ -179,6 +179,17 @@ are copied separately, because nothing links against them and the walk cannot
 see them. The build fails rather than ships if `qwindows.dll` is missing, since
 without it the program starts and immediately aborts.
 
+Windows locks the file of a running program, so installing over a copy that is
+still on screen used to fail partway through with *Error opening file for
+writing* — after some of the DLLs had already been replaced. The installer and
+the uninstaller now ask a running vclock to close first, with `taskkill`, which
+is part of Windows and so needs no NSIS plugin beyond the `nsExec` that ships
+with NSIS. The polite form is used, which posts `WM_CLOSE` and lets the program
+write its settings out; it is retried for ten seconds before a copy that has
+stopped answering is killed outright. That is only safe because an outside
+close no longer reads as hiding a clock — see [Using it](#using-it) — or every
+install would silently take the user's clocks off screen.
+
 ### Icons on Windows and macOS
 
 Everywhere else the program draws its own icon once it is running, and that is
@@ -258,6 +269,15 @@ than were asked for.
 Hide takes one clock off screen and leaves the others running; Manage clocks
 brings it back. Hiding the last one ends the program, since there is nothing
 left to run for.
+
+Hiding is the only thing that marks a clock as not showing. A close that comes
+from outside the program -- a session logging out, or the Windows installer
+clearing the way for a new copy -- means the program is stopping, not that the
+user put a clock away, so it is treated as Quit: the settings are written out
+and every clock stays marked as showing, so they all come back next time. The
+two arrive identically as a window close, so Hide sets a flag on its way in and
+anything without that flag is taken as the outside kind. Read as a hide
+instead, one logout would quietly leave all but one of the clocks off.
 
 Each menu entry shows its shortcut in a right-hand column.
 

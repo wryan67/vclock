@@ -128,15 +128,27 @@ void ClockManager::adopt(ClockWindow *clock, const QString &key)
 {
     m_clocks.insert(key, clock);
     clock->setAttribute(Qt::WA_DeleteOnClose, true);
-    connect(clock, &ClockWindow::closed, this, [this, key] { forget(key); });
+    connect(clock, &ClockWindow::closed, this, [this, key](bool hiding) { forget(key, hiding); });
 }
 
-void ClockManager::forget(const QString &key)
+void ClockManager::forget(const QString &key, bool hiding)
 {
     if (m_clocks.remove(key) == 0)
         return;
+    if (!hiding && !m_quitting) {
+        // Nothing inside the program asked for this, so the close came from
+        // the window system: a session logging out, or an installer clearing
+        // the way for a new copy.  That is the program being stopped, not the
+        // user putting one clock away, so it is treated exactly like Quit --
+        // every clock stays marked as showing and they all come back next
+        // time.  Read as a hide instead, a logout would quietly lose all but
+        // one of the clocks the user had on screen.
+        quitNow();
+        return;
+    }
     // Quitting is not hiding.  A clock closed because the program is stopping
-    // is still one the user had on screen, and must come back next time.
+    // is still one the user had on screen, and must come back next time;
+    // setShown does nothing while m_quitting is set.
     setShown(key, false);
     emit changed();
     quitIfDone();
@@ -159,7 +171,7 @@ void ClockManager::setShown(const QString &key, bool shown)
 void ClockManager::closeClock(const QString &path)
 {
     if (ClockWindow *clock = m_clocks.value(canonicalise(path), nullptr))
-        clock->close();
+        clock->hideClock();
 }
 
 void ClockManager::closeAll()

@@ -78,10 +78,19 @@ public:
     // while the clock is up.
     void refreshTitle();
 
+    // Take this clock off screen, which is a different thing from the window
+    // being closed: hiding is a choice the user made about one clock, and is
+    // remembered, whereas a close arriving from outside the program is the
+    // session ending and must leave the clock marked as showing.  Every way
+    // the program itself puts a clock away comes through here so that the two
+    // can be told apart in closeEvent, which they otherwise cannot be.
+    void hideClock();
+
 signals:
     // Emitted from closeEvent, before the window is deleted, so the manager
-    // can drop it from the set of running clocks.
-    void closed();
+    // can drop it from the set of running clocks.  True when the close came
+    // from hideClock(), false when it arrived from the window system.
+    void closed(bool hiding);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -143,6 +152,9 @@ private:
 
     SettingsDialog *m_settings = nullptr;
     bool m_picking = false;
+    // Set by hideClock() so closeEvent can tell the user putting this clock
+    // away from the window system closing it out from under us.
+    bool m_hiding = false;
     bool m_draggingCenter = false;
     std::optional<QPointF> m_centerBeforePick;
     bool m_hadCenterBeforePick = false;

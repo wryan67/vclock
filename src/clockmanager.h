@@ -68,7 +68,7 @@ private:
     ClockManager() = default;
 
     void adopt(ClockWindow *clock, const QString &path);
-    void forget(const QString &path);
+    void forget(const QString &path, bool hiding);
     void setShown(const QString &key, bool shown);
     void quitIfDone();
     // Make sure a clock started from the command line is listed, so it shows
