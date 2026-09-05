@@ -11,6 +11,7 @@
 
 #include <QAction>
 #include <QApplication>
+#include <QBitmap>
 #include <QCloseEvent>
 #include <QCursor>
 #include <QDesktopServices>
@@ -21,6 +22,7 @@
 #include <QMessageBox>
 #include <QMouseEvent>
 #include <QMoveEvent>
+#include <QResizeEvent>
 #include <QPainter>
 #include <QPen>
 #include <QPixmap>
@@ -229,6 +231,67 @@ void ClockWindow::applySize()
 }
 
 // Re-rasterise the face at the current widget size and apply colours.
+// Everything the clock draws over the face turns about the pivot; this is how
+// far out any of it reaches.
+double ClockWindow::reachRadius() const
+{
+    const QSize size = pixelSize();
+    const QPointF center = centerPixels();
+    const double radius = handRadius();
+    return std::max(radius * kSecondLen,
+                    markReach(m_cfg, center.x(), center.y(), radius, size.width(),
+                              size.height()));
+}
+
+// Only the clock takes clicks.  The window has to be a rectangle and a clock is
+// not, so without this its empty corners would swallow clicks meant for the
+// window or the desktop behind them -- something that is not there to look at
+// should not be there to hit either.
+//
+// The shape comes from the artwork's own coverage rather than from what is on
+// screen at the time, so that fading a clock down does not gradually make it
+// unclickable: opacity is about what you can see, not what you can reach.
+void ClockWindow::applyHitMask()
+{
+    const QSize widget = size();
+    if (m_coverage.isNull() || widget.isEmpty()) {
+        clearMask();
+        return;
+    }
+
+    QImage stencil(widget, QImage::Format_ARGB32_Premultiplied);
+    stencil.fill(Qt::transparent);
+    {
+        QPainter painter(&stencil);
+        // Laid down nine times, shifted a pixel each way, so the mask ends up a
+        // pixel proud of the artwork all round.  A mask even slightly inside it
+        // would shave the antialiased edge off the clock.
+        for (int dx = -1; dx <= 1; ++dx) {
+            for (int dy = -1; dy <= 1; ++dy)
+                painter.drawImage(QRect(QPoint(dx, dy), widget), m_coverage);
+        }
+        // The hands and the indices go on top of the face, and an off-centre
+        // pivot or a high index position can carry them past its edge, so the
+        // circle they move in is covered whether the artwork fills it or not.
+        painter.setRenderHint(QPainter::Antialiasing, false);
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(Qt::white);
+        const double r = reachRadius() + 1.0;
+        painter.drawEllipse(centerPixels(), r, r);
+    }
+
+    // Any alpha at all counts.  The artwork fades to nothing at its edge, so a
+    // boundary drawn where the alpha runs out falls outside every visible
+    // pixel -- which is what lets a hard-edged mask clip an antialiased clock
+    // without showing a single jagged step.
+    for (int y = 0; y < stencil.height(); ++y) {
+        auto *line = reinterpret_cast<QRgb *>(stencil.scanLine(y));
+        for (int x = 0; x < stencil.width(); ++x)
+            line[x] = qAlpha(line[x]) > 0 ? 0xffffffffu : 0u;
+    }
+    setMask(QBitmap::fromImage(stencil.createAlphaMask()));
+}
+
 void ClockWindow::rebuildRaster()
 {
     const QSize size = pixelSize();
@@ -251,6 +314,13 @@ void ClockWindow::rebuildRaster()
                              m_cfg.wireOpacity)
                    : art;
     m_raster.setDevicePixelRatio(dpr);
+
+    // Kept from the artwork as rendered, before any of the user's opacity is
+    // applied: a face faded to nothing is still a clock, and must still be
+    // possible to click on.
+    m_coverage = art.scaled(size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation)
+                     .convertToFormat(QImage::Format_ARGB32);
+    applyHitMask();
 }
 
 // Re-raster after the user pauses, coalescing a burst of slider events.
@@ -1030,6 +1100,7 @@ void ClockWindow::previewCenter(const QPointF &pos)
 void ClockWindow::setCenter(const std::optional<QPointF> &center, bool save)
 {
     m_cfg.center = sanitizeCenter(center);
+    applyHitMask();  // the hands turn about the pivot, so the shape moves with it
     update();
     if (save)
         queueSave();
@@ -1038,6 +1109,15 @@ void ClockWindow::setCenter(const std::optional<QPointF> &center, bool save)
 }
 
 // ------------------------------------------------------------------ drawing
+
+void ClockWindow::resizeEvent(QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+    // The mask is in widget coordinates, so a stale one would clip the clock
+    // to its old shape.  Dragging the size slider resizes long before the
+    // raster catches up, so this cannot wait for the rebuild.
+    applyHitMask();
+}
 
 void ClockWindow::paintEvent(QPaintEvent *)
 {
@@ -1399,5 +1479,8 @@ void ClockWindow::applySettings(const Config &values)
     }
     if (changedSize)
         rememberPlacement();  // the size belongs to the monitor it was set on
+    // The indices can be moved out past the face, which changes the shape the
+    // clock presents to the pointer without changing the artwork at all.
+    applyHitMask();
     update();
 }

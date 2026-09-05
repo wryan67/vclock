@@ -635,8 +635,17 @@ pulls the second slider onto the first, so the value you were looking at wins.
 
 Any part may fade away entirely, which is the point: a face at 0 leaves a wire
 outline over the wallpaper, and hands at 0 leave a dial with nothing on it. The
-clock itself never becomes unreachable, because the window goes on taking
-clicks wherever the clock is, so right clicking there still opens the menu.
+clock itself never becomes unreachable, because what takes a click is worked out
+from the artwork as drawn at full strength rather than from what you can see, so
+right clicking a clock faded to nothing still opens the menu.
+
+That reach stops at the drawing. A clock's window is square, but the artwork in
+it is not, and the corners left over are not the clock's to take: a click there
+goes to whatever is behind, the window or the desktop, as though the clock were
+not in the way. So a clock may sit over a window you are working in without
+stealing the clicks that land beside it. The shape follows the hands and the
+indices too, which a large **Hour mark position** can carry out past the dial,
+so anything you can see is something you can click.
 
 The blue on the sliders, on the selected row in Manage clocks and on selected
 text is the program's own, not the desktop's. Qt draws those in whatever colour
@@ -691,7 +700,13 @@ Right click &#9656; Manage clocks, or `Ctrl`+K, lists every clock you have. Each
 row has a Show box, the clock's name, and then four narrow columns: Set opens
 that clock's settings, Top keeps it above other windows, Name renames it, and
 Del deletes it and the config it keeps its settings in. Double clicking a name
-renames it too. `Enter` saves the new name and `Escape` abandons it.
+renames it, and so does `F2` on the selected row, as in a file manager. `Enter`
+saves the new name and `Escape` abandons it.
+
+**New clock** adds a row and waits for a name. Once you have named it the clock
+comes up on screen with its settings already open, since making a clock is the
+point at which you have something in mind for it, and it saves going back to the
+list to ask. Leaving the name blank, or pressing `Escape`, drops the new row.
 
 Top is the same setting as Always on top in a clock's own menu, gathered here so
 the whole set can be seen and changed in one place. It applies to that one clock

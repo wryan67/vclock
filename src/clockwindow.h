@@ -99,6 +99,7 @@ signals:
 
 protected:
     void paintEvent(QPaintEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
@@ -130,6 +131,8 @@ private:
     void centerOnCursor();
 
     void rebuildRaster();
+    double reachRadius() const;  // how far the hands and indices go from the pivot
+    void applyHitMask();         // let clicks off the clock through to what is behind
     void scheduleRebuild();
     void queueSave();
     void flushSave();
@@ -154,6 +157,7 @@ private:
     Config m_cfg;
     std::unique_ptr<Face> m_face;
     QImage m_raster;                    // the recoloured, rasterised face
+    QImage m_coverage;                  // where the artwork is, before the user's opacity
     QRectF m_bounds{0, 0, 1, 1};        // content bbox of the raster, as fractions
 
     SettingsDialog *m_settings = nullptr;

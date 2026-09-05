@@ -26,6 +26,11 @@ inline constexpr int kPresetThumb = 58;  // thumbnail size in px
 void drawMarks(QPainter &painter, const Config &cfg, double cx, double cy, double radius,
                double w, double h);
 
+// How far from the pivot the indices reach, edge of the stroke included, or 0
+// when none are drawn.  Shared with drawMarks so that anything measuring the
+// dial cannot drift from what is actually put on it.
+double markReach(const Config &cfg, double cx, double cy, double radius, double w, double h);
+
 // Draw the three hands and the centre pin for a (hour, minute, second).
 void drawHands(QPainter &painter, const Config &cfg, double cx, double cy, double radius,
                double w, double h, double hours, double minutes, double seconds);

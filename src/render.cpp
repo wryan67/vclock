@@ -160,6 +160,32 @@ const QVector<Preset> &presets()
     return list;
 }
 
+namespace {
+
+// The circle the indices hang from.  Clamped to the canvas so that a high
+// index position cannot push them off the edge and slice them in half.
+double markOuterEdge(const Config &cfg, double cx, double cy, double radius, double w,
+                     double h)
+{
+    const double size = cfg.markScale / 100.0;
+    const double position = cfg.markPosition / 100.0;
+    const double hourWidth = kMarkWidth * size * radius;
+    const double limit =
+        std::max(1.0, std::min({cx, cy, w - cx, h - cy}) - hourWidth / 2.0);
+    return std::min(kMarkOuter * position * radius, limit);
+}
+
+}  // namespace
+
+double markReach(const Config &cfg, double cx, double cy, double radius, double w, double h)
+{
+    const double size = cfg.markScale / 100.0;
+    if (size <= 0.0 || cfg.markPosition <= 0 || cfg.markOpacity <= 0)
+        return 0.0;
+    // Half the stroke sits outside the line the index is drawn along.
+    return markOuterEdge(cfg, cx, cy, radius, w, h) + kMarkWidth * size * radius / 2.0;
+}
+
 void drawMarks(QPainter &painter, const Config &cfg, double cx, double cy, double radius,
                double w, double h)
 {
@@ -177,9 +203,7 @@ void drawMarks(QPainter &painter, const Config &cfg, double cx, double cy, doubl
     // clamped to the canvas so a high position cannot slice them off.
     const double hourLen = (kMarkOuter - kMarkInner) * size * radius;
     const double hourWidth = kMarkWidth * size * radius;
-    const double limit =
-        std::max(1.0, std::min({cx, cy, w - cx, h - cy}) - hourWidth / 2.0);
-    const double outer = std::min(kMarkOuter * position * radius, limit);
+    const double outer = markOuterEdge(cfg, cx, cy, radius, w, h);
 
     // Quarter mode promotes only 12/3/6/9 to full indices; the hours it drops
     // fall back to the minute track rather than vanishing.
