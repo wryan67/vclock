@@ -168,6 +168,8 @@ ClockWindow::ClockWindow(const QString &configPath)
     connect(m_tipDelay, &QTimer::timeout, this, &ClockWindow::showTimeTip);
 
     m_face = openFace(m_cfg.facePath());
+    if (m_cfg.size <= 0)
+        m_cfg.size = defaultSizeOn(startupScreen());
     m_cfg.size = std::min(m_cfg.size, maxSize());
     applySize();
     rebuildRaster();
@@ -349,6 +351,16 @@ int ClockWindow::maxSizeFor(const QScreen *screen) const
     if (!screen)
         return kSizeMaxFallback;
     return std::max(kSizeMin, screen->geometry().height());
+}
+
+// The size a clock gets when its config has never recorded one -- a new clock,
+// or one whose settings have just been reset.
+int ClockWindow::defaultSizeOn(const QScreen *screen) const
+{
+    if (!screen)
+        return kSizeDefaultFallback;
+    const int wanted = qRound(screen->geometry().height() * kSizeDefaultFraction);
+    return std::clamp(wanted, kSizeMin, maxSizeFor(screen));
 }
 
 // Where a clock with no history goes on a given monitor: the middle of its
@@ -1290,6 +1302,10 @@ void ClockWindow::resetDefaults()
     closeSettings();
     Config values = m_cfg;
     copyResetKeys(Config(), values);
+    // Reset means what a new clock would get, and a new clock is sized from
+    // the screen it opens on -- this one, not the one it started on.
+    if (values.size <= 0)
+        values.size = defaultSizeOn(screen());
     values.size = std::min(values.size, maxSize());
     applySettings(values);
     flushSave();

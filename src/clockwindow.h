@@ -122,6 +122,7 @@ private:
     QScreen *currentScreen() const;   // the monitor the clock is on right now
     QScreen *startupScreen() const;   // the monitor to open on
     int maxSizeFor(const QScreen *screen) const;
+    int defaultSizeOn(const QScreen *screen) const;  // for a config that has no size yet
     QPoint defaultPositionOn(const QScreen *screen) const;
     QPoint clampToScreen(const QPoint &topLeft, const QScreen *screen) const;
     void rememberPlacement();         // record position/size against the current monitor

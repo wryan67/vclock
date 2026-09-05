@@ -759,6 +759,12 @@ the agent behind — so the disk image carries `uninstall.sh`, which removes it.
 
 ### Monitors
 
+A clock that has never been sized -- a new one, or one whose settings have just
+been reset -- opens at a twentieth of its screen's height. A fixed pixel count
+cannot suit every panel: what sits neatly in the corner of a 1080 screen is a
+stamp on a 4K one. Any size you set yourself is kept as it is, per monitor, and
+never second-guessed.
+
 The clock remembers a position and a size for each monitor it has been used on,
 under the `displays` key, along with the monitor it was last on in
 `last_display`:

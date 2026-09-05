@@ -203,7 +203,11 @@ Config loadConfig(const QString &requested)
         if (ok)
             cfg.size = parsed;
     }
-    cfg.size = qMax(kSizeMin, cfg.size);  // upper bound depends on the screen
+    // Zero has to survive the lower bound: it is not a size but the absence of
+    // one, and the clock turns it into a size once it knows which screen it is
+    // opening on.
+    if (cfg.size != 0)
+        cfg.size = qMax(kSizeMin, cfg.size);  // upper bound depends on the screen
 
     cfg.handScale = readPercent(o, "hand_scale", kHandScaleMin, kHandScaleMax,
                                 kDefaults.handScale);
