@@ -88,4 +88,12 @@ makensis -NOCD \
     { echo "makensis failed"; tail -20 /tmp/nsis.log; exit 1; }
 
 cp "/tmp/vclock-$version-windows-x64-setup.exe" /out/
+
+# makensis leaves the installer 644.  Windows does not have a mode bit and does
+# not care, but the file rarely goes straight from here to Windows -- it is
+# served, copied to a share, or handed over by scp, and a 644 that arrives on a
+# filesystem which does honour the bit is one nobody can run.  Marking it
+# executable here costs nothing and saves a chmod at the far end.
+chmod 755 "/out/vclock-$version-windows-x64-setup.exe"
+
 echo "built vclock-$version-windows-x64-setup.exe"
