@@ -20,6 +20,7 @@ enum class Glyph {
     Settings,  // fa-solid fa-gear
     Checked,   // fa-solid fa-check
     Unchecked, // fa-regular fa-square
+    List,      // fa-solid fa-list
 };
 
 // What an icon means, rather than what colour it is.  The colour is settled at

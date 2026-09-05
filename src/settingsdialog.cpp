@@ -384,12 +384,11 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     // the whole is a button on the part.
     //
     // ResetRole to keep it away from Save and Cancel -- it commits nothing, and
-    // a third button in that cluster would read as though it did.  No icon: the
-    // two beside it are go/stop, where the glyph carries the meaning, and the
-    // only glyphs to hand mean something else already (the gear is this dialog,
-    // the pen is renaming a row in the very dialog this opens).
+    // a third button in that cluster would read as though it did.
     QPushButton *manage = buttons->addButton(QStringLiteral("Manage clocks..."),
                                              QDialogButtonBox::ResetRole);
+    manage->setIcon(glyphIcon(Glyph::List, GlyphRole::Neutral));
+    manage->setIconSize(QSize(18, 18));
     connect(manage, &QPushButton::clicked, this, [this] {
         if (m_clock)
             m_clock->manageClocks();
