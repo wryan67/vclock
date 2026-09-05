@@ -34,12 +34,35 @@ VIAddVersionKey "LegalCopyright" ""
 !define MUI_ICON "${ICON}"
 !define MUI_UNICON "${ICON}"
 
+; Ticked by default, which is the usual thing for an installer and is worth a
+; little more here than usual: installing over a running copy closes it first,
+; so on an upgrade the user's clocks were on screen a moment ago and leaving
+; them with nothing running is the surprising outcome.
+!define MUI_FINISHPAGE_RUN
+!define MUI_FINISHPAGE_RUN_TEXT "Run vclock now"
+!define MUI_FINISHPAGE_RUN_FUNCTION LaunchVclock
+
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "English"
+
+; Writing to Program Files needs an elevated installer, but vclock itself must
+; not inherit that.  Everything it remembers is per user -- the configs under
+; %APPDATA% and the "Start at login" value under HKCU -- so a first run under
+; the wrong token writes them into the wrong profile, and the settings then
+; appear to vanish the next time the program is started normally.
+;
+; Exec would hand the program the installer's elevated token, so the launch
+; goes through Explorer instead.  Explorer runs as the logged-in user, and what
+; it starts inherits its token rather than ours.  This needs no plugin, which
+; matters because the NSIS in the build container ships neither UAC nor
+; ShellExecAsUser.
+Function LaunchVclock
+    Exec '"$WINDIR\explorer.exe" "$INSTDIR\vclock.exe"'
+FunctionEnd
 
 Function .onInit
     ; The payload is 64-bit; on a 32-bit Windows it would install and then

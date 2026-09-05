@@ -190,6 +190,21 @@ stopped answering is killed outright. That is only safe because an outside
 close no longer reads as hiding a clock — see [Using it](#using-it) — or every
 install would silently take the user's clocks off screen.
 
+The last page offers to run vclock, ticked, as installers usually do. It is
+worth a little more than usual here: an upgrade closes the copy that was
+running, so the clocks were on screen a moment ago and leaving the user with
+nothing is the surprising outcome.
+
+Writing to Program Files needs an elevated installer, but the program must not
+inherit that. Everything vclock remembers is per user — the configs under
+`%APPDATA%` and the *Start at login* value under `HKCU` — so a first run under
+the wrong token writes them into another profile, and the settings then appear
+to vanish the next time it is started normally. `Exec` would hand the program
+the installer's token, so the launch goes through `explorer.exe` instead:
+Explorer runs as the logged-in user, and what it starts inherits its token
+rather than the installer's. That needs no plugin, which matters because the
+NSIS in the build container ships neither `UAC` nor `ShellExecAsUser`.
+
 ### Icons on Windows and macOS
 
 Everywhere else the program draws its own icon once it is running, and that is
