@@ -529,11 +529,11 @@ the Settings window either way.
 
 The six thumbnails at the top of Settings are whole default clocks, not just
 colour schemes. Clicking one restores every appearance setting, and also puts
-the clock size and the hand centre back to their defaults — so a preset always
-gives you exactly the clock in the thumbnail. Where the window sits on screen is
-left alone, since that is a placement choice rather than a look. As with any
-other change, the preset is only a preview until Save; Cancel puts the previous
-size and centre back.
+the hand centre back to its default — so a preset gives you exactly the clock in
+the thumbnail, at the size you already had. How big the clock is and where it
+sits on screen are left alone, since those are placement choices rather than a
+look. As with any other change, the preset is only a preview until Save; Cancel
+puts the previous appearance and centre back.
 
 The application icon is a clock drawn by the same code that draws the
 thumbnails and the clock itself, rather than a picture of its own — so it is

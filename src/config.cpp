@@ -366,7 +366,6 @@ void saveConfig(const Config &cfg, const QString &requested)
 
 void copyPresetKeys(const Config &from, Config &to)
 {
-    to.size = from.size;
     to.center = from.center;
     to.handScale = from.handScale;
     to.markScale = from.markScale;
@@ -395,7 +394,8 @@ void copyPresetKeys(const Config &from, Config &to)
 
 void copyResetKeys(const Config &from, Config &to)
 {
-    copyPresetKeys(from, to);  // brings the size and hand centre with it
+    copyPresetKeys(from, to);  // brings the hand centre with it
+    to.size = from.size;
     to.alwaysOnTop = from.alwaysOnTop;
     to.smoothSweep = from.smoothSweep;
     to.reverseTime = from.reverseTime;
