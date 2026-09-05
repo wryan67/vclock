@@ -155,6 +155,13 @@ rm -rf "$staging"; mkdir -p "$staging"
 cp -R "$app" "$staging/"
 ln -s /Applications "$staging/Applications"
 
+# Dragging the app to the Trash leaves the launchd agent behind, pointing at an
+# application that is no longer there, and nothing can hook the Trash to prevent
+# that.  So the way to undo a "Start at login" ships alongside the thing that
+# creates it, rather than being a paragraph in a readme the user does not have.
+cp "$HERE/uninstall.sh" "$staging/"
+chmod +x "$staging/uninstall.sh"
+
 hdiutil create -volname "vclock $version" -srcfolder "$staging" \
         -ov -format UDZO "$dmg" >/dev/null
 

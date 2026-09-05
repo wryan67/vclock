@@ -205,6 +205,59 @@ Explorer runs as the logged-in user, and what it starts inherits its token
 rather than the installer's. That needs no plugin, which matters because the
 NSIS in the build container ships neither `UAC` nor `ShellExecAsUser`.
 
+#### Installing over an existing copy
+
+Run the installer on a machine that already has vclock and the first page it
+shows is not the directory page but a choice of three:
+
+| | |
+| --- | --- |
+| Upgrade or repair, keeping my settings | the default, and what an upgrade is |
+| Reset all settings, then reinstall | for a configuration that has been arranged into a corner |
+| Reset all settings only, without reinstalling | the same, without replacing files that are already correct |
+
+The page appears only when there is something installed. On a fresh machine the
+other two options would be offered against nothing, so it is skipped entirely
+and the first thing seen is the directory page, as before. An existing install
+also fixes where this one goes, so the directory page is skipped in turn — the
+location was decided the first time and changing it silently would leave two
+copies.
+
+Uninstalling is where the settings question belongs, since that is the path
+Windows itself offers through Settings → Apps. The uninstaller asks once, on a
+page that replaces the stock *are you sure*: **Also remove my settings**,
+unticked, because settings are cheap to keep and expensive to lose and an
+uninstall is often just the first half of an upgrade. *Start at login* is
+cleared either way — an entry naming a program that is gone is one Windows goes
+looking for at every login.
+
+Nothing is ever deleted. A reset, and an uninstall that was told to remove the
+settings, **rename** `%APPDATA%\vclock` to `%APPDATA%\vclock.bak`. One backup is
+kept, so a second reset replaces the first rather than leaving a collection of
+folders nobody will look at again. A misread prompt therefore costs a rename
+rather than every clock the user had arranged.
+
+The same choices are available to anyone scripting an install, since a silent
+one cannot click a radio button:
+
+    vclock-setup.exe /S               # install or upgrade, keeping settings
+    vclock-setup.exe /S /RESET        # put settings aside, then install
+    vclock-setup.exe /S /RESETONLY    # put settings aside and stop
+    Uninstall.exe /S                  # uninstall, keeping settings
+    Uninstall.exe /S /PURGE           # uninstall and put settings aside
+
+One caveat, and it is the elevation problem again from the other end. The
+settings are per user and the installer is elevated. If the person at the
+keyboard is an administrator who merely clicked through the UAC prompt, the
+elevated process keeps their profile and `%APPDATA%` is theirs. If a standard
+user instead typed *somebody else's* administrator credentials, the elevated
+process belongs to that other account and `%APPDATA%` points at its profile,
+where there is unlikely to be anything to reset. Resolving the invoking user's
+profile from an elevated process means going after the shell's token, which is a
+good deal of Win32 for something that would go wrong silently. So the path being
+reset is printed on the page instead: the one case where this does the wrong
+thing is the one where the wrong path is on screen to see.
+
 ### Icons on Windows and macOS
 
 Everywhere else the program draws its own icon once it is running, and that is
@@ -253,6 +306,30 @@ into the bundle and rewrite the binary's load paths to point inside it, so the
 result runs on a machine that has no Qt installed. Set `CODESIGN_IDENTITY` to
 sign; without it the build still works but Gatekeeper will object anywhere but
 the machine that built it.
+
+#### Uninstalling on macOS
+
+The disk image also carries `uninstall.sh`, which is there for one reason. An
+app installed by dragging it out of a disk image is removed by dragging it to
+the Trash, and for most programs that is genuinely all there is to it —
+everything they own lives inside the bundle. vclock is not quite one of those
+programs: ticking *Start at login* writes a launchd agent to
+`~/Library/LaunchAgents`, which is outside the bundle and so survives the Trash.
+What is left behind is an agent naming an application that no longer exists,
+which launchd tries to start at every login for as long as the account lasts.
+Nothing can hook drag-to-Trash to prevent that, so the answer is a script:
+
+    ./uninstall.sh              # app and login agent, settings kept
+    ./uninstall.sh --purge      # settings too
+    ./uninstall.sh --purge --yes
+
+It prints what it is about to do and asks before doing any of it, quits a
+running copy first — deleting the bundle out from under it would also let it
+write its settings back on the way out — and unloads the agent with `launchctl`
+before removing the plist, since launchd holds a job in memory once it has read
+it. Settings are renamed to `vclock.bak` rather than deleted, matching Windows.
+It needs no administrator rights: `/Applications` is writable by admin users,
+who are who installed the app, and everything else is in the user's own home.
 
 `.github/workflows/release.yml` runs all of this on a tag — the container
 targets on Linux runners and macOS on GitHub's macOS runners, one job per
@@ -661,7 +738,9 @@ The macOS agent sets `KeepAlive` false, or quitting the program would bring it
 straight back, and `LimitLoadToSessionType` to `Aqua`, or it would also be
 started for ssh and cron sessions where there is no display to draw a clock on.
 On Windows the uninstaller clears the Run value, since an entry naming a deleted
-program is one Windows goes looking for at every login.
+program is one Windows goes looking for at every login. macOS has the same
+problem and no uninstaller to solve it — dragging the app to the Trash leaves
+the agent behind — so the disk image carries `uninstall.sh`, which removes it.
 
 `-h`, `--help` prints the options and exits.
 
