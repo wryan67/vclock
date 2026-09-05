@@ -433,13 +433,12 @@ int ClockWindow::defaultSizeOn(const QScreen *screen) const
     return std::clamp(wanted, kSizeMin, maxSizeFor(screen));
 }
 
-// Where a clock with no history goes on a given monitor: the middle of its
-// working area, which is visible whatever else is already open.
+// Where a clock with no history goes on a given monitor: the top left corner of
+// its working area, clear of the panels, where it is out of the way of whatever
+// is already open and in the same place every time.
 QPoint ClockWindow::defaultPositionOn(const QScreen *screen) const
 {
-    const QRect available = screen->availableGeometry();
-    return QPoint(available.x() + (available.width() - width()) / 2,
-                  available.y() + (available.height() - height()) / 2);
+    return screen->availableGeometry().topLeft();
 }
 
 // Keep the whole clock inside the monitor's working area, so a remembered

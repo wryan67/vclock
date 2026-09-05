@@ -775,10 +775,13 @@ the agent behind — so the disk image carries `uninstall.sh`, which removes it.
 ### Monitors
 
 A clock that has never been sized -- a new one, or one whose settings have just
-been reset -- opens at a fifteenth of its screen's height. A fixed pixel count
+been reset -- opens at a fifteenth of its screen's height, in the top left
+corner of the working area. A fixed pixel count
 cannot suit every panel: what sits neatly in the corner of a 1080 screen is a
 stamp on a 4K one. Any size you set yourself is kept as it is, per monitor, and
-never second-guessed.
+never second-guessed. The top left corner is used because it is the one place
+that is free of the taskbar on every platform, and because a new clock landing
+in the middle of the screen covers whatever you were looking at.
 
 The clock remembers a position and a size for each monitor it has been used on,
 under the `displays` key, along with the monitor it was last on in
