@@ -11,7 +11,11 @@
 #include <QCheckBox>
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
+#include <QCursor>
+#include <QDir>
 #include <QEvent>
+#include <QFileInfo>
+#include <QGuiApplication>
 #include <QFile>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -156,9 +160,19 @@ ManageClocksDialog::ManageClocksDialog(QWidget *parent) : QDialog(nullptr)
     });
 
     // The delegate tells commit from cancel: Enter reaches commitData first,
-    // Escape closes the editor without it.
+    // Escape closes the editor without it.  A click is the awkward case.  Qt
+    // looks up the parent chain from whatever was clicked for something that
+    // accepts click focus and finds the table, so the editor loses focus --
+    // which the delegate calls a commit -- before the button under the pointer
+    // is even told it was pressed.  The row's Cancel button therefore cannot
+    // cancel by being clicked: by then the edit is over and saved.  So catch
+    // it here: a commit arriving with the left button held down over Cancel is
+    // that button being pressed, and it means the opposite of a save.
     connect(m_table->itemDelegate(), &QAbstractItemDelegate::commitData, this,
-            [this] { m_editCommitted = true; });
+            [this] {
+                m_cancelClickPending = cancelPressed();
+                m_editCommitted = !m_cancelClickPending;
+            });
     connect(m_table->itemDelegate(), &QAbstractItemDelegate::closeEditor, this,
             [this] { finishEdit(m_editCommitted); });
 
@@ -306,6 +320,10 @@ void ManageClocksDialog::addRow(const QString &file, const QString &name, bool o
 
     auto *edit = iconButton(Glyph::Edit, GlyphRole::Neutral, QStringLiteral("Rename"));
     edit->setObjectName(QStringLiteral("edit"));
+    if (isDefaultClockFile(file)) {
+        edit->setEnabled(false);
+        edit->setToolTip(QStringLiteral("The default clock cannot be renamed"));
+    }
     connect(edit, &QToolButton::clicked, this, [this, edit] {
         const int r = rowOfWidget(edit);
         if (r < 0)
@@ -320,16 +338,12 @@ void ManageClocksDialog::addRow(const QString &file, const QString &name, bool o
     auto *remove = iconButton(Glyph::Delete, GlyphRole::Stop, QStringLiteral("Delete"));
     remove->setObjectName(QStringLiteral("delete"));
     // The default config is what a clock started with no --config writes, so
-    // there is always one of it; it can be renamed and hidden, but not removed.
-    if (file == QLatin1String("default.cfg")) {
+    // there is always one of it; it can be hidden, but not renamed or removed.
+    if (isDefaultClockFile(file)) {
         remove->setEnabled(false);
         remove->setToolTip(QStringLiteral("The default clock cannot be deleted"));
     }
-    connect(remove, &QToolButton::clicked, this, [this, remove] {
-        const int r = rowOfWidget(remove);
-        if (r >= 0 && !editing())
-            deleteRow(r);
-    });
+    connect(remove, &QToolButton::clicked, this, [this, remove] { removeClicked(remove); });
     m_table->setCellWidget(row, ColDelete, centred(remove));
 }
 
@@ -358,6 +372,12 @@ void ManageClocksDialog::beginEdit(int row)
     QTableWidgetItem *item = m_table->item(row, ColName);
     if (!item)
         return;
+    // The default clock's file is the one the program falls back to, so its
+    // name is not the user's to change.  Refused here rather than only on the
+    // pencil, since a double click and F2 arrive by another route.
+    if (isDefaultClockFile(fileAt(row)))
+        return;
+    m_cancelClickPending = false;
     m_editRow = row;
     m_editWasNamed = item->text();
     m_editIsNew = fileAt(row).isEmpty();
@@ -394,23 +414,46 @@ void ManageClocksDialog::setRowEditing(int row, bool on)
         remove->setEnabled(on || fileAt(row) != QLatin1String("default.cfg"));
     }
     // While editing, the bin is the cancel button; the delete path must not
-    // fire from it, so it is rewired for the duration.
+    // fire from it, so it is rewired for the duration.  The click itself is
+    // handled where the editor is committed, because that happens first --
+    // see the commitData connection -- but the button is still wired up, for
+    // the keyboard and for the case where the editor has already gone.
     if (remove) {
         disconnect(remove, nullptr, this, nullptr);
         if (on) {
             connect(remove, &QToolButton::clicked, this, [this] {
-                if (QTableWidgetItem *item = m_table->item(m_editRow, ColName))
-                    m_table->closePersistentEditor(item);
-                finishEdit(false);
+                m_cancelClickPending = false;
+                if (editing())
+                    finishEdit(false);
             });
         } else {
-            connect(remove, &QToolButton::clicked, this, [this, remove] {
-                const int r = rowOfWidget(remove);
-                if (r >= 0 && !editing())
-                    deleteRow(r);
-            });
+            connect(remove, &QToolButton::clicked, this,
+                    [this, remove] { removeClicked(remove); });
         }
     }
+}
+
+void ManageClocksDialog::removeClicked(QToolButton *button)
+{
+    // The press that opened this click may have been the one that cancelled an
+    // edit, in which case the button had already turned back into the bin by
+    // the time the mouse came up.  That click belongs to the cancel.
+    if (m_cancelClickPending) {
+        m_cancelClickPending = false;
+        return;
+    }
+    const int row = rowOfWidget(button);
+    if (row >= 0 && !editing())
+        deleteRow(row);
+}
+
+bool ManageClocksDialog::cancelPressed() const
+{
+    if (m_editRow < 0 || !(QGuiApplication::mouseButtons() & Qt::LeftButton))
+        return false;
+    auto *remove = controlIn<QToolButton>(m_table, m_editRow, ColDelete);
+    return remove && remove->isVisible()
+           && remove->rect().contains(remove->mapFromGlobal(QCursor::pos()));
 }
 
 void ManageClocksDialog::finishEdit(bool committed)
@@ -432,7 +475,9 @@ void ManageClocksDialog::finishEdit(bool committed)
     }
     item->setFlags(item->flags() & ~Qt::ItemIsEditable);
 
-    const QString typed = item->text().trimmed();
+    // A name is a file name now, so a .cfg the user typed is theirs to leave
+    // off -- the program puts it on.
+    const QString typed = cleanClockName(item->text());
     // A name saved blank is not a name.  On a row that was only just added
     // there is nothing to keep, so it goes; on one that already existed it
     // means the same as having cancelled.
@@ -448,13 +493,21 @@ void ManageClocksDialog::finishEdit(bool committed)
         return;
     }
 
+    Registry registry = ClockManager::instance().registry();
+    const QString file = fileAt(row);
+    const QString problem = clockNameError(typed, registry, file);
+    if (!problem.isEmpty()) {
+        item->setText(typed);
+        refuseName(row, problem, previous);
+        return;
+    }
+
     item->setText(typed);
     setRowEditing(row, false);
 
-    Registry registry = ClockManager::instance().registry();
     if (wasNew) {
         ClockEntry entry;
-        entry.file = registry.uniqueFileFor(typed);
+        entry.file = clockFileName(typed);
         entry.name = typed;
         entry.show = true;
         registry.clocks.push_back(entry);
@@ -474,11 +527,53 @@ void ManageClocksDialog::finishEdit(bool committed)
         return;
     }
 
-    const int index = registry.indexOfFile(fileAt(row));
-    if (index >= 0) {
-        registry.clocks[index].name = typed;
-        ClockManager::instance().setRegistry(registry);
+    const int index = registry.indexOfFile(file);
+    if (index < 0)
+        return;
+
+    // The settings follow the name, so that what is in the config directory
+    // can still be read off the list of clocks.  A clock started from a path
+    // of the user's own is renamed where it stands rather than being dragged
+    // into the config directory.
+    const QString oldPath = registry.clocks[index].path();
+    const QString leaf = clockFileName(typed);
+    const bool ownPath = QDir::isAbsolutePath(file);
+    const QString newFile = ownPath ? QDir(QFileInfo(oldPath).absolutePath()).filePath(leaf) : leaf;
+    if (newFile != file) {
+        const QString newPath =
+            ownPath ? newFile : QDir(configDir()).filePath(newFile);
+        QString error;
+        if (!ClockManager::instance().moveClockFile(oldPath, newPath, &error)) {
+            refuseName(row, error, previous);
+            return;
+        }
+        registry.clocks[index].file = newFile;
+        item->setData(kFileRole, newFile);
     }
+    registry.clocks[index].name = typed;
+    ClockManager::instance().setRegistry(registry);
+}
+
+// Tell the user why the name will not do, and put them back in the editor once
+// they have read it.  Modal and with nothing but OK on it, because it is the
+// answer to something they just did and there is only one way on from it.
+//
+// The editor is re-opened on the next turn of the event loop rather than here,
+// since this runs inside the view's own closeEditor handling.  What they typed
+// is left in it to be corrected, while cancelling still goes back to the name
+// the clock actually has -- the refused one was never stored anywhere.
+void ManageClocksDialog::refuseName(int row, const QString &reason, const QString &fallback)
+{
+    QMessageBox box(QMessageBox::Warning, QStringLiteral("Rename clock"), reason,
+                    QMessageBox::Ok, this);
+    box.exec();
+    QTimer::singleShot(0, this, [this, row, fallback] {
+        if (row >= m_table->rowCount() || editing())
+            return;
+        beginEdit(row);
+        if (m_editRow == row)
+            m_editWasNamed = fallback;
+    });
 }
 
 // ---------------------------------------------------------------- actions

@@ -8,6 +8,7 @@ class QDoubleSpinBox;
 class QEvent;
 class QPushButton;
 class QTableWidget;
+class QToolButton;
 class QTableWidgetItem;
 class QWidget;
 
@@ -31,10 +32,17 @@ private:
 
     void beginEdit(int row);
     void finishEdit(bool committed);
+    // Refuse a name, say why, and go back into the editor.
+    void refuseName(int row, const QString &reason, const QString &fallback);
     bool editing() const { return m_editRow >= 0; }
+    // Whether the row's Cancel button is being pressed right now.
+    bool cancelPressed() const;
     void setRowEditing(int row, bool on);
 
     void deleteRow(int row);
+    // The bin was clicked: the shared body of the handler, wired up both when
+    // a row is built and when it stops being edited.
+    void removeClicked(QToolButton *button);
     // Open the settings for a row's clock, putting the clock on screen first if
     // it is hidden -- there is nothing to change the look of otherwise.
     void openRowSettings(int row);
@@ -75,6 +83,10 @@ private:
     // -1 when nothing is being edited.
     int m_editRow = -1;
     QString m_editWasNamed;   // the name to go back to on cancel
+    // A press on Cancel ends the edit before the button hears about it, so the
+    // click that follows would fall through to the bin the button turns back
+    // into.  Set when that happens, and swallowed by the delete handler.
+    bool m_cancelClickPending = false;
     bool m_editIsNew = false; // a row that has no clock behind it yet
     bool m_editCommitted = false;
     bool m_populating = false;
