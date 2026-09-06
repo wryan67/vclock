@@ -613,14 +613,16 @@ clock behind it — so without that button the per-clock view is a dead end. Bot
 windows then stay open together: the hub can reach any clock's settings, and now
 a clock's settings can reach the hub.
 
-**Reset** is centred between them, and it puts every control in the dialog back
-to its default so you can see the result before deciding. It asks first, with
-the same question as *Reset defaults* in the clock's own menu, since it throws
-away a whole clock's worth of choices at once. Where the two differ is what
-happens after you say yes: the menu item saves straight away, while the button
-only moves the controls and previews the clock, so Cancel puts everything back
-and nothing is written until Save. That follows the rule the rest of the dialog
-already keeps — while Settings is open, Save and Cancel decide.
+**Reset** is centred between them, and it asks first, since it throws away a
+whole clock's worth of choices at once. It offers two of them: *Undo my changes*
+puts the controls back to how they were when Settings opened, which is what you
+want when a few minutes of sliders have gone wrong, and *Restore the defaults*
+goes all the way back to a factory clock. *Reset defaults* in the clock's own
+menu only does the second — there is no sitting there to undo — and it saves
+straight away, while the button only moves the controls and previews the clock,
+so Cancel puts everything back and nothing is written until Save. That follows
+the rule the rest of the dialog already keeps — while Settings is open, Save
+and Cancel decide.
 
 Because it acts on the dialog's own controls, the button resets only what the
 dialog shows. Always on top has no control here, so it is left as it is; the
