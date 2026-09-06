@@ -53,6 +53,9 @@ private:
     void onBrowse();
     void onPresetClicked(const Preset &preset);
     void onResetClicked();
+    // What the Reset button's question came back with.
+    enum class ResetTo { Cancelled, Opened, Factory };
+    ResetTo askReset();
     void applyValues(const Config &values, bool full);
     void syncSwatches();
 
@@ -62,6 +65,10 @@ private:
 
     ClockWindow *m_clock = nullptr;
     bool m_live = false;
+
+    // The clock as it stood when this dialog opened, so Reset can offer to
+    // undo the changes made since without going all the way to the defaults.
+    Config m_opened;
 
     // An explicit file beats a preset's face; a preset's face beats the config.
     QString m_chosenFile;

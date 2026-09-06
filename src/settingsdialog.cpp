@@ -19,7 +19,9 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMessageBox>
 #include <QPushButton>
+#include <QRadioButton>
 #include <QScreen>
 #include <QScrollArea>
 #include <QScrollBar>
@@ -103,6 +105,7 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     setWindowFlag(Qt::WindowStaysOnTopHint, false);
 
     const Config &cfg = m_clock->cfg();
+    m_opened = cfg;
     m_minuteOwn = cfg.minuteColor;
     m_faceOwn = cfg.faceColor;
 
@@ -638,15 +641,57 @@ void SettingsDialog::onPresetClicked(const Preset &preset)
     applyValues(values, false);
 }
 
+// Reset here has two meanings worth telling apart: undoing this sitting's
+// changes, which is what someone who has just made a mess of the sliders wants,
+// and going back to the defaults.  The menu's Reset only offers the second,
+// there being no sitting to undo.
+SettingsDialog::ResetTo SettingsDialog::askReset()
+{
+    QMessageBox box(this);
+    box.setWindowTitle(QStringLiteral("vclock"));
+    box.setIcon(QMessageBox::Question);
+    box.setText(QStringLiteral("Reset this clock?"));
+
+    auto *undo = new QRadioButton(QStringLiteral("Undo my changes"), &box);
+    auto *factory = new QRadioButton(QStringLiteral("Restore the defaults"), &box);
+    undo->setChecked(true);
+
+    // A message box lays itself out in a grid, with the icon in the first
+    // column and the buttons on the last row.  A layout can only be added to
+    // the end of a grid, so the buttons come out and go back on after, which
+    // puts the choice between the question and them where it belongs.
+    if (auto *grid = qobject_cast<QGridLayout *>(box.layout())) {
+        auto *buttons = box.findChild<QDialogButtonBox *>();
+        if (buttons)
+            grid->removeWidget(buttons);
+        auto *choice = new QVBoxLayout;
+        choice->setContentsMargins(0, 6, 0, 0);
+        choice->addWidget(undo);
+        choice->addWidget(factory);
+        grid->addLayout(choice, grid->rowCount(), 1, 1, grid->columnCount() - 1);
+        if (buttons)
+            grid->addWidget(buttons, grid->rowCount(), 0, 1, grid->columnCount());
+    }
+
+    box.setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel);
+    box.setDefaultButton(QMessageBox::Cancel);
+    if (box.exec() != QMessageBox::Ok)
+        return ResetTo::Cancelled;
+    return undo->isChecked() ? ResetTo::Opened : ResetTo::Factory;
+}
+
 void SettingsDialog::onResetClicked()
 {
-    if (!m_clock || !ClockWindow::askReset(this))
+    if (!m_clock)
         return;
-    // The controls go back to the defaults and preview like any other change,
-    // so Save commits the reset and Cancel puts the clock back as it was.  The
-    // menu's Reset defaults saves at once because there is no dialog there to
-    // take the decision.
-    applyValues(m_clock->defaultConfig(), true);
+    const ResetTo to = askReset();
+    if (to == ResetTo::Cancelled)
+        return;
+    // The controls go back and preview like any other change, so Save commits
+    // the reset and Cancel puts the clock back as it was.  The menu's Reset
+    // defaults saves at once because there is no dialog there to take the
+    // decision.
+    applyValues(to == ResetTo::Opened ? m_opened : m_clock->defaultConfig(), true);
 }
 
 // Snap every appearance control to a set of values, then preview it once.  A

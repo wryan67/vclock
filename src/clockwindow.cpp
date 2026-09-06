@@ -1376,17 +1376,15 @@ void ClockWindow::confirmReset()
         resetDefaults();
 }
 
-// Asked from the menu and from the Settings dialog's Reset button, so the two
-// put the same question in the same words.
+// The menu's Reset defaults.  The Settings dialog asks its own version, which
+// also offers to undo just the changes made while it has been open.
 bool ClockWindow::askReset(QWidget *parent)
 {
     QMessageBox box(parent);
     box.setWindowTitle(QStringLiteral("vclock"));
     box.setIcon(QMessageBox::Question);
-    box.setText(QStringLiteral("Are you sure?"));
-    box.setInformativeText(QStringLiteral(
-        "This restores every clock setting to its default, including the built-in "
-        "clock face."));
+    box.setText(QStringLiteral("Reset this clock?"));
+    box.setInformativeText(QStringLiteral("Every setting goes back to its default."));
     box.setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel);
     box.setDefaultButton(QMessageBox::Cancel);
     return box.exec() == QMessageBox::Ok;
