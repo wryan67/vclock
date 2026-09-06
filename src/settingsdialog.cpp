@@ -98,9 +98,7 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
 {
     // Not modal, so the clock stays interactive and the dialog can be moved
     // around freely while previewing changes.
-    const QString which = m_clock->configName();
-    setWindowTitle(which.isEmpty() ? QStringLiteral("Clock Settings")
-                                   : QStringLiteral("Clock Settings \u2014 ") + which);
+    refreshTitle();
     setModal(false);
     setWindowFlag(Qt::WindowStaysOnTopHint, false);
 
@@ -748,6 +746,13 @@ void SettingsDialog::syncSwatches()
         faceColor = QColor(Qt::white);
     faceColor.setAlpha(qBound(0, m_faceOpacity->value(), 100) * 255 / 100);
     m_face->setColor(faceColor);
+}
+
+void SettingsDialog::refreshTitle()
+{
+    const QString which = m_clock->configName();
+    setWindowTitle(which.isEmpty() ? QStringLiteral("Clock Settings")
+                                   : QStringLiteral("Clock Settings \u2014 ") + which);
 }
 
 void SettingsDialog::refreshCenter()

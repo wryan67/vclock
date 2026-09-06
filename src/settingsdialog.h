@@ -31,6 +31,9 @@ public:
 
     // Show the pivot in canvas pixels, and keep the "auto" box in sync.
     void refreshCenter();
+    // The window title carries the clock's name, which the user can change
+    // from the manage dialog while this one is open.
+    void refreshTitle();
 
 private:
     QLabel *addLabel(QGridLayout *grid, const QString &text, int row, int col = 0);

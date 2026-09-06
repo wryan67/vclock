@@ -70,6 +70,43 @@ QString ClockManager::nameFor(const QString &path) const
     return fallbackClockName(wanted);
 }
 
+bool ClockManager::moveClockFile(const QString &oldPath, const QString &newPath, QString *error)
+{
+    const QString from = canonicalise(oldPath);
+    const QString to = canonicalise(newPath);
+    if (from == to)
+        return true;
+
+    if (QFile::exists(to)) {
+        if (error)
+            *error = QStringLiteral("There is already a file called %1.")
+                         .arg(QFileInfo(to).fileName());
+        return false;
+    }
+
+    // Anything the clock has not written yet belongs in the file it is being
+    // moved out of, not left to land in the old name a second later.
+    ClockWindow *clock = m_clocks.value(from, nullptr);
+    if (clock)
+        clock->flushSave();
+
+    // A clock that has never been written has no file to move, which is not a
+    // failure -- it will write itself under the new name when it next saves.
+    if (QFile::exists(from) && !QFile::rename(from, to)) {
+        if (error)
+            *error = QStringLiteral("%1 could not be renamed to %2.")
+                         .arg(QFileInfo(from).fileName(), QFileInfo(to).fileName());
+        return false;
+    }
+
+    if (clock) {
+        m_clocks.remove(from);
+        m_clocks.insert(to, clock);
+        clock->setConfigFilePath(to);
+    }
+    return true;
+}
+
 void ClockManager::ensureListed(const QString &path)
 {
     const QString wanted = path.isEmpty() ? configPath() : path;

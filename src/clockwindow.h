@@ -45,6 +45,16 @@ public:
     // The file this clock reads and writes.
     QString configFilePath() const { return m_configPath; }
 
+    // Point the clock at a different file, because renaming it moved the one
+    // it had.  The settings in hand are the ones that were just moved, so
+    // nothing is reloaded -- only where the next save goes changes.
+    void setConfigFilePath(const QString &path);
+
+    // Write any pending changes out now rather than when the timer that
+    // gathers them comes round.  Needed before anything outside the clock
+    // touches its file, so that a save cannot land after the fact.
+    void flushSave();
+
     // Apply a settings record to the live widget (used for preview too).
     void applySettings(const Config &values);
 
@@ -144,7 +154,6 @@ private:
     void applyHitMask();         // let clicks off the clock through to what is behind
     void scheduleRebuild();
     void queueSave();
-    void flushSave();
     void applyAlwaysOnTop();
     void detachFromGroup();
     void syncAlwaysOnTop();

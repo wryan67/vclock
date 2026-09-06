@@ -345,6 +345,14 @@ void ClockWindow::flushSave()
     saveConfig(m_cfg, m_configPath);
 }
 
+void ClockWindow::setConfigFilePath(const QString &path)
+{
+    if (path.isEmpty() || path == m_configPath)
+        return;
+    m_configPath = path;
+    refreshTitle();
+}
+
 int ClockWindow::maxSize() const
 {
     const QScreen *screen = QGuiApplication::screenAt(frameGeometry().center());
@@ -731,6 +739,8 @@ void ClockWindow::refreshTitle()
     const bool plain = name.isEmpty()
                        || (m_configPath == ::configPath() && name == QLatin1String("Default"));
     setWindowTitle(plain ? QStringLiteral("vclock") : name);
+    if (m_settings)
+        m_settings->refreshTitle();
 }
 
 QString ClockWindow::configName() const

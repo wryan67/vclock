@@ -54,6 +54,13 @@ public:
     // the registry has no entry for it.
     QString nameFor(const QString &path) const;
 
+    // Move a clock's settings to the file its new name calls for, bringing the
+    // clock along if it is on screen.  The registry is not touched: the caller
+    // sets the new name and file together once this has succeeded, so a move
+    // that fails leaves the list describing what is actually on disk.
+    // Returns false with `error` set to a sentence fit to show the user.
+    bool moveClockFile(const QString &oldPath, const QString &newPath, QString *error);
+
     // While held, closing the last clock does not end the program.  The
     // manage dialog holds one for as long as it is open so that emptying the
     // list leaves the user somewhere to add a clock back from.
