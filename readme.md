@@ -711,15 +711,26 @@ clocks come back the next time vclock is started on its own.
 
 Right click &#9656; Manage clocks, or `Ctrl`+K, lists every clock you have. Each
 row has a Show box, the clock's name, and then four narrow columns: Set opens
-that clock's settings, Top keeps it above other windows, Name renames it, and
-Del deletes it and the config it keeps its settings in. Double clicking a name
-renames it, and so does `F2` on the selected row, as in a file manager. `Enter`
-saves the new name and `Escape` abandons it.
+that clock's settings, Top keeps it above other windows, Name renames it (or,
+on the Default clock, copies it), and Del deletes it and the config it keeps its
+settings in. Double clicking a name renames it, and so does `F2` on the selected
+row, as in a file manager. `Enter` saves the new name and `Escape` abandons it.
 
 **New clock** adds a row and waits for a name. Once you have named it the clock
 comes up on screen with its settings already open, since making a clock is the
 point at which you have something in mind for it, and it saves going back to the
 list to ask. Leaving the name blank, or pressing `Escape`, drops the new row.
+
+The Default clock cannot be renamed, so where its Name button would be there is
+a clone button instead, which makes a clock that starts out as a copy of it.
+Naming the copy works exactly as **New clock** does, and the settings are copied
+once there is a name to copy them into. The copy does not come up with its
+settings open: it already looks how you wanted it to.
+
+A copy carries the original's place on screen along with its looks, so it comes
+up exactly where the clock it was copied from was, and that clock goes down as
+it does. What is left on screen is the one clock, in the one place, and it is
+the copy -- the one you are now free to change.
 
 Top is the same setting as Always on top in a clock's own menu, gathered here so
 the whole set can be seen and changed in one place. It applies to that one clock
