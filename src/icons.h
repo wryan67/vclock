@@ -23,6 +23,7 @@ enum class Glyph {
     List,      // fa-solid fa-list
     Reset,     // fa-solid fa-clock-rotate-left
     Clone,     // fa-regular fa-clone
+    Grip,      // fa-solid fa-grip-vertical
 };
 
 // What an icon means, rather than what colour it is.  The colour is settled at
