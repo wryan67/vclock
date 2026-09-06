@@ -13,33 +13,10 @@
 
 namespace {
 
-// Turn a display name into something that reads well as a file name, without
-// ever letting it climb out of the config directory.
-QString slugify(const QString &name)
-{
-    QString slug;
-    slug.reserve(name.size());
-    for (const QChar c : name) {
-        if (c.isLetterOrNumber())
-            slug += c.toLower();
-        else if ((c == QLatin1Char('-') || c == QLatin1Char('_') || c.isSpace())
-                 && !slug.endsWith(QLatin1Char('-')))
-            slug += QLatin1Char('-');
-    }
-    while (slug.endsWith(QLatin1Char('-')))
-        slug.chop(1);
-    // A name of nothing but punctuation, or one that would collide with the
-    // files vclock keeps for itself.
-    if (slug.isEmpty() || slug == QLatin1String("default") || slug == QLatin1String("vclocks")
-        || slug == QLatin1String("vclock"))
-        slug = QStringLiteral("clock");
-    return slug;
-}
-
 ClockEntry defaultEntry()
 {
     ClockEntry entry;
-    entry.file = QStringLiteral("default.cfg");
+    entry.file = defaultClockFile();
     entry.name = QStringLiteral("Default");
     entry.show = true;
     return entry;
@@ -60,7 +37,7 @@ Registry discoverExisting()
         // the config an older release wrote, which default.cfg was migrated
         // from.  clocks.cfg is only still here if the move off the old
         // registry name failed, so skip it rather than read a list as a clock.
-        if (file == QLatin1String("default.cfg") || file == QLatin1String("vclocks.cfg")
+        if (file == defaultClockFile() || file == QLatin1String("vclocks.cfg")
             || file == QLatin1String("clocks.cfg") || file == QLatin1String("vclock.cfg"))
             continue;
         ClockEntry entry;
@@ -108,19 +85,107 @@ const ClockEntry *Registry::findPath(const QString &path) const
     return index < 0 ? nullptr : &clocks.at(index);
 }
 
-QString Registry::uniqueFileFor(const QString &name) const
+QString defaultClockFile()
 {
-    const QString slug = slugify(name);
-    const QDir dir(configDir());
-    for (int n = 0;; ++n) {
-        const QString candidate =
-            n == 0 ? slug + QStringLiteral(".cfg")
-                   : slug + QStringLiteral("-") + QString::number(n + 1) + QStringLiteral(".cfg");
-        // Free only if no clock claims it and nothing is on disk under it, so
-        // a new clock never inherits a config left behind by a deleted one.
-        if (indexOfFile(candidate) < 0 && !QFile::exists(dir.filePath(candidate)))
-            return candidate;
+    return QStringLiteral("default.cfg");
+}
+
+bool isDefaultClockFile(const QString &file)
+{
+    if (file.isEmpty())
+        return false;
+    if (QDir::isAbsolutePath(file))
+        return QFileInfo(file) == QFileInfo(configPath());
+    return file == defaultClockFile();
+}
+
+QString clockFileName(const QString &name)
+{
+    return name + QStringLiteral(".cfg");
+}
+
+QString cleanClockName(const QString &name)
+{
+    QString clean = name.trimmed();
+    if (clean.size() > 4 && clean.endsWith(QLatin1String(".cfg"), Qt::CaseInsensitive))
+        clean.chop(4);
+    return clean.trimmed();
+}
+
+QString clockNameError(const QString &name, const Registry &registry, const QString &exceptFile)
+{
+    const QString clean = cleanClockName(name);
+    if (clean.isEmpty())
+        return QStringLiteral("A clock needs a name.");
+
+    // The rules are the strictest of the platforms vclock runs on rather than
+    // the ones this platform happens to enforce.  A config directory is a
+    // thing people carry between machines, and a name that is fine on the one
+    // it was typed on is no use if it cannot be written on the next.
+    for (const QChar c : clean) {
+        if (c.unicode() < 32)
+            return QStringLiteral("A clock's name cannot contain control characters.");
+        if (QStringLiteral(R"(/\:*?"<>|)").contains(c)) {
+            return QStringLiteral("A clock's name is its file name too, so it cannot contain %1. "
+                                  "None of \\ / : * ? \" < > | may be used.")
+                .arg(c);
+        }
     }
+    if (clean.startsWith(QLatin1Char('.')))
+        return QStringLiteral("A clock's name cannot begin with a dot.");
+    if (clean.endsWith(QLatin1Char('.')))
+        return QStringLiteral("A clock's name cannot end with a dot.");
+
+    // Names Windows keeps for devices.  They are unusable there whatever comes
+    // after them, so CON.cfg is refused along with CON.
+    static const QStringList devices = {
+        QStringLiteral("CON"),  QStringLiteral("PRN"),  QStringLiteral("AUX"),
+        QStringLiteral("NUL"),  QStringLiteral("COM1"), QStringLiteral("COM2"),
+        QStringLiteral("COM3"), QStringLiteral("COM4"), QStringLiteral("COM5"),
+        QStringLiteral("COM6"), QStringLiteral("COM7"), QStringLiteral("COM8"),
+        QStringLiteral("COM9"), QStringLiteral("LPT1"), QStringLiteral("LPT2"),
+        QStringLiteral("LPT3"), QStringLiteral("LPT4"), QStringLiteral("LPT5"),
+        QStringLiteral("LPT6"), QStringLiteral("LPT7"), QStringLiteral("LPT8"),
+        QStringLiteral("LPT9")};
+    const QString stem = clean.section(QLatin1Char('.'), 0, 0).toUpper();
+    if (devices.contains(stem))
+        return QStringLiteral("%1 is a name Windows keeps for a device, so no file may use it.")
+            .arg(clean);
+
+    // Files vclock keeps for itself.  Letting a clock take one of these names
+    // would put its settings where the program looks for something else.
+    static const QStringList reserved = {QStringLiteral("default"), QStringLiteral("vclock"),
+                                         QStringLiteral("vclocks"), QStringLiteral("clocks")};
+    if (reserved.contains(clean, Qt::CaseInsensitive))
+        return QStringLiteral("%1 is a name vclock keeps for itself, so a clock cannot take it.")
+            .arg(clean);
+
+    // 255 bytes is the limit on every filesystem worth worrying about, and it
+    // is bytes rather than characters, so an accented name runs out sooner.
+    if (clockFileName(clean).toUtf8().size() > 255)
+        return QStringLiteral("That name is too long to be a file name.");
+
+    // Compared without case: two clocks a case apart would be two files on
+    // Linux but one on Windows and macOS, and the same config directory has to
+    // mean the same thing on all of them.
+    for (const ClockEntry &entry : registry.clocks) {
+        if (entry.file == exceptFile)
+            continue;
+        if (entry.name.compare(clean, Qt::CaseInsensitive) == 0)
+            return QStringLiteral("There is already a clock called %1.").arg(entry.name);
+    }
+
+    // Something in the config directory under that name that no clock claims --
+    // a config left behind by a clock that was deleted, say.  Taking the name
+    // would silently adopt its settings.
+    const QString file = clockFileName(clean);
+    if (file.compare(exceptFile, Qt::CaseInsensitive) != 0
+        && QFile::exists(QDir(configDir()).filePath(file))) {
+        return QStringLiteral("There is already a file called %1 in the config directory.")
+            .arg(file);
+    }
+
+    return QString();
 }
 
 QString registryPath()

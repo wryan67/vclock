@@ -16,11 +16,13 @@
 struct ClockEntry
 {
     // The config file this clock reads and writes.  A bare name lives in the
-    // config directory.  This is the clock's identity and never changes once
-    // it has been handed out, so renaming is only ever a relabelling.
+    // config directory.  It is the clock's name with .cfg on the end, and it
+    // moves when the clock is renamed, so that what is in the config directory
+    // can be read off the list of clocks and back again.
     QString file;
-    // What to call it in the menus and the manage dialog.  May be anything,
-    // including a name another clock already uses.
+    // What to call it in the menus and the manage dialog.  Because it is also
+    // the file name, it has to be a name a file can have, and no two clocks
+    // may share one -- see clockNameError().
     QString name;
     // Whether the clock is on screen.  It is written out as it changes, so
     // stopping and starting vclock brings back exactly the set that was
@@ -55,11 +57,29 @@ public:
     int indexOfFile(const QString &file) const;
     int indexOfPath(const QString &path) const;
     const ClockEntry *findPath(const QString &path) const;
-
-    // A file name no clock is using yet, derived from a display name so the
-    // config directory stays readable.
-    QString uniqueFileFor(const QString &name) const;
 };
+
+// The config the program falls back to when no clock has been named: the file
+// a first run writes, what --clock with no argument means, and the one clock
+// that is always in the list.  It is fixed, which is why "default" is not a
+// name a clock of the user's own may take.
+QString defaultClockFile();
+bool isDefaultClockFile(const QString &file);
+
+// The file a clock of this name keeps its settings in.
+QString clockFileName(const QString &name);
+
+// A name as typed, made into the name that will be stored: surrounding space
+// taken off, and a .cfg the user need not have typed taken off with it, since
+// the program puts that on itself and a clock called "kitchen.cfg" would
+// otherwise end up in kitchen.cfg.cfg.
+QString cleanClockName(const QString &name);
+
+// Why this name cannot be used, in a sentence fit to show the user, or an
+// empty string if it can.  `exceptFile` is the clock being renamed, so that
+// keeping its own name does not count as a clash with itself.
+QString clockNameError(const QString &name, const Registry &registry,
+                       const QString &exceptFile = QString());
 
 QString registryPath();
 
