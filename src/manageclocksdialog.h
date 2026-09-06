@@ -2,10 +2,12 @@
 #pragma once
 
 #include <QDialog>
+#include <QPoint>
 
 class QCheckBox;
 class QDoubleSpinBox;
 class QEvent;
+class QFrame;
 class QPushButton;
 class QTableWidget;
 class QToolButton;
@@ -47,6 +49,22 @@ private:
     // Whether the row's Cancel button is being pressed right now.
     bool cancelPressed() const;
     void setRowEditing(int row, bool on);
+
+    // Dragging a row's grip to put the clocks in the order you want them.
+    // The default clock is not draggable and nothing may be dropped above it:
+    // it is the one the program falls back to, so it stays at the top where it
+    // can be found.
+    bool eventFilter(QObject *watched, QEvent *event) override;
+    void startDrag(int row, const QPoint &globalPos);
+    void updateDrag(const QPoint &globalPos);
+    void endDrag(bool dropped);
+    // Where a drop at this height would put the dragged row, as an index into
+    // the list of clocks.
+    int dropIndexAt(int viewportY) const;
+    void moveClock(int from, int to);
+    // The first row that is not the default clock, and so the highest a clock
+    // can be dragged.
+    int firstMovableRow() const;
 
     void deleteRow(int row);
     // The bin was clicked: the shared body of the handler, wired up both when
@@ -100,6 +118,15 @@ private:
     // The config the row being named is a copy of, empty for a plain new clock.
     QString m_cloneFrom;
     bool m_editCommitted = false;
+    QFrame *m_dropLine = nullptr;
+    // -1 when no grip is held.  A press arms the drag; it only becomes one once
+    // the pointer has moved far enough to mean it.
+    int m_dragRow = -1;
+    bool m_dragging = false;
+    bool m_editJustEnded = false;
+    QPoint m_dragFrom;
+    int m_dropIndex = -1;
+
     bool m_populating = false;
     bool m_rebuildQueued = false;
 };

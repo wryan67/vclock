@@ -7,10 +7,16 @@
 #include "icons.h"
 #include "registry.h"
 
+#include <algorithm>
+
 #include <QAbstractItemDelegate>
 #include <QCheckBox>
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
+#include <QApplication>
+#include <QFrame>
+#include <QMouseEvent>
+#include <QPalette>
 #include <QCursor>
 #include <QDir>
 #include <QEvent>
@@ -34,13 +40,14 @@ namespace {
 
 // The columns, so the numbers below read as something.
 enum Column {
-    ColShow = 0,
-    ColName = 1,
-    ColSettings = 2,
-    ColTop = 3,
-    ColRename = 4,
-    ColDelete = 5,
-    ColumnCount = 6
+    ColGrip = 0,
+    ColShow = 1,
+    ColName = 2,
+    ColSettings = 3,
+    ColTop = 4,
+    ColRename = 5,
+    ColDelete = 6,
+    ColumnCount = 7
 };
 
 // The per-row commands sit in columns of their own so each can carry a title.
@@ -126,9 +133,12 @@ ManageClocksDialog::ManageClocksDialog(QWidget *parent) : QDialog(nullptr)
     layout->addWidget(blurb);
 
     m_table = new QTableWidget(0, ColumnCount, this);
-    m_table->setHorizontalHeaderLabels({QStringLiteral("Show"), QStringLiteral("Name"),
-                                        QStringLiteral("Set"), QStringLiteral("Top"),
-                                        QStringLiteral("Name"), QStringLiteral("Del")});
+    // The grip has no title: there is no word for it that is not longer than
+    // the column, and the icon says what it is.
+    m_table->setHorizontalHeaderLabels({QString(), QStringLiteral("Show"),
+                                        QStringLiteral("Name"), QStringLiteral("Set"),
+                                        QStringLiteral("Top"), QStringLiteral("Name"),
+                                        QStringLiteral("Del")});
     m_table->verticalHeader()->setVisible(false);
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_table->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -137,6 +147,7 @@ ManageClocksDialog::ManageClocksDialog(QWidget *parent) : QDialog(nullptr)
     // always change over with it and a single click or a keystroke can never
     // start a rename by accident.
     m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_table->horizontalHeader()->setSectionResizeMode(ColGrip, QHeaderView::ResizeToContents);
     m_table->horizontalHeader()->setSectionResizeMode(ColShow, QHeaderView::ResizeToContents);
     m_table->horizontalHeader()->setSectionResizeMode(ColName, QHeaderView::Stretch);
     for (int col = kFirstCommandColumn; col < ColumnCount; ++col)
@@ -278,6 +289,22 @@ void ManageClocksDialog::addRow(const QString &file, const QString &name, bool o
 {
     const int row = m_table->rowCount();
     m_table->insertRow(row);
+
+    auto *grip = iconButton(Glyph::Grip, GlyphRole::Neutral,
+                            QStringLiteral("Drag to move this clock up or down the list"));
+    grip->setObjectName(QStringLiteral("grip"));
+    // Not a button in the sense of being pressed and released to do something,
+    // so it does not take focus and its clicks are read by the dialog's event
+    // filter rather than by a handler of its own.
+    grip->setFocusPolicy(Qt::NoFocus);
+    if (isDefaultClockFile(file)) {
+        grip->setEnabled(false);
+        grip->setToolTip(QStringLiteral("The default clock stays at the top of the list"));
+    } else {
+        grip->setCursor(Qt::OpenHandCursor);
+        grip->installEventFilter(this);
+    }
+    m_table->setCellWidget(row, ColGrip, centred(grip));
 
     auto *show = checkButton(open, QStringLiteral("Put this clock on screen"));
     show->setObjectName(QStringLiteral("show"));
@@ -446,6 +473,168 @@ void ManageClocksDialog::setRowEditing(int row, bool on)
     }
 }
 
+// ---------------------------------------------------------------- reordering
+
+bool ManageClocksDialog::eventFilter(QObject *watched, QEvent *event)
+{
+    auto *grip = qobject_cast<QToolButton *>(watched);
+    if (!grip)
+        return QDialog::eventFilter(watched, event);
+
+    switch (event->type()) {
+    case QEvent::MouseButtonPress: {
+        auto *mouse = static_cast<QMouseEvent *>(event);
+        // Pressing anywhere moves the focus before the press is delivered, so
+        // by now a name being edited has already been saved by this very
+        // press.  That press was the user finishing the edit, not reaching for
+        // the grip, so it does not also start a drag.
+        if (mouse->button() == Qt::LeftButton && !editing() && !m_editJustEnded)
+            startDrag(rowOfWidget(grip), mouse->globalPosition().toPoint());
+        return true;  // the grip is dragged, never clicked
+    }
+    case QEvent::MouseMove:
+        if (m_dragRow >= 0)
+            updateDrag(static_cast<QMouseEvent *>(event)->globalPosition().toPoint());
+        return true;
+    case QEvent::MouseButtonRelease:
+        if (m_dragRow >= 0)
+            endDrag(true);
+        return true;
+    // A drag interrupted -- the window deactivated, Escape pressed -- puts the
+    // list back rather than dropping the row wherever the pointer stopped.
+    case QEvent::FocusOut:
+    case QEvent::WindowDeactivate:
+        if (m_dragRow >= 0)
+            endDrag(false);
+        break;
+    default:
+        break;
+    }
+    return QDialog::eventFilter(watched, event);
+}
+
+int ManageClocksDialog::firstMovableRow() const
+{
+    for (int row = 0; row < m_table->rowCount(); ++row)
+        if (!isDefaultClockFile(fileAt(row)))
+            return row;
+    return m_table->rowCount();
+}
+
+void ManageClocksDialog::startDrag(int row, const QPoint &globalPos)
+{
+    if (row < 0 || isDefaultClockFile(fileAt(row)))
+        return;
+    m_dragRow = row;
+    m_dragging = false;
+    m_dragFrom = globalPos;
+    m_dropIndex = row;
+}
+
+int ManageClocksDialog::dropIndexAt(int viewportY) const
+{
+    // The boundary the row would go to is the one nearest the pointer, so the
+    // line follows the pointer over the gap it is closest to rather than
+    // waiting until a whole row has been passed.
+    int index = m_table->rowCount();
+    for (int row = 0; row < m_table->rowCount(); ++row) {
+        const int top = m_table->rowViewportPosition(row);
+        if (viewportY < top + m_table->rowHeight(row) / 2) {
+            index = row;
+            break;
+        }
+    }
+    return std::max(index, firstMovableRow());
+}
+
+void ManageClocksDialog::updateDrag(const QPoint &globalPos)
+{
+    if (!m_dragging) {
+        if ((globalPos - m_dragFrom).manhattanLength() < QApplication::startDragDistance())
+            return;
+        m_dragging = true;
+        if (QWidget *held = m_table->cellWidget(m_dragRow, ColGrip))
+            if (auto *grip = held->findChild<QToolButton *>())
+                grip->setCursor(Qt::ClosedHandCursor);
+    }
+
+    const QPoint local = m_table->viewport()->mapFromGlobal(globalPos);
+    m_dropIndex = dropIndexAt(local.y());
+
+    // A drop back where the row already is would change nothing, and a line
+    // drawn at either of its own edges says otherwise, so it is left off.
+    if (m_dropIndex == m_dragRow || m_dropIndex == m_dragRow + 1) {
+        if (m_dropLine)
+            m_dropLine->hide();
+        return;
+    }
+    if (!m_dropLine) {
+        // Drawn as a filled block rather than a frame: a frame paints itself in
+        // the palette's shadow colours, which on this row is no colour at all.
+        // A plain filled block.  A frame would paint itself in the palette's
+        // shadow colours, which against a table row is barely a line at all,
+        // and the table paints over a palette background, so the colour is set
+        // as a style rather than as a brush.
+        m_dropLine = new QFrame(m_table->viewport());
+        m_dropLine->setFrameShape(QFrame::NoFrame);
+        m_dropLine->setAttribute(Qt::WA_TransparentForMouseEvents);
+        m_dropLine->setStyleSheet(QStringLiteral("background-color: %1;")
+                                      .arg(glyphColor(GlyphRole::Info).name()));
+    }
+    const int y = m_dropIndex < m_table->rowCount()
+                      ? m_table->rowViewportPosition(m_dropIndex)
+                      : m_table->rowViewportPosition(m_table->rowCount() - 1)
+                            + m_table->rowHeight(m_table->rowCount() - 1);
+    m_dropLine->setGeometry(0, std::max(0, y - 1), m_table->viewport()->width(), 2);
+    m_dropLine->show();
+    m_dropLine->raise();
+}
+
+void ManageClocksDialog::endDrag(bool dropped)
+{
+    const int from = m_dragRow;
+    const int to = m_dropIndex;
+    const bool moved = m_dragging;
+    if (QWidget *held = m_table->cellWidget(from, ColGrip))
+        if (auto *grip = held->findChild<QToolButton *>())
+            grip->setCursor(Qt::OpenHandCursor);
+    m_dragRow = -1;
+    m_dragging = false;
+    m_dropIndex = -1;
+    if (m_dropLine)
+        m_dropLine->hide();
+    if (dropped && moved)
+        moveClock(from, to);
+}
+
+void ManageClocksDialog::moveClock(int from, int to)
+{
+    Registry registry = ClockManager::instance().registry();
+    if (from < 0 || from >= int(registry.clocks.size()))
+        return;
+    // An index counted with the row still in place means one thing before the
+    // row is taken out and another after it, so it is corrected here rather
+    // than everywhere it is worked out.
+    if (to > from)
+        --to;
+    to = std::clamp(to, 0, int(registry.clocks.size()) - 1);
+    if (to == from)
+        return;
+    const ClockEntry entry = registry.clocks.at(from);
+    registry.clocks.erase(registry.clocks.begin() + from);
+    registry.clocks.insert(registry.clocks.begin() + to, entry);
+    ClockManager::instance().setRegistry(registry);
+    // The list is rebuilt from the registry, so the row that moved is picked
+    // out again afterwards: it is the one the user was just holding.
+    QTimer::singleShot(0, this, [this, file = entry.file] {
+        for (int row = 0; row < m_table->rowCount(); ++row)
+            if (fileAt(row) == file) {
+                m_table->setCurrentCell(row, ColName);
+                return;
+            }
+    });
+}
+
 void ManageClocksDialog::removeClicked(QToolButton *button)
 {
     // The press that opened this click may have been the one that cancelled an
@@ -478,6 +667,10 @@ void ManageClocksDialog::finishEdit(bool committed)
     const QString cloneFrom = m_cloneFrom;
     const QString previous = m_editWasNamed;
     m_cloneFrom.clear();
+    // Set for the rest of this event only, so that whatever ended the edit --
+    // a click on some other row's grip, say -- is not read as a second action.
+    m_editJustEnded = true;
+    QTimer::singleShot(0, this, [this] { m_editJustEnded = false; });
     // Cleared first: closing the editor below re-enters through closeEditor.
     m_editRow = -1;
     m_editIsNew = false;
@@ -774,6 +967,13 @@ void ManageClocksDialog::scheduleRebuild()
     m_rebuildQueued = true;
     QTimer::singleShot(0, this, [this] {
         m_rebuildQueued = false;
+        // Rebuilding destroys the row widgets, and one of them is the grip the
+        // pointer is holding, so a list that changes under a drag waits until
+        // the drag is over.
+        if (m_dragRow >= 0) {
+            scheduleRebuild();
+            return;
+        }
         if (!editing())
             rebuild();
     });
