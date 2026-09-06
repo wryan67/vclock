@@ -732,10 +732,43 @@ separate to set for that. If every clock is hidden the default one comes back
 rather than the program starting with no windows at all.
 
 The list lives in `vclocks.cfg` in the config directory, alongside the per-clock
-configs. Names there are labels only; the config file a clock uses is fixed when
-it is made, so renaming never moves any settings. The few settings that belong
-to the program rather than to a clock -- the hover wait, for one -- are kept in
-that file too, beside the list, rather than repeated in every config.
+configs. The few settings that belong to the program rather than to a clock --
+the hover wait, for one -- are kept in that file too, beside the list, rather
+than repeated in every config.
+
+### Names and files
+
+A clock's name is its file name: **Kitchen** keeps its settings in
+`Kitchen.cfg`. Renaming the clock renames the file, so the two never drift
+apart, and you can find a clock's settings on disk by reading its name off the
+list. The `.cfg` is the program's to add -- typing it yourself is harmless, it
+is simply taken off again.
+
+That makes a name subject to the rules a file name is, and vclock applies the
+strictest set across the platforms it runs on rather than whichever the machine
+in front of you happens to use, so a config directory can be copied from one to
+another and still work. A name is refused if it is empty, contains any of
+`\ / : * ? " < > |`, starts or ends with a dot, is one of the device names
+Windows reserves (`CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9`, `LPT1`-`LPT9`), or
+comes to more than 255 bytes with the `.cfg` on the end. Names vclock keeps for
+itself -- `default`, `vclock`, `vclocks` and `clocks` -- are refused too, and so
+is a name another clock already has, compared without regard to case, since two
+clocks sharing a name would share a file. A name that would land on a `.cfg`
+already sitting in the config directory is refused as well, rather than
+swallowing settings that belong to something else.
+
+A refused name is not quietly changed into an acceptable one. The dialog says
+what is wrong and waits for OK, and then puts you back in the editor with what
+you typed still there to correct. `Escape` from there abandons the rename, as it
+always does.
+
+The **Default** clock is the exception: its file is `default.cfg`, which is what
+a clock started with no `-c` writes and what vclock falls back to, so its name
+is not yours to change and its Name button is greyed out. `default` is refused
+for every other clock for the same reason.
+
+Clocks made by older versions of vclock keep the file names they were given.
+Renaming such a clock moves it onto the new footing.
 
 ### Start at login
 
