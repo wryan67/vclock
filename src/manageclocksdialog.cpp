@@ -318,22 +318,34 @@ void ManageClocksDialog::addRow(const QString &file, const QString &name, bool o
     });
     m_table->setCellWidget(row, ColTop, centred(onTop));
 
-    auto *edit = iconButton(Glyph::Edit, GlyphRole::Neutral, QStringLiteral("Rename"));
-    edit->setObjectName(QStringLiteral("edit"));
+    // The default clock cannot be renamed, its file being the one the program
+    // falls back to, so rather than leaving a dead button in its row the space
+    // does the useful thing you would want there instead: make a clock of your
+    // own that starts out as a copy of it.
     if (isDefaultClockFile(file)) {
-        edit->setEnabled(false);
-        edit->setToolTip(QStringLiteral("The default clock cannot be renamed"));
+        auto *clone = iconButton(Glyph::Clone, GlyphRole::Go,
+                                 QStringLiteral("New clock, copying this one"));
+        clone->setObjectName(QStringLiteral("clone"));
+        connect(clone, &QToolButton::clicked, this, [this, clone] {
+            const int r = rowOfWidget(clone);
+            if (r >= 0 && !editing())
+                cloneClock(fileAt(r));
+        });
+        m_table->setCellWidget(row, ColRename, centred(clone));
+    } else {
+        auto *edit = iconButton(Glyph::Edit, GlyphRole::Neutral, QStringLiteral("Rename"));
+        edit->setObjectName(QStringLiteral("edit"));
+        connect(edit, &QToolButton::clicked, this, [this, edit] {
+            const int r = rowOfWidget(edit);
+            if (r < 0)
+                return;
+            if (m_editRow == r)
+                m_table->closePersistentEditor(m_table->item(r, ColName));
+            else if (!editing())
+                beginEdit(r);
+        });
+        m_table->setCellWidget(row, ColRename, centred(edit));
     }
-    connect(edit, &QToolButton::clicked, this, [this, edit] {
-        const int r = rowOfWidget(edit);
-        if (r < 0)
-            return;
-        if (m_editRow == r)
-            m_table->closePersistentEditor(m_table->item(r, ColName));
-        else if (!editing())
-            beginEdit(r);
-    });
-    m_table->setCellWidget(row, ColRename, centred(edit));
 
     auto *remove = iconButton(Glyph::Delete, GlyphRole::Stop, QStringLiteral("Delete"));
     remove->setObjectName(QStringLiteral("delete"));
@@ -378,6 +390,7 @@ void ManageClocksDialog::beginEdit(int row)
     if (isDefaultClockFile(fileAt(row)))
         return;
     m_cancelClickPending = false;
+    m_cloneFrom.clear();
     m_editRow = row;
     m_editWasNamed = item->text();
     m_editIsNew = fileAt(row).isEmpty();
@@ -462,7 +475,9 @@ void ManageClocksDialog::finishEdit(bool committed)
         return;
     const int row = m_editRow;
     const bool wasNew = m_editIsNew;
+    const QString cloneFrom = m_cloneFrom;
     const QString previous = m_editWasNamed;
+    m_cloneFrom.clear();
     // Cleared first: closing the editor below re-enters through closeEditor.
     m_editRow = -1;
     m_editIsNew = false;
@@ -498,6 +513,7 @@ void ManageClocksDialog::finishEdit(bool committed)
     const QString problem = clockNameError(typed, registry, file);
     if (!problem.isEmpty()) {
         item->setText(typed);
+        m_cloneFrom = cloneFrom;  // the edit is not over after all
         refuseName(row, problem, previous);
         return;
     }
@@ -510,19 +526,42 @@ void ManageClocksDialog::finishEdit(bool committed)
         entry.file = clockFileName(typed);
         entry.name = typed;
         entry.show = true;
+        const QString path = entry.path();
+        // A clone is a copy of the settings, made before the clock is opened so
+        // that it comes up already looking the part rather than appearing plain
+        // and changing under the user a moment later.  A source that was never
+        // written is not an error: there is nothing saved to differ from the
+        // defaults the new clock starts with anyway.
+        const int sourceIndex = registry.indexOfFile(cloneFrom);
+        const QString sourcePath =
+            sourceIndex >= 0 ? registry.clocks.at(sourceIndex).path() : QString();
+        const bool cloned = !cloneFrom.isEmpty()
+                            && copyClockFile(registry, cloneFrom, path);
+        if (cloned && sourceIndex >= 0)
+            registry.clocks[sourceIndex].show = false;
         registry.clocks.push_back(entry);
         item->setData(kFileRole, entry.file);
         ClockManager::instance().setRegistry(registry);
-        // A clock you have just made and named is one you want to see, and
-        // making one is the moment you have something in mind for it, so its
-        // settings come up with it rather than waiting to be asked for.
-        const QString path = entry.path();
-        QTimer::singleShot(0, this, [path] {
+        const QString source = cloned ? sourcePath : QString();
+        QTimer::singleShot(0, this, [path, cloned, source] {
             ClockManager &manager = ClockManager::instance();
             if (!manager.isOpen(path))
                 manager.openClock(path);
-            if (ClockWindow *clock = manager.clockAt(path))
-                clock->openSettings();
+            // A copy carries the original's place on screen along with its
+            // looks, so it comes up exactly on top of what it was copied from
+            // and there would be no sign anything had happened.  The original
+            // goes down instead: what is left on screen is the clock you are
+            // now working on, in the place the one before it had.  It is put
+            // up first, so the program is never briefly without a clock.
+            if (cloned && !source.isEmpty())
+                manager.closeClock(source);
+            // A clock you have just made from nothing is one you have something
+            // in mind for, so its settings come up with it rather than waiting
+            // to be asked for.  A clone already looks how you wanted it to, so
+            // it is simply put on screen.
+            if (!cloned)
+                if (ClockWindow *clock = manager.clockAt(path))
+                    clock->openSettings();
         });
         return;
     }
@@ -567,12 +606,18 @@ void ManageClocksDialog::refuseName(int row, const QString &reason, const QStrin
     QMessageBox box(QMessageBox::Warning, QStringLiteral("Rename clock"), reason,
                     QMessageBox::Ok, this);
     box.exec();
-    QTimer::singleShot(0, this, [this, row, fallback] {
+    // What the row was going to be is put back as well as what it was called:
+    // a name refused while naming a clone still leaves a clone to be named,
+    // not a blank clock.
+    const QString cloneFrom = m_cloneFrom;
+    QTimer::singleShot(0, this, [this, row, fallback, cloneFrom] {
         if (row >= m_table->rowCount() || editing())
             return;
         beginEdit(row);
-        if (m_editRow == row)
+        if (m_editRow == row) {
             m_editWasNamed = fallback;
+            m_cloneFrom = cloneFrom;
+        }
     });
 }
 
@@ -584,6 +629,36 @@ void ManageClocksDialog::newClock()
         return;
     addRow(QString(), QString(), false);
     beginEdit(m_table->rowCount() - 1);
+}
+
+void ManageClocksDialog::cloneClock(const QString &sourceFile)
+{
+    if (editing() || sourceFile.isEmpty())
+        return;
+    newClock();
+    // Set after the row is being edited, since beginEdit clears it: the copy
+    // is made in finishEdit, once the new clock has a file to be copied into.
+    if (editing())
+        m_cloneFrom = sourceFile;
+}
+
+bool ManageClocksDialog::copyClockFile(const Registry &registry,
+                                       const QString &sourceFile,
+                                       const QString &toPath)
+{
+    const int index = registry.indexOfFile(sourceFile);
+    if (index < 0)
+        return false;
+    const QString from = registry.clocks.at(index).path();
+    // Whatever the source clock is holding is written out first, or the copy
+    // would be of the file as it stood before the last change to the clock on
+    // screen -- which is the one the user is looking at as they clone it.
+    ClockManager &manager = ClockManager::instance();
+    if (ClockWindow *clock = manager.clockAt(from))
+        clock->flushSave();
+    if (!QFileInfo::exists(from))
+        return false;
+    return QFile::copy(from, toPath);
 }
 
 void ManageClocksDialog::deleteRow(int row)

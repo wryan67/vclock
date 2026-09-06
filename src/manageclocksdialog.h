@@ -9,6 +9,7 @@ class QEvent;
 class QPushButton;
 class QTableWidget;
 class QToolButton;
+class Registry;
 class QTableWidgetItem;
 class QWidget;
 
@@ -29,6 +30,14 @@ private:
     void rebuild();
     void addRow(const QString &file, const QString &name, bool open);
     void newClock();
+    // Make a clock that starts out looking like an existing one.  The row is
+    // added and named exactly as a new clock is; the copying happens once
+    // there is a name to copy to.
+    void cloneClock(const QString &sourceFile);
+    // Copy one clock's saved settings onto a path that has none yet.  False if
+    // there was nothing to copy, which leaves the new clock on the defaults.
+    bool copyClockFile(const Registry &registry, const QString &sourceFile,
+                       const QString &toPath);
 
     void beginEdit(int row);
     void finishEdit(bool committed);
@@ -88,6 +97,8 @@ private:
     // into.  Set when that happens, and swallowed by the delete handler.
     bool m_cancelClickPending = false;
     bool m_editIsNew = false; // a row that has no clock behind it yet
+    // The config the row being named is a copy of, empty for a plain new clock.
+    QString m_cloneFrom;
     bool m_editCommitted = false;
     bool m_populating = false;
     bool m_rebuildQueued = false;
