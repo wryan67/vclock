@@ -710,11 +710,17 @@ clocks come back the next time vclock is started on its own.
 ## Managing clocks
 
 Right click &#9656; Manage clocks, or `Ctrl`+K, lists every clock you have. Each
-row has a Show box, the clock's name, and then four narrow columns: Set opens
-that clock's settings, Top keeps it above other windows, Name renames it (or,
-on the Default clock, copies it), and Del deletes it and the config it keeps its
-settings in. Double clicking a name renames it, and so does `F2` on the selected
-row, as in a file manager. `Enter` saves the new name and `Escape` abandons it.
+row starts with a grip, then has a Show box and the clock's name, and then four
+narrow columns: Set opens that clock's settings, Top keeps it above other
+windows, Name renames it (or, on the Default clock, copies it), and Del deletes
+it and the config it keeps its settings in. Double clicking a name renames it,
+and so does `F2` on the selected row, as in a file manager. `Enter` saves the
+new name and `Escape` abandons it.
+
+Drag a row by its grip to put the list in whatever order you want; a line shows
+where the row will land, and the order is kept between runs. The Default clock
+stays at the top and cannot be dragged, and nothing can be dropped above it: it
+is the clock the program falls back on, so it is always in the same place.
 
 **New clock** adds a row and waits for a name. Once you have named it the clock
 comes up on screen with its settings already open, since making a clock is the
