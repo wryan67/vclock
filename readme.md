@@ -175,16 +175,27 @@ The names they come out with are not all spelled the same way, which makes them
 look inconsistent when they are not:
 
 ```
-vclock_1.0_amd64.deb              version 1.0
-vclock-1.0-1.x86_64.rpm           version 1.0, release 1
-vclock-1.0-windows-x64-setup.exe  version 1.0
+vclock_1.0_amd64.deb                   version 1.0
+vclock-1.0-1.fc41.x86_64.rpm           version 1.0, release 1.fc41
+vclock-1.0-windows-x64-setup.exe       version 1.0
 ```
 
 The rpm's second number is not part of the version. RPM names a file
 `name-version-release.arch`, where the release counts rebuilds of the same
-source — `1.0-2` would be this same vclock packaged a second time. Debian has
+source — `1.0-2` would be this same vclock packaged a second time, after
+correcting something about the packaging rather than the program. Debian has
 the same field and CPack leaves it off when it is unset, which is the only
-reason the `.deb` looks shorter.
+reason the `.deb` looks shorter: vclock is a native package there, where
+upstream and packaging are the same project and a separate revision means
+nothing.
+
+The release cannot be moved somewhere less confusing — `name-version-release`
+is what every rpm tool parses — but it can be spelled the way the rest of the
+system spells it. `fc41` is the dist tag, and packages carry one as a matter of
+course: `libgcc-14.3.1-4.fc41.x86_64.rpm`. Beside those, a bare `1` was the
+unusual spelling, and the one that reads like a second version. It also keeps
+two builds apart, since the same source packaged on Fedora 41 and on Fedora 42
+would otherwise produce the same file name.
 
 The deb and the rpm get the version from CPack, which reads the CMake variable
 directly. The Windows installer and the macOS bundle are built outside CMake and
