@@ -74,8 +74,15 @@ done
 
 x86_64-w64-mingw32-strip "$STAGE"/*.exe "$STAGE"/*.dll "$STAGE"/*/*.dll 2>/dev/null || true
 
-version=$(sed -n 's/^project(vclock VERSION \([0-9.]*\).*/\1/p' /src/CMakeLists.txt)
-[ -n "$version" ] || version=1.0
+version=$(tr '\n' ' ' < /src/CMakeLists.txt |
+    sed -n 's/.*project(vclock[[:space:]][[:space:]]*VERSION[[:space:]][[:space:]]*\([0-9][0-9.]*\).*/\1/p')
+# A version that could not be read is not a reason to invent one.  The deb and
+# the rpm get theirs from CPack, which reads the real CMake variable, so a
+# fallback here would not keep the installer in step with them -- it would
+# quietly stamp the old number on it and produce exactly the mismatch it looks
+# like it is guarding against.
+[ -n "$version" ] ||
+    { echo "could not read the project version from CMakeLists.txt" >&2; exit 1; }
 
 echo "bundled $(find "$STAGE" -name '*.dll' | wc -l) DLLs"
 

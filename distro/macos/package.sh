@@ -52,8 +52,12 @@ QT_PREFIX=${QT_PREFIX:-$(brew --prefix qt 2>/dev/null || true)}
 }
 
 arch=$(uname -m)
-version=$(sed -n 's/^project(vclock VERSION \([0-9.]*\).*/\1/p' "$ROOT/CMakeLists.txt")
-[ -n "$version" ] || version=1.0
+version=$(tr '\n' ' ' < "$ROOT/CMakeLists.txt" |
+    sed -n 's/.*project(vclock[[:space:]][[:space:]]*VERSION[[:space:]][[:space:]]*\([0-9][0-9.]*\).*/\1/p')
+# See the note in distro/windows/package.sh: falling back to a literal here
+# would ship a bundle claiming a version nobody asked for.
+[ -n "$version" ] ||
+    { echo "could not read the project version from CMakeLists.txt" >&2; exit 1; }
 
 echo "==> building vclock $version for macOS $arch"
 
