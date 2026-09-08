@@ -57,6 +57,38 @@ If Qt is not on the default search path, point CMake at it:
 cmake -S . -B build -DCMAKE_PREFIX_PATH=/path/to/Qt/6.5.3/gcc_64
 ```
 
+### Starting from nothing
+
+`--clean` removes everything a vclock build has ever left on the machine, and
+then the rest of the command line runs exactly as though it had not been given:
+
+```sh
+./build.sh --clean                  # clean, then a release build
+./build.sh --clean --type Debug     # clean, then a debug build
+./build.sh --clean --distro all     # clean, then every package
+```
+
+What it removes is what vclock alone put there — the build directories, the
+packages in `distro/out`, and the `vclock-build-*` container images that
+`--distro` builds in. Packaging then rebuilds those images from their bases
+with `--no-cache --pull`, so the compiler and the Qt inside them are whatever
+the distribution ships today rather than whatever it shipped the week the layer
+was first cached. That is the point of it, and also why it is slow: reckon on
+twice the time of an ordinary `--distro all`.
+
+What it leaves alone is anything shared. The `ubuntu` and `fedora` base images
+stay, because a machine that builds vclock may well build something else on the
+same bases; `--pull` refreshes them in place instead. Docker's build cache and
+any already-dangling images stay too, for the same reason — once an image is
+dangling there is nothing left to say whose it was. If you want that space
+back, `docker system df` will show you what is there and the decision is yours
+rather than this script's.
+
+Something installed by `--install` is not removed either. Those files are under
+`/usr/local`, put there as root, and the manifest listing them lives in the
+build directory `--clean` deletes; guessing at the contents of `/usr/local`
+would be worse than leaving it.
+
 ### Dependencies by platform
 
 * **Linux** — `qt6-base-dev qt6-svg-dev libxcb1-dev` (Debian/Ubuntu),
@@ -104,6 +136,15 @@ defaults to this machine's architecture, except with `--distro all` which
 defaults to every architecture each target has. A target only builds the
 architectures it has — `windows` is x64 only — so asking for `all` of both
 builds the combinations that exist rather than failing on the ones that do not.
+
+Because packaging compiles inside a container and not here, the options that
+describe a build on this machine — `--type`, `--jobs`, `--qt-dir`,
+`--build-dir`, `--run`, `--install`, `--prefix` — have nothing to act on and
+are refused. They used to be accepted and quietly dropped, so
+`--distro deb --type Debug` produced a Release package without a word about it.
+`--clean` is the exception, and is not a contradiction: it describes the state
+to start from rather than how to compile, and applies just as well to a
+container image as to a build tree.
 
 A run that builds several packages does not stop at the first one that fails,
 because one broken target is not a reason to throw away the four that would have
