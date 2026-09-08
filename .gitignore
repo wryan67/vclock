@@ -1,8 +1,10 @@
 # ---------------------------------------------------------------- build trees
-# build/ and build-debug/ are what build.sh uses; cmake-build-* is what CLion
-# creates, one directory per configuration profile.
+# build/ and build-<type>/ are what build.sh uses, one per build type;
+# cmake-build-* is what CLion creates, one directory per configuration profile.
 build/
 build-debug/
+build-relwithdebinfo/
+build-minsizerel/
 cmake-build-*/
 
 # Anything CMake leaves behind if it is ever run in the source tree itself.
