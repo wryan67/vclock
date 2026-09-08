@@ -9,7 +9,7 @@
 #
 #   ./build.sh                  release build into ./build
 #   ./build.sh --type Debug     debug build
-#   ./build.sh --clean          discard the build directory first
+#   ./build.sh --clean          discard everything earlier builds left here
 #   ./build.sh --check-deps     report any missing system packages
 #   ./build.sh --install-deps   install the missing system packages
 #   ./build.sh --help           full option list
@@ -67,7 +67,14 @@ ${C_BOLD}Options:${C_RESET}
   -b, --build-dir DIR   Build directory (default: build, or build-<type>
                         for non-Release builds)
   -j, --jobs N          Parallel compile jobs (default: $JOBS)
-  -c, --clean           Delete the build directory before configuring
+  -c, --clean           Remove everything previous vclock builds left on this
+                        machine -- the build directories, the packages in
+                        distro/out, and the vclock-build-* container images --
+                        and then carry on with the rest of the command line as
+                        though --clean had not been given. The next packaging
+                        run therefore rebuilds its toolchain from the base
+                        images, which is slow. Before a release, not before
+                        every build.
   -q, --qt-dir PATH     Qt prefix, e.g. ~/Qt/6.5.3/gcc_64. Overrides
                         autodetection. May also be set via \$QT_PREFIX.
       --check-deps      Report which build dependencies are missing and stop
@@ -103,6 +110,7 @@ ${C_BOLD}Examples:${C_RESET}
   ./build.sh --distro deb                     # a .deb for this machine
   ./build.sh --distro deb --arch arm64        # a .deb for aarch64
   ./build.sh --distro all                     # everything this host can build
+  ./build.sh --clean --distro all             # the same, from nothing
 EOF
 }
 
@@ -154,6 +162,135 @@ fi
 case $BUILD_DIR in /*) ;; *) BUILD_DIR=$PWD/$BUILD_DIR ;; esac
 
 [ -f "$SOURCE_DIR/CMakeLists.txt" ] || die "CMakeLists.txt not found in $SOURCE_DIR"
+
+# ---------------------------------------------------------------------------
+# Cleaning
+#
+# --clean puts the machine back to how it was before vclock was ever built
+# here, and then the rest of the command line runs as though --clean had not
+# been given.  So it is not only for the host build: --clean --distro all
+# means build every package from nothing, which is what you want of a release
+# and what you do not want of an ordinary afternoon.
+#
+# The line this draws is ownership.  Everything below is something a vclock
+# build created and nothing else has a claim on.  Shared things a vclock build
+# merely used -- the ubuntu and fedora base images, docker's build cache --
+# are left alone, because on a machine that also builds other projects there
+# is no way to take those back without taking their work with them.
+# ---------------------------------------------------------------------------
+
+human() {
+    local b=$1
+    if   [ "$b" -ge 1073741824 ]; then awk "BEGIN{printf \"%.1fGB\", $b/1073741824}"
+    elif [ "$b" -ge 1048576 ];    then awk "BEGIN{printf \"%.0fMB\", $b/1048576}"
+    elif [ "$b" -ge 1024 ];       then awk "BEGIN{printf \"%.0fkB\", $b/1024}"
+    else printf '%sB' "$b"
+    fi
+}
+
+dir_bytes() {
+    local n
+    n=$(du -sb -- "$1" 2>/dev/null | cut -f1)
+    case $n in ''|*[!0-9]*) n=0 ;; esac
+    printf '%s' "$n"
+}
+
+# Every build tree build.sh can create, named rather than matched.  A pattern
+# would be shorter and would eventually eat somebody's cmake-build-debug, which
+# belongs to their IDE and not to us.
+host_build_dirs() {
+    printf '%s\n' \
+        "$SOURCE_DIR/build" \
+        "$SOURCE_DIR/build-debug" \
+        "$SOURCE_DIR/build-relwithdebinfo" \
+        "$SOURCE_DIR/build-minsizerel"
+    # --build-dir puts it wherever it was asked to.
+    case $BUILD_DIR in
+        "$SOURCE_DIR/build"|"$SOURCE_DIR/build-debug"|\
+        "$SOURCE_DIR/build-relwithdebinfo"|"$SOURCE_DIR/build-minsizerel") ;;
+        *) printf '%s\n' "$BUILD_DIR" ;;
+    esac
+}
+
+clean_everything() {
+    info "Cleaning: removing what previous vclock builds left on this machine"
+
+    local freed=0 found=0 d bytes
+
+    while IFS= read -r d; do
+        [ -d "$d" ] || continue
+        bytes=$(dir_bytes "$d")
+        rm -rf -- "$d"
+        freed=$((freed + bytes))
+        found=$((found + 1))
+        printf '    removed     %s (%s)\n' "${d#"$SOURCE_DIR"/}" "$(human "$bytes")"
+    done < <(host_build_dirs)
+
+    # The packages themselves.  The directory stays: it is where the next run
+    # writes, and an empty one is friendlier than one that has to be recreated.
+    if [ -d "$SOURCE_DIR/distro/out" ] && [ -n "$(ls -A "$SOURCE_DIR/distro/out" 2>/dev/null)" ]; then
+        bytes=$(dir_bytes "$SOURCE_DIR/distro/out")
+        find "$SOURCE_DIR/distro/out" -mindepth 1 -delete
+        freed=$((freed + bytes))
+        found=$((found + 1))
+        printf '    emptied     distro/out (%s)\n' "$(human "$bytes")"
+    fi
+
+    clean_images
+
+    if [ "$found" -eq 0 ] && [ "$CLEAN_IMAGE_COUNT" -eq 0 ]; then
+        printf '    nothing to remove; this machine is already clean\n'
+    else
+        [ "$found" -eq 0 ] || ok "    freed       $(human "$freed") on disk"
+        # Image sizes count the base layers underneath, which stay behind for
+        # whatever else on this machine is built on ubuntu or fedora.  So this
+        # is the size of what was removed, not a promise about free space.
+        [ "$CLEAN_IMAGE_COUNT" -eq 0 ] || \
+            ok "    images      $CLEAN_IMAGE_COUNT removed, $(human "$CLEAN_IMAGE_BYTES") including shared base layers"
+    fi
+
+    # What follows rebuilds the toolchain images from their bases rather than
+    # from layers this just deleted the reason for trusting.
+    export VCLOCK_CLEAN=1
+    printf '\n'
+}
+
+CLEAN_IMAGE_BYTES=0
+CLEAN_IMAGE_COUNT=0
+
+# The toolchain images.  These are removed by name, one at a time: a machine
+# that builds vclock is not necessarily a machine that builds only vclock, and
+# a prune here would be charged to whoever else uses it.
+clean_images() {
+    CLEAN_IMAGE_BYTES=0
+    CLEAN_IMAGE_COUNT=0
+
+    command -v docker >/dev/null 2>&1 || return 0
+    docker info >/dev/null 2>&1 || return 0
+
+    local refs ref bytes
+    refs=$(docker images --filter 'reference=vclock-build-*' \
+                         --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | sort -u) || return 0
+    [ -n "$refs" ] || return 0
+
+    while IFS= read -r ref; do
+        [ -n "$ref" ] || continue
+        bytes=$(docker image inspect --format '{{.Size}}' "$ref" 2>/dev/null || printf '0')
+        if docker rmi -- "$ref" >/dev/null 2>&1; then
+            CLEAN_IMAGE_BYTES=$((CLEAN_IMAGE_BYTES + bytes))
+            CLEAN_IMAGE_COUNT=$((CLEAN_IMAGE_COUNT + 1))
+            printf '    removed     image %s (%s)\n' "$ref" "$(human "$bytes")"
+        else
+            warn "could not remove image $ref (in use?)"
+        fi
+    done <<EOF
+$refs
+EOF
+}
+
+if [ "$CLEAN" -eq 1 ]; then
+    clean_everything
+fi
 
 # ---------------------------------------------------------------------------
 # Packaging
@@ -990,6 +1127,8 @@ printf '    qt%s prefix  %s\n' "$QT_MAJOR" "$QT_PREFIX"
 printf '    jobs        %s\n' "$JOBS"
 
 if [ "$CLEAN" -eq 1 ] && [ -d "$BUILD_DIR" ]; then
+    # --clean already emptied this, above; a --build-dir pointing somewhere
+    # unusual is the only way to arrive here with anything left.
     info "Cleaning $BUILD_DIR"
     rm -rf -- "$BUILD_DIR"
 fi
