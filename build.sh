@@ -39,6 +39,9 @@ VERBOSE=0
 DISTRO_TARGETS=
 DISTRO_ARCHES=
 PACKAGE_THIS=0
+# The build-only options actually typed, as opposed to the ones holding a
+# default, so that packaging can say which of them it cannot honour.
+GIVEN=
 
 # ---------------------------------------------------------------------------
 # Output helpers
@@ -119,21 +122,21 @@ EOF
 # ---------------------------------------------------------------------------
 while [ $# -gt 0 ]; do
     case $1 in
-        -t|--type)       [ $# -ge 2 ] || die "$1 requires an argument"; BUILD_TYPE=$2; shift 2 ;;
-        -b|--build-dir)  [ $# -ge 2 ] || die "$1 requires an argument"; BUILD_DIR=$2; shift 2 ;;
-        -j|--jobs)       [ $# -ge 2 ] || die "$1 requires an argument"; JOBS=$2; shift 2 ;;
-        -q|--qt-dir)     [ $# -ge 2 ] || die "$1 requires an argument"; QT_PREFIX=$2; shift 2 ;;
-        --prefix)        [ $# -ge 2 ] || die "$1 requires an argument"; INSTALL_PREFIX=$2; shift 2 ;;
+        -t|--type)       [ $# -ge 2 ] || die "$1 requires an argument"; BUILD_TYPE=$2; GIVEN="$GIVEN --type"; shift 2 ;;
+        -b|--build-dir)  [ $# -ge 2 ] || die "$1 requires an argument"; BUILD_DIR=$2; GIVEN="$GIVEN --build-dir"; shift 2 ;;
+        -j|--jobs)       [ $# -ge 2 ] || die "$1 requires an argument"; JOBS=$2; GIVEN="$GIVEN --jobs"; shift 2 ;;
+        -q|--qt-dir)     [ $# -ge 2 ] || die "$1 requires an argument"; QT_PREFIX=$2; GIVEN="$GIVEN --qt-dir"; shift 2 ;;
+        --prefix)        [ $# -ge 2 ] || die "$1 requires an argument"; INSTALL_PREFIX=$2; GIVEN="$GIVEN --prefix"; shift 2 ;;
         -c|--clean)      CLEAN=1; shift ;;
         --install-deps)  INSTALL_DEPS=1; shift ;;
         --check-deps)    CHECK_DEPS=1; shift ;;
-        --install)       DO_INSTALL=1; shift ;;
+        --install)       DO_INSTALL=1; GIVEN="$GIVEN --install"; shift ;;
         --distro)        [ $# -ge 2 ] || die "$1 requires an argument"
                          DISTRO_TARGETS="$DISTRO_TARGETS $(echo "$2" | tr ',' ' ')"; shift 2 ;;
         --arch)          [ $# -ge 2 ] || die "$1 requires an argument"
                          DISTRO_ARCHES="$DISTRO_ARCHES $(echo "$2" | tr ',' ' ')"; shift 2 ;;
         --this)          PACKAGE_THIS=1; shift ;;
-        -r|--run)        RUN_AFTER=1; shift ;;
+        -r|--run)        RUN_AFTER=1; GIVEN="$GIVEN --run"; shift ;;
         -v|--verbose)    VERBOSE=1; shift ;;
         -h|--help)       usage; exit 0 ;;
         *)               printf 'error: unknown option: %s\n\n' "$1" >&2; usage >&2; exit 2 ;;
@@ -162,6 +165,17 @@ fi
 case $BUILD_DIR in /*) ;; *) BUILD_DIR=$PWD/$BUILD_DIR ;; esac
 
 [ -f "$SOURCE_DIR/CMakeLists.txt" ] || die "CMakeLists.txt not found in $SOURCE_DIR"
+
+# Packaging compiles nothing on this machine, so none of the options that
+# describe how to compile here can be honoured.  They used to be accepted and
+# ignored, so --distro deb -t Debug produced a Release package and said nothing
+# about it.  The same guard exists the other way round further down, for --arch
+# without --distro.  It comes before --clean so that a command refused on its
+# arguments has not already emptied the machine.
+if [ -n "$DISTRO_TARGETS" ] || [ "$PACKAGE_THIS" -eq 1 ]; then
+    [ -z "$GIVEN" ] || \
+        die "$(echo "$GIVEN" | sed 's/^ //; s/ /, /g') means nothing with --distro or --this: packaging builds in containers, not on this machine"
+fi
 
 # ---------------------------------------------------------------------------
 # Cleaning
