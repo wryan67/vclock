@@ -41,6 +41,16 @@ set(CPACK_RPM_PACKAGE_LICENSE "MIT")
 set(CPACK_RPM_PACKAGE_GROUP "Applications/Productivity")
 set(CPACK_RPM_PACKAGE_URL "${CPACK_PACKAGE_HOMEPAGE_URL}")
 set(CPACK_RPM_FILE_NAME RPM-DEFAULT)
+# RPM names a file name-version-release.arch and the release is not optional,
+# so vclock-1.0-1.x86_64.rpm reads as though 1.0 and 1 were both versions.  The
+# dist tag is what tells them apart: every other package on the system carries
+# one -- libgcc-14.3.1-4.fc41 -- and beside those, a bare 1 is the odd spelling
+# rather than the usual one.
+#
+# It also stops two builds colliding.  Without it a package built on Fedora 41
+# and the same source built on Fedora 42 are both vclock-1.0-1.x86_64.rpm, and
+# nothing but the order they were copied says which is in distro/out.
+set(CPACK_RPM_PACKAGE_RELEASE_DIST ON)
 set(CPACK_RPM_POST_INSTALL_SCRIPT_FILE "${CMAKE_CURRENT_LIST_DIR}/rpm/post")
 set(CPACK_RPM_POST_UNINSTALL_SCRIPT_FILE "${CMAKE_CURRENT_LIST_DIR}/rpm/postun")
 
