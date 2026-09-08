@@ -160,15 +160,27 @@ container.
 
 Building for a foreign architecture runs the container under qemu. That is
 several times slower than a native build but produces genuine native binaries.
-It needs the qemu handlers registered with the kernel once:
+Running foreign binaries at all needs a handler registered with the kernel, and
+`build.sh` registers one itself when it reaches the first package that needs it
+— asking for every package on an amd64 machine does not disturb the kernel until
+it gets to the arm64 ones. It takes the handler away again when the run ends,
+whether that run finished, failed, or was interrupted, so the machine is left
+able to run exactly what it could run beforehand.
+
+A handler that was already registered before the build started is left alone,
+both while the build runs and afterwards. If you would rather have one
+permanently — it saves a few seconds a run, and is what a machine that builds
+arm64 packages all day wants — register it yourself and `build.sh` will simply
+use it:
 
 ```sh
 docker run --privileged --rm tonistiigi/binfmt --install arm64
 ```
 
-That is a host-wide change which survives reboot; `--uninstall` undoes it.
-Without it the container starts and every process in it dies with `exec format
-error`, so `build.sh` checks first and says this instead.
+That is a host-wide change, and not one that survives a reboot: it lives in
+`binfmt_misc`, which is kernel state, so making it permanent means a line in
+`/etc/binfmt.d` or a command that runs at boot. Registering it per-run is why
+`build.sh` does not ask you to care about any of that.
 
 The Windows installer is cross-compiled rather than built on Windows. Fedora is
 the only mainstream distribution that packages a MinGW-w64 build of Qt6, which
