@@ -165,6 +165,37 @@ including the case where a target exits successfully but writes nothing, which
 counts as a failure. `--distro` exits non-zero if any build failed or if none
 ran, which is what a release script should be checking rather than the output.
 
+### Version numbers
+
+Every package takes its version from one place, the `project()` line in
+`CMakeLists.txt`. Bump that and all of them follow; there is nothing else to
+edit.
+
+The names they come out with are not all spelled the same way, which makes them
+look inconsistent when they are not:
+
+```
+vclock_1.0_amd64.deb              version 1.0
+vclock-1.0-1.x86_64.rpm           version 1.0, release 1
+vclock-1.0-windows-x64-setup.exe  version 1.0
+```
+
+The rpm's second number is not part of the version. RPM names a file
+`name-version-release.arch`, where the release counts rebuilds of the same
+source — `1.0-2` would be this same vclock packaged a second time. Debian has
+the same field and CPack leaves it off when it is unset, which is the only
+reason the `.deb` looks shorter.
+
+The deb and the rpm get the version from CPack, which reads the CMake variable
+directly. The Windows installer and the macOS bundle are built outside CMake and
+read the same line out of `CMakeLists.txt` themselves; if they cannot, they stop
+rather than carry on with a guess, because a wrong version in a shipped artefact
+is worse than a build that fails.
+
+One thing that is not a version and must not be bumped with the others:
+`Version=1.0` in `distro/vclock.desktop` is the Desktop Entry Specification the
+file conforms to, not the version of vclock.
+
 Each package is built inside a container for the distribution it targets, so
 what comes out depends on that distribution rather than on whatever is installed
 here — which is what makes it possible to build a Fedora rpm on Ubuntu, and an
