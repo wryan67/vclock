@@ -24,6 +24,9 @@ HERE=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 ROOT=$(cd -- "$HERE/.." && pwd)
 OUT=${VCLOCK_OUT:-$HERE/out}
 
+# shellcheck source=qemu.sh
+. "$HERE/qemu.sh"
+
 C_RESET=''; C_BOLD=''; C_RED=''; C_BLUE=''; C_YELLOW=''
 if [ -t 1 ] && [ "${NO_COLOR:-}" = "" ]; then
     C_RESET=$'\033[0m'; C_BOLD=$'\033[1m'; C_RED=$'\033[31m'
@@ -198,20 +201,18 @@ docker info >/dev/null 2>&1 ||
 
 # A foreign architecture needs a qemu handler registered with the kernel.
 # Without one the container starts and every process in it dies with 'exec
-# format error', which is a confusing way to find out.
-if [ -n "$PLATFORM" ]; then
-    if [ "$ARCH" != "$HOST_ARCH" ]; then
-        if ! docker run --rm --platform "$PLATFORM" \
-                 "$([ "$ARCH" = arm64 ] && echo arm64v8/alpine || echo amd64/alpine)" \
-                 true >/dev/null 2>&1; then
-            die "this machine is $HOST_ARCH and cannot run $ARCH binaries yet.
-       Register the qemu handlers once with:
-
-           docker run --privileged --rm tonistiigi/binfmt --install $ARCH
-
-       That is a host-wide change which survives reboot; undo it with
-       --uninstall in place of --install."
-        fi
+# format error', which is a confusing way to find out.  One is registered here
+# if there is not one already, and taken away again when the build is over --
+# see qemu.sh.  When build.sh is driving several of these it registers the
+# handler once for the whole run and says so, so that a run of five packages
+# does not put the same handler up and down five times.
+if [ -n "$PLATFORM" ] && [ "$ARCH" != "$HOST_ARCH" ]; then
+    if [ "${VCLOCK_QEMU_MANAGED:-0}" = 1 ]; then
+        qemu_runnable "$ARCH" ||
+            die "this machine is $HOST_ARCH and cannot run $ARCH binaries."
+    else
+        trap qemu_release EXIT INT TERM
+        qemu_register "$ARCH" || die "$(qemu_register_error "$ARCH")"
     fi
 fi
 

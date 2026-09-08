@@ -18,6 +18,13 @@ set -euo pipefail
 
 SOURCE_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 
+# shellcheck source=distro/qemu.sh
+. "$SOURCE_DIR/distro/qemu.sh"
+
+# Whatever ends this script -- finishing, failing, or Ctrl-C -- the machine is
+# left able to run exactly the architectures it could run beforehand.
+trap qemu_release EXIT INT TERM
+
 BUILD_TYPE=Release
 BUILD_DIR=
 JOBS=$(nproc 2>/dev/null || echo 4)
@@ -326,6 +333,13 @@ run_packaging() {
     local marker
     marker=$(mktemp) || die "could not create a temporary file"
 
+    # build-target.sh would put a handler up and take it down again for each
+    # package on its own.  Told that this is looked after here, it leaves the
+    # handler alone and one registration serves every package in the run.
+    local host_arch
+    host_arch=$(normalise_arch "$(uname -m)")
+    export VCLOCK_QEMU_MANAGED=1
+
     local t a name
     for t in $targets; do
         for a in $arches; do
@@ -347,6 +361,17 @@ run_packaging() {
                     die "$t cannot be built here: $(skip_reason "$t" "$a")"
                 printf 'skipped|%s|%s|%s\n' "$t" "$name" "$(skip_reason "$t" "$a")" \
                     >>"$records"
+                continue
+            fi
+
+            # The qemu handler for a foreign architecture goes up the first
+            # time one is actually wanted, rather than at the top of the run:
+            # asking for every package on an amd64 machine should not disturb
+            # the kernel until it reaches the first arm64 one.  It comes down
+            # again when this function returns, whatever happened in between.
+            if [ "$a" != "$host_arch" ] && ! qemu_register "$a"; then
+                printf 'failed|%s|%s|%s\n' "$t" "$name" \
+                    "$(qemu_register_error "$a")" >>"$records"
                 continue
             fi
 
