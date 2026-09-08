@@ -222,12 +222,32 @@ mkdir -p "$OUT"
 
 IMAGE="vclock-build-$TARGET:$ARCH"
 
+# The image this build is about to replace, so its layers can go with it.
+# Re-tagging does not remove what it re-tags: without this, every rebuild
+# strands another copy of a one-to-two gigabyte toolchain under <none>.
+PREVIOUS_ID=$(docker image inspect --format '{{.Id}}' "$IMAGE" 2>/dev/null || true)
+
 build_args=(build -t "$IMAGE" -f "$HERE/$TARGET/Dockerfile")
 [ -n "$PLATFORM" ] && build_args+=(--platform "$PLATFORM")
+# After a --clean there is nothing left to say the cached layers still reflect
+# what apt or dnf would install today, and the bases are floating tags that a
+# local copy drifts away from.  So build the toolchain as CI would meet it.
+if [ "${VCLOCK_CLEAN:-0}" = 1 ]; then
+    build_args+=(--no-cache --pull)
+fi
 build_args+=("$HERE/$TARGET")
 
 info "preparing the $TARGET/$ARCH build environment"
 docker "${build_args[@]}" >/dev/null || die "could not build the $TARGET image"
+
+# Only ever the one image this run superseded, found by id before the tag
+# moved.  Nothing else here is ours to remove.
+if [ -n "$PREVIOUS_ID" ]; then
+    NEW_ID=$(docker image inspect --format '{{.Id}}' "$IMAGE" 2>/dev/null || true)
+    if [ -n "$NEW_ID" ] && [ "$NEW_ID" != "$PREVIOUS_ID" ]; then
+        docker rmi -- "$PREVIOUS_ID" >/dev/null 2>&1 || true
+    fi
+fi
 
 run_args=(run --rm)
 [ -n "$PLATFORM" ] && run_args+=(--platform "$PLATFORM")
