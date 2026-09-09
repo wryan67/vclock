@@ -393,29 +393,11 @@ Config iconClock()
 
 }  // namespace
 
-QPixmap presetThumbnail(const Config &values, int size, qreal devicePixelRatio,
-                        const QColor &checkerLight, const QColor &checkerDark)
+QPixmap presetThumbnail(const Config &values, int size, qreal devicePixelRatio)
 {
     const qreal dpr = devicePixelRatio > 0 ? devicePixelRatio : 1.0;
     const int pixels = std::max(1, static_cast<int>(std::lround(size * dpr)));
     QImage canvas = drawClock(values, pixels);
-    // A see-through clock drawn straight onto the dialog reads as a solid pale
-    // disc -- the very thing it is not.  Stand a faded one on a checkerboard so
-    // that faded looks faded.
-    if (values.faceOpacity < 100 || values.wireOpacity < 100
-        || values.handOpacity < 100 || values.markOpacity < 100) {
-        const int step = std::max(1, static_cast<int>(std::lround(8 * dpr)));
-        QImage backdrop(canvas.size(), QImage::Format_ARGB32_Premultiplied);
-        QPainter painter(&backdrop);
-        painter.setPen(Qt::NoPen);
-        for (int y = 0; y < backdrop.height(); y += step)
-            for (int x = 0; x < backdrop.width(); x += step)
-                painter.fillRect(QRect(x, y, step, step),
-                                 ((x / step) + (y / step)) % 2 ? checkerDark : checkerLight);
-        painter.drawImage(0, 0, canvas);
-        painter.end();
-        canvas = backdrop;
-    }
     canvas.setDevicePixelRatio(dpr);
     return QPixmap::fromImage(canvas);
 }

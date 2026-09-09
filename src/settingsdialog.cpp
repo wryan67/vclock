@@ -150,17 +150,10 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     presetsLayout->setHorizontalSpacing(6);
     presetsLayout->setVerticalSpacing(6);
     const qreal dpr = devicePixelRatioF();
-    // Faded presets are drawn on a checkerboard, in the button's own shades so
-    // they read as see-through rather than as a bright hole on a dark theme.
-    // Fainter than a colour swatch takes: a swatch has one flat colour to show
-    // and a thumbnail has a whole clock, which a bold pattern swallows.
-    const auto [checkerLight, checkerDark] =
-        checkerShades(presetsBox->palette().color(QPalette::Button), 15);
     int pcol = 0, prow = 0;
     for (const Preset &preset : presets()) {
         auto *button = new QToolButton(this);
-        button->setIcon(QIcon(
-            presetThumbnail(preset.values, kPresetThumb, dpr, checkerLight, checkerDark)));
+        button->setIcon(QIcon(presetThumbnail(preset.values, kPresetThumb, dpr)));
         button->setIconSize(QSize(kPresetThumb, kPresetThumb));
         button->setAutoRaise(false);
         button->setToolTip(preset.name + QStringLiteral(" \u2014 ") + preset.tip);

@@ -4,7 +4,6 @@
 
 #include "config.h"
 
-#include <QColor>
 #include <QImage>
 #include <QPixmap>
 #include <QString>
@@ -37,12 +36,7 @@ void drawHands(QPainter &painter, const Config &cfg, double cx, double cy, doubl
                double w, double h, double hours, double minutes, double seconds);
 
 // Render a preset the way the clock would draw it.
-// A preview of one preset.  A see-through clock is drawn on a checkerboard of
-// the two given colours so that faded looks faded rather than solid; the caller
-// picks them from its palette, which is why they come in rather than being
-// worked out here.  Fully opaque presets ignore them.
-QPixmap presetThumbnail(const Config &values, int size, qreal devicePixelRatio,
-                        const QColor &checkerLight, const QColor &checkerDark);
+QPixmap presetThumbnail(const Config &values, int size, qreal devicePixelRatio);
 
 // Render the application icon at a pixel size.  It is a clock drawn by the
 // code above rather than a picture of its own: the config named "icon" if

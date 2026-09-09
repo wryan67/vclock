@@ -6,18 +6,24 @@
 #include <QStyleOptionButton>
 #include <QStylePainter>
 
+#include <utility>
+
 namespace {
 constexpr int kSwatchW = 48;
 constexpr int kSwatchH = 22;
 constexpr int kPadding = 6;
 
-// A swatch shows one flat colour and has room for a bold pattern behind it.
-// Not as bold as it could be on a light theme, though: the same step that reads
-// as a tasteful grey checkerboard under white takes the dark squares to nearly
-// black under a dark panel, and a black hole is what this is trying to avoid.
+// How far apart the two checkerboard squares are.  Not as far as a light theme
+// could take: the same step that reads as a tasteful grey checkerboard under
+// white takes the dark squares to nearly black under a dark panel.
 constexpr int kSwatchChecker = 35;
-}  // namespace
 
+// The two square colours for the "this colour is see-through" checkerboard,
+// worked out from whatever the pattern will be drawn on.  A hard-coded light
+// grey is the obvious way to do this and the wrong one: on a dark theme it
+// punches a glaring white hole in the panel.  These straddle the background
+// instead -- one square lighter, one darker -- so the pattern reads as texture
+// on the surface it sits on, under any theme.
 std::pair<QColor, QColor> checkerShades(const QColor &background, int strength)
 {
     const QColor base = background.isValid() ? background : QColor(204, 204, 204);
@@ -41,6 +47,7 @@ std::pair<QColor, QColor> checkerShades(const QColor &background, int strength)
     const int saturation = base.hslHue() < 0 ? 0 : base.hslSaturation();
     return {QColor::fromHsl(hue, saturation, high), QColor::fromHsl(hue, saturation, low)};
 }
+}  // namespace
 
 ColorButton::ColorButton(const QColor &color, bool useAlpha, const QString &title,
                          QWidget *parent)

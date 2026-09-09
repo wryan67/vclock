@@ -632,20 +632,13 @@ puts the previous appearance and centre back.
 
 Two of the nine are see-through: **Smoked glass** is the Onyx dial faded back to
 about a quarter, and **Clear glass** has no dial at all, only a pale rim, heavy
-hour marks and hands hanging over the wallpaper. Their thumbnails are drawn on a
-faint checkerboard, because a clock that is only a quarter there would otherwise
-read as a solid pale disc against the dialog -- the one thing it is not. The
-other seven are opaque and get no checkerboard.
+hour marks and hands hanging over the wallpaper.
 
-The checkerboard, here and on the colour swatches, is mixed from the panel it is
-drawn on rather than being a fixed light grey: one square a little lighter than
-the background, one a little darker. A fixed grey is the obvious way to do it
-and the wrong one, since on a dark theme it punches a glaring white hole in the
-dialog -- and worse, on a dark desktop it shows a glass clock against white when
-what you will actually get is faint light lines against your wallpaper. The
-thumbnails take a gentler step than the swatches: a swatch has one flat colour
-to show and can carry a bold pattern, a thumbnail has a whole clock, and a bold
-checkerboard swallows a clock that is only a quarter there.
+Every thumbnail is the clock and nothing else -- no backdrop, no checkerboard,
+nothing to say "this one is transparent". A see-through preset simply lets the
+dialog show through, exactly as it will let your wallpaper show through. What
+you see is what you get, and a thumbnail that needed decoration to explain
+itself would not be one.
 
 A preset changes how the clock looks and nothing else, so smooth sweep, reverse
 time, always on top and the clock's size all survive it. If you want the glass
