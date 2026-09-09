@@ -393,14 +393,15 @@ Config iconClock()
 
 }  // namespace
 
-QPixmap presetThumbnail(const Config &values, int size, qreal devicePixelRatio)
+QPixmap presetThumbnail(const Config &values, int size, qreal devicePixelRatio,
+                        const QColor &checkerLight, const QColor &checkerDark)
 {
     const qreal dpr = devicePixelRatio > 0 ? devicePixelRatio : 1.0;
     const int pixels = std::max(1, static_cast<int>(std::lround(size * dpr)));
     QImage canvas = drawClock(values, pixels);
     // A see-through clock drawn straight onto the dialog reads as a solid pale
-    // disc -- the very thing it is not.  Stand a faded one on the checkerboard
-    // the colour swatches already use, so that faded looks faded.
+    // disc -- the very thing it is not.  Stand a faded one on a checkerboard so
+    // that faded looks faded.
     if (values.faceOpacity < 100 || values.wireOpacity < 100
         || values.handOpacity < 100 || values.markOpacity < 100) {
         const int step = std::max(1, static_cast<int>(std::lround(8 * dpr)));
@@ -408,13 +409,9 @@ QPixmap presetThumbnail(const Config &values, int size, qreal devicePixelRatio)
         QPainter painter(&backdrop);
         painter.setPen(Qt::NoPen);
         for (int y = 0; y < backdrop.height(); y += step)
-            for (int x = 0; x < backdrop.width(); x += step) {
-                // Much fainter than the colour swatches use: a thumbnail has a
-                // whole clock to show, and a bold checkerboard swallows a clock
-                // that is only a quarter there.
-                const int shade = ((x / step) + (y / step)) % 2 ? 226 : 255;
-                painter.fillRect(QRect(x, y, step, step), QColor(shade, shade, shade));
-            }
+            for (int x = 0; x < backdrop.width(); x += step)
+                painter.fillRect(QRect(x, y, step, step),
+                                 ((x / step) + (y / step)) % 2 ? checkerDark : checkerLight);
         painter.drawImage(0, 0, canvas);
         painter.end();
         canvas = backdrop;

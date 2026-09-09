@@ -10,7 +10,37 @@ namespace {
 constexpr int kSwatchW = 48;
 constexpr int kSwatchH = 22;
 constexpr int kPadding = 6;
+
+// A swatch shows one flat colour and has room for a bold pattern behind it.
+// Not as bold as it could be on a light theme, though: the same step that reads
+// as a tasteful grey checkerboard under white takes the dark squares to nearly
+// black under a dark panel, and a black hole is what this is trying to avoid.
+constexpr int kSwatchChecker = 35;
 }  // namespace
+
+std::pair<QColor, QColor> checkerShades(const QColor &background, int strength)
+{
+    const QColor base = background.isValid() ? background : QColor(204, 204, 204);
+    strength = qBound(0, strength, 127);
+
+    // Shift the background's lightness both ways.  Working in lightness rather
+    // than with lighter()/darker() keeps the step the same size wherever the
+    // background sits, and those two multiply -- so they do nothing at all on
+    // black, which is exactly where a dark theme puts us.
+    const int lightness = base.lightness();
+    int high = qMin(255, lightness + strength);
+    int low = qMax(0, lightness - strength);
+    // Near black or near white one side has nowhere to go, so take the whole
+    // step out of the other and keep the two squares as far apart as asked.
+    if (high - lightness < strength)
+        low = qMax(0, high - 2 * strength);
+    if (lightness - low < strength)
+        high = qMin(255, low + 2 * strength);
+
+    const int hue = base.hslHue() < 0 ? 0 : base.hslHue();
+    const int saturation = base.hslHue() < 0 ? 0 : base.hslSaturation();
+    return {QColor::fromHsl(hue, saturation, high), QColor::fromHsl(hue, saturation, low)};
+}
 
 ColorButton::ColorButton(const QColor &color, bool useAlpha, const QString &title,
                          QWidget *parent)
@@ -57,16 +87,18 @@ void ColorButton::paintEvent(QPaintEvent *)
 
     const int alpha = m_useAlpha ? m_color.alpha() : 255;
     if (alpha < 255) {
-        // Standard light/dark checkerboard behind partially clear colours.
+        // Checkerboard behind partially clear colours, in the theme's own
+        // shades so it is a pattern on the button rather than a hole in it.
+        const auto [light, dark] = checkerShades(palette().color(QPalette::Button),
+                                                 kSwatchChecker);
         const int step = 6;
         painter.setPen(Qt::NoPen);
         for (int iy = 0; iy < swatch.height(); iy += step) {
             for (int ix = 0; ix < swatch.width(); ix += step) {
-                const int shade = ((ix / step) + (iy / step)) % 2 ? 153 : 255;
                 painter.fillRect(QRect(swatch.left() + ix, swatch.top() + iy,
                                        qMin(step, swatch.width() - ix),
                                        qMin(step, swatch.height() - iy)),
-                                 QColor(shade, shade, shade));
+                                 ((ix / step) + (iy / step)) % 2 ? dark : light);
             }
         }
     }
