@@ -27,6 +27,7 @@
 #include <QScrollBar>
 #include <QSlider>
 #include <QSpinBox>
+#include <QTabWidget>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -34,6 +35,11 @@
 #include <cmath>
 
 namespace {
+
+// How many preset thumbnails to a row.  They wrap rather than running on, so
+// that adding another preset makes the box one row taller instead of making
+// the whole dialog wider than the tabs beneath it.
+constexpr int kPresetColumns = 5;
 
 // Where the file chooser starts looking for user-supplied faces.
 QString faceDir()
@@ -114,10 +120,9 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     // Every control lives on this widget, which the scroll area below pans over
     // when the dialog is taller or wider than the screen it opens on.
     auto *content = new QWidget;
-    auto *grid = new QGridLayout(content);
-    grid->setHorizontalSpacing(10);
-    grid->setVerticalSpacing(8);
-    grid->setContentsMargins(12, 12, 12, 12);
+    auto *column = new QVBoxLayout(content);
+    column->setSpacing(10);
+    column->setContentsMargins(12, 12, 12, 12);
 
     auto *scroll = new QScrollArea(this);
     scroll->setWidget(content);
@@ -134,20 +139,18 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     content->setAutoFillBackground(false);
     outer->addWidget(scroll, 1);
 
-    int row = 0;
-
-    // --------------------------------------------------- face chooser section
-    // Both ways of picking a face -- a ready-made look or a file of your own --
-    // belong together, since either one replaces the other.
-    auto *chooserBox = new QGroupBox(QStringLiteral("Clock face"), this);
-    auto *chooserGrid = new QGridLayout(chooserBox);
-    chooserGrid->setHorizontalSpacing(10);
-    int crow = 0;
-
-    addLabel(chooserGrid, QStringLiteral("Presets"), crow);
-    auto *presetBox = new QHBoxLayout;
-    presetBox->setSpacing(6);
+    // ------------------------------------------------------------- presets
+    //
+    // Above the tabs rather than on one of them, because a preset writes to
+    // every tab at once: choosing one changes hand colours, mark sizes and
+    // opacity together.  On a tab of its own the effect would be to alter
+    // pages the user cannot see, which is the one thing tabs are bad at.
+    auto *presetsBox = new QGroupBox(QStringLiteral("Presets"), this);
+    auto *presetsLayout = new QGridLayout(presetsBox);
+    presetsLayout->setHorizontalSpacing(6);
+    presetsLayout->setVerticalSpacing(6);
     const qreal dpr = devicePixelRatioF();
+    int pcol = 0, prow = 0;
     for (const Preset &preset : presets()) {
         auto *button = new QToolButton(this);
         button->setIcon(QIcon(presetThumbnail(preset.values, kPresetThumb, dpr)));
@@ -156,11 +159,29 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
         button->setToolTip(preset.name + QStringLiteral(" \u2014 ") + preset.tip);
         connect(button, &QToolButton::clicked, this,
                 [this, &preset] { onPresetClicked(preset); });
-        presetBox->addWidget(button);
+        presetsLayout->addWidget(button, prow, pcol);
+        if (++pcol == kPresetColumns) {
+            pcol = 0;
+            ++prow;
+        }
     }
-    presetBox->addStretch(1);
-    chooserGrid->addLayout(presetBox, crow, 1);
-    ++crow;
+    // The trailing column takes the slack, so a part-filled last row stays left
+    // aligned under the one above instead of spreading out to fill the width.
+    presetsLayout->setColumnStretch(kPresetColumns, 1);
+    column->addWidget(presetsBox);
+
+    // The tabs.  Each page below is one of the groups this dialog used to
+    // stack vertically; the page's tab carries the name the group box did.
+    auto *tabs = new QTabWidget(this);
+    column->addWidget(tabs, 1);
+
+    // --------------------------------------------------------- face tab
+    // The artwork and the two colours it is drawn in, since the colouring mode
+    // decides whether those colours apply at all.
+    auto *chooserBox = new QWidget;
+    auto *chooserGrid = new QGridLayout(chooserBox);
+    chooserGrid->setHorizontalSpacing(10);
+    int crow = 0;
 
     addLabel(chooserGrid, QStringLiteral("Image"), crow);
     auto *faceRow = new QHBoxLayout;
@@ -179,13 +200,38 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     faceRow->addWidget(m_browse, 0);
     chooserGrid->addLayout(faceRow, crow, 1);
     ++crow;
+
+    // The mode governs the two swatches under it, so it sits with them.
+    addLabel(chooserGrid, QStringLiteral("Coloring"), crow);
+    m_colorMode = new QComboBox(this);
+    m_colorMode->addItem(QStringLiteral("Recolor"), true);
+    m_colorMode->addItem(QStringLiteral("Original"), false);
+    m_colorMode->setCurrentIndex(cfg.faceRecolor ? 0 : 1);
+    m_colorMode->setToolTip(QStringLiteral(
+        "Recolor maps the artwork's shading onto the face and wire colors below, so "
+        "the drawing comes out in your colors with its shading intact.\n\n"
+        "Original draws the file exactly as it was authored, which suits a picture "
+        "that already has colors of its own. The face and wire colors then do not "
+        "apply; the hands and marks still do."));
+    chooserGrid->addWidget(m_colorMode, crow, 1, Qt::AlignLeft);
+    ++crow;
+
+    addLabel(chooserGrid, QStringLiteral("Face color"), crow);
+    // useAlpha lets the swatch show the checkerboard when the face is faded.
+    m_face = new ColorButton(QColor(cfg.faceColor), true, QStringLiteral("Face color"), this);
+    chooserGrid->addWidget(m_face, crow, 1, Qt::AlignLeft);
+    ++crow;
+
+    addLabel(chooserGrid, QStringLiteral("Wire color"), crow);
+    m_wire = new ColorButton(QColor(cfg.wireColor), false, QStringLiteral("Wire color"), this);
+    chooserGrid->addWidget(m_wire, crow, 1, Qt::AlignLeft);
+    ++crow;
+
     chooserGrid->setColumnStretch(1, 1);
+    chooserGrid->setRowStretch(crow, 1);
 
-    grid->addWidget(chooserBox, row, 0, 1, 4);
-    ++row;
-
-    // --------------------------------------------------------- sizes section
-    auto *sizesBox = new QGroupBox(QStringLiteral("Sizes"), this);
+    // --------------------------------------------------------- sizes tab
+    auto *sizesBox = new QWidget;
     auto *sizesGrid = new QGridLayout(sizesBox);
     sizesGrid->setHorizontalSpacing(10);
     sizesGrid->setVerticalSpacing(8);
@@ -204,15 +250,17 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
                                   cfg.minuteMarkScale, kMarkScaleMin, kMarkScaleMax, true);
     m_minuteMarkScale->setToolTip(
         QStringLiteral("Percentage of the hour mark size. 0 hides the minute marks."));
-    grid->addWidget(sizesBox, row, 0, 1, 4);
-    ++row;
+    sizesGrid->setRowStretch(srow, 1);
 
-    // ------------------------------------------------------- opacity section
+    // ------------------------------------------------------- opacity tab
     //
     // Each part of the drawing fades on its own, so a face can wash out to
     // bare wire over the wallpaper while the hands stay solid.  The two sync
-    // boxes cover the common case of wanting a pair to move together.
-    auto *opacityBox = new QGroupBox(QStringLiteral("Opacity"), this);
+    // boxes cover the common case of wanting a pair to move together, and are
+    // why the four sliders stay on one page rather than following their parts
+    // to the Hands and Marks tabs: a box that ties together two controls the
+    // user cannot see at once would be a puzzle rather than a convenience.
+    auto *opacityBox = new QWidget;
     auto *opacityGrid = new QGridLayout(opacityBox);
     opacityGrid->setHorizontalSpacing(10);
     opacityGrid->setVerticalSpacing(8);
@@ -240,11 +288,10 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     m_syncHandsMarks = addSyncBox(opacityGrid, orow++, QStringLiteral("sync hands/marks"),
                                   cfg.syncHandsMarks, m_handOpacity, m_markOpacity);
 
-    grid->addWidget(opacityBox, row, 0, 1, 4);
-    ++row;
+    opacityGrid->setRowStretch(orow, 1);
 
-    // The three options are each about one of the sections below, so each one
-    // now heads the section it governs rather than sitting in a row of its own.
+    // Each of these three heads the tab it governs rather than sitting in a
+    // row of its own.
     m_quarterMarks = new QCheckBox(QStringLiteral("quarter marks only"), this);
     m_quarterMarks->setChecked(cfg.quarterMarksOnly);
     m_quarterMarks->setToolTip(QStringLiteral(
@@ -262,11 +309,8 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
         "Run the hands anticlockwise. The clock still keeps the correct time, but each "
         "hand is mirrored about the 12, so you read it in a mirror."));
 
-    // --------------------------------------------------------------- colours
-    // Three groups, because these are three separate jobs: what the hands look
-    // like, what the dial's markings look like, and what the artwork behind
-    // them looks like.  Ungrouped it was one undifferentiated run of swatches.
-    auto *handsBox = new QGroupBox(QStringLiteral("Hands"), this);
+    // --------------------------------------------------------- hands tab
+    auto *handsBox = new QWidget;
     auto *handsGrid = new QGridLayout(handsBox);
     handsGrid->setHorizontalSpacing(10);
     int hrow = 0;
@@ -329,7 +373,8 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     ++hrow;
     handsGrid->setRowStretch(hrow, 1);
 
-    auto *marksBox = new QGroupBox(QStringLiteral("Marks"), this);
+    // --------------------------------------------------------- marks tab
+    auto *marksBox = new QWidget;
     auto *marksGrid = new QGridLayout(marksBox);
     marksGrid->setHorizontalSpacing(10);
     int mrow = 0;
@@ -350,50 +395,14 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     ++mrow;
     marksGrid->setRowStretch(mrow, 1);
 
-    auto *faceBox = new QGroupBox(QStringLiteral("Face"), this);
-    auto *faceGrid = new QGridLayout(faceBox);
-    faceGrid->setHorizontalSpacing(10);
-    int frow = 0;
-
-    // The mode governs the two swatches under it, so it sits with them.
-    addLabel(faceGrid, QStringLiteral("Coloring"), frow);
-    m_colorMode = new QComboBox(this);
-    m_colorMode->addItem(QStringLiteral("Recolor"), true);
-    m_colorMode->addItem(QStringLiteral("Original"), false);
-    m_colorMode->setCurrentIndex(cfg.faceRecolor ? 0 : 1);
-    m_colorMode->setToolTip(QStringLiteral(
-        "Recolor maps the artwork's shading onto the face and wire colors below, so "
-        "the drawing comes out in your colors with its shading intact.\n\n"
-        "Original draws the file exactly as it was authored, which suits a picture "
-        "that already has colors of its own. The face and wire colors then do not "
-        "apply; the hands and marks still do."));
-    faceGrid->addWidget(m_colorMode, frow, 1, Qt::AlignLeft);
-    ++frow;
-
-    addLabel(faceGrid, QStringLiteral("Face color"), frow);
-    // useAlpha lets the swatch show the checkerboard when the face is faded.
-    m_face = new ColorButton(QColor(cfg.faceColor), true, QStringLiteral("Face color"), this);
-    faceGrid->addWidget(m_face, frow, 1, Qt::AlignLeft);
-    ++frow;
-
-    addLabel(faceGrid, QStringLiteral("Wire color"), frow);
-    m_wire = new ColorButton(QColor(cfg.wireColor), false, QStringLiteral("Wire color"), this);
-    faceGrid->addWidget(m_wire, frow, 1, Qt::AlignLeft);
-    ++frow;
-    faceGrid->setRowStretch(frow, 1);
-
-    // Hands on the left, and the two shorter groups stacked beside it, so
-    // neither column ends in a long stretch of nothing.
-    auto *groupRow = new QHBoxLayout;
-    groupRow->setSpacing(10);
-    auto *rightColumn = new QVBoxLayout;
-    rightColumn->setSpacing(10);
-    rightColumn->addWidget(marksBox);
-    rightColumn->addWidget(faceBox);
-    groupRow->addWidget(handsBox, 1);
-    groupRow->addLayout(rightColumn, 1);
-    grid->addLayout(groupRow, row, 0, 1, 4);
-    ++row;
+    // The tab order, in one place.  The three parts of the clock first, in the
+    // order they are drawn -- face behind, then its marks, then the hands over
+    // both -- and after them the two pages that cut across all three.
+    tabs->addTab(chooserBox, QStringLiteral("Face"));
+    tabs->addTab(marksBox, QStringLiteral("Marks"));
+    tabs->addTab(handsBox, QStringLiteral("Hands"));
+    tabs->addTab(sizesBox, QStringLiteral("Sizes"));
+    tabs->addTab(opacityBox, QStringLiteral("Opacity"));
 
     // --------------------------------------------------------------- buttons
     // Save and Cancel go in a button box so the platform puts them in its own
