@@ -24,6 +24,8 @@ QByteArray builtinFaceData(const QString &name)
         return silverFaceSvg();
     if (name == QLatin1String("honeycomb"))
         return honeycombFaceSvg();
+    if (name == QLatin1String("spiral"))
+        return spiralFaceSvg();
     return QByteArray();
 }
 
@@ -35,6 +37,8 @@ QString builtinFaceLabel(const QString &name)
         return QStringLiteral("silver dial");
     if (name == QLatin1String("honeycomb"))
         return QStringLiteral("honeycomb");
+    if (name == QLatin1String("spiral"))
+        return QStringLiteral("spiral dial");
     return name;
 }
 

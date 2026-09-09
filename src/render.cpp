@@ -208,6 +208,30 @@ const QVector<Preset> &presets()
         clear.values.markOpacity = 73;
         out.append(clear);
 
+        // Spiral: Smoked glass with the spiral in place of the gradient dial.
+        // It keeps that preset's colours and its fades untouched, because the
+        // spiral was drawn to the same tonal plan as the icon face -- light
+        // body, dark line work -- so the same black-and-silver pair lands on it
+        // the same way, and the dial shows the desktop through it exactly as
+        // Smoked does.
+        //
+        // What does change is the marks. Smoked leans on the artwork's own ring
+        // of shading to give the hours something to sit against, and the spiral
+        // has none: its arms reach the rim at three points and leave the rest
+        // of it bare, so hours sitting on the dial would land on an arm as
+        // often as not. They are pushed out past where the arms stop and grown
+        // enough to hold their own there, and the minute track is dropped --
+        // sixty ticks over a spiral is two sets of fine lines fighting.
+        Preset spiral = smoked;
+        spiral.name = QStringLiteral("Spiral");
+        spiral.tip = QStringLiteral("The smoked glass dial as a spiral, with the desktop "
+                                    "showing through");
+        spiral.values.faceSvg = kBuiltinFacePrefix + QStringLiteral("spiral");
+        spiral.values.markScale = 130;
+        spiral.values.markPosition = 108;
+        spiral.values.minuteMarkScale = 0;
+        out.append(spiral);
+
         return out;
     }();
     return list;
