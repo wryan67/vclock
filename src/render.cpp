@@ -155,6 +155,59 @@ const QVector<Preset> &presets()
         comb.values.secondColor = QStringLiteral("#ffec8c");
         out.append(comb);
 
+        // The two glass dials fade the artwork rather than recolouring it, so
+        // the desktop shows through and the clock reads as something sitting on
+        // the glass rather than painted on it.  They are the first presets to
+        // carry opacity: everything above leaves all four parts solid.
+        //
+        // Smoked is the Onyx dial behind darkened glass -- the same three
+        // colours, faded until the wallpaper comes through the face.  Its wire
+        // and face are synced, so the whole dial dims as one; the hands and
+        // marks stay at roughly twice that to keep the time readable against
+        // whatever is behind.
+        Preset smoked = dial(QStringLiteral("Smoked glass"),
+                             QStringLiteral("The Onyx dial behind dark glass, with the "
+                                            "desktop showing through"),
+                             QStringLiteral("#c4c4c4"), QStringLiteral("#000000"),
+                             QStringLiteral("#ff6666"));
+        smoked.values.faceOpacity = 26;
+        smoked.values.wireOpacity = 26;
+        smoked.values.syncFaceWire = true;
+        smoked.values.handOpacity = 54;
+        smoked.values.markOpacity = 54;
+        out.append(smoked);
+
+        // Clear goes further: the face is turned off outright (opacity 0) and
+        // only the pale rim is left, so there is no dial at all -- just hands
+        // and a ring of heavy marks over the wallpaper.  With nothing behind
+        // them to sit on, the marks grow to 167% and the minute track is
+        // dropped entirely, which is what keeps it legible rather than lost.
+        Preset clear;
+        clear.name = QStringLiteral("Clear glass");
+        clear.tip = QStringLiteral("No dial at all: hands and heavy marks over the desktop");
+        // The built-in face, kept for its rim: faceDefault and an empty faceSvg
+        // are the defaults, and are set here so a preset that follows another
+        // one still clears its artwork.
+        clear.values.faceDefault = true;
+        clear.values.faceSvg.clear();
+        clear.values.faceColor = QStringLiteral("#ffffff");
+        clear.values.faceOpacity = 0;      // the dial itself, gone
+        clear.values.wireColor = QStringLiteral("#dfdfdf");
+        clear.values.wireOpacity = 63;     // the rim, left as a faint outline
+        clear.values.syncFaceWire = false;
+        clear.values.hourColor = QStringLiteral("#808080");
+        clear.values.minuteColor = QStringLiteral("#dfdfdf");
+        clear.values.minuteSameAsHour = false;
+        clear.values.secondColor = QStringLiteral("#ffffff");
+        clear.values.hourMarkColor = QStringLiteral("#404040");
+        clear.values.minuteMarkColor = QStringLiteral("#000000");
+        clear.values.minuteMarkScale = 0;  // no minute track
+        clear.values.markScale = 167;
+        clear.values.markPosition = 101;
+        clear.values.handOpacity = 73;
+        clear.values.markOpacity = 73;
+        out.append(clear);
+
         return out;
     }();
     return list;
@@ -345,6 +398,27 @@ QPixmap presetThumbnail(const Config &values, int size, qreal devicePixelRatio)
     const qreal dpr = devicePixelRatio > 0 ? devicePixelRatio : 1.0;
     const int pixels = std::max(1, static_cast<int>(std::lround(size * dpr)));
     QImage canvas = drawClock(values, pixels);
+    // A see-through clock drawn straight onto the dialog reads as a solid pale
+    // disc -- the very thing it is not.  Stand a faded one on the checkerboard
+    // the colour swatches already use, so that faded looks faded.
+    if (values.faceOpacity < 100 || values.wireOpacity < 100
+        || values.handOpacity < 100 || values.markOpacity < 100) {
+        const int step = std::max(1, static_cast<int>(std::lround(8 * dpr)));
+        QImage backdrop(canvas.size(), QImage::Format_ARGB32_Premultiplied);
+        QPainter painter(&backdrop);
+        painter.setPen(Qt::NoPen);
+        for (int y = 0; y < backdrop.height(); y += step)
+            for (int x = 0; x < backdrop.width(); x += step) {
+                // Much fainter than the colour swatches use: a thumbnail has a
+                // whole clock to show, and a bold checkerboard swallows a clock
+                // that is only a quarter there.
+                const int shade = ((x / step) + (y / step)) % 2 ? 226 : 255;
+                painter.fillRect(QRect(x, y, step, step), QColor(shade, shade, shade));
+            }
+        painter.drawImage(0, 0, canvas);
+        painter.end();
+        canvas = backdrop;
+    }
     canvas.setDevicePixelRatio(dpr);
     return QPixmap::fromImage(canvas);
 }
