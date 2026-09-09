@@ -622,13 +622,26 @@ the Settings window either way.
 
 ### Presets
 
-The six thumbnails at the top of Settings are whole default clocks, not just
+The thumbnails at the top of Settings are whole default clocks, not just
 colour schemes. Clicking one restores every appearance setting, and also puts
 the hand centre back to its default — so a preset gives you exactly the clock in
 the thumbnail, at the size you already had. How big the clock is and where it
 sits on screen are left alone, since those are placement choices rather than a
 look. As with any other change, the preset is only a preview until Save; Cancel
 puts the previous appearance and centre back.
+
+Two of the nine are see-through: **Smoked glass** is the Onyx dial faded back to
+about a quarter, and **Clear glass** has no dial at all, only a pale rim, heavy
+hour marks and hands hanging over the wallpaper. Their thumbnails are drawn on
+the same faint checkerboard the colour swatches use, because a clock that is
+only a quarter there would otherwise read as a solid pale disc against the
+dialog -- the one thing it is not. The other seven are opaque and get no
+checkerboard.
+
+A preset changes how the clock looks and nothing else, so smooth sweep, reverse
+time, always on top and the clock's size all survive it. If you want the glass
+clocks with a gliding second hand, tick *Smooth sweep hands* on the Hands tab
+after clicking the preset.
 
 The application icon is a clock drawn by the same code that draws the
 thumbnails and the clock itself, rather than a picture of its own — so it is
@@ -696,6 +709,26 @@ The layout is modelled on [iro.js](https://github.com/jaames/iro.js), but none o
 its code is used — this is a plain Qt widget written from scratch.
 
 ### The Settings window
+
+The controls sit on five tabs -- **Face**, **Marks**, **Hands**, **Sizes**,
+**Opacity**. The first three are the parts of the clock, in the order they are
+drawn: the face behind, its marks on top of that, the hands over both. The last
+two are the settings that cut across all three, and each is a column of sliders
+that reads better gathered than scattered.
+
+The presets stay above the tabs rather than living on one of them. A preset
+writes to every tab at once, so on a tab it would silently change pages you
+cannot see, which is the one thing tabs are bad at. Above them it plainly
+belongs to the whole dialog. They wrap at five to a row, so a new preset makes
+the box taller rather than the dialog wider.
+
+Opacity keeps all four sliders together for the same reason: *sync face/wire*
+and *sync hands/marks* each tie a pair, and splitting hands and marks across
+their own tabs would leave a checkbox governing a slider on another page.
+
+The dialog is sized to its tallest tab and does not resize when you switch, so
+the buttons stay under your mouse. The price is some empty space below the
+shorter tabs, which is the better half of that trade.
 
 If the screen is not tall or wide enough for the whole dialog, the controls
 scroll and the Save and Cancel buttons stay pinned below them, so they are
