@@ -558,13 +558,15 @@ the mode is whatever you last set it to and stays there when you change faces.
 Recolouring a full-colour picture is a legitimate thing to want — it flattens
 the artwork to your own two colours and can look rather good.
 
-Four faces are built in and need no files: the plain default ring, the
-gradient dial the app icon is drawn from (stored in the config as
-`builtin:icon`), and a silver dial
-under a dark rim (`builtin:silver`), which is the same gradient running the other
-way, and a honeycomb (`builtin:honeycomb`), whose lit wax walls take the face
-colour and whose cells take the wire colour. Whichever is in use, the *Clock face svg* field names it when no file of
-your own is loaded; clicking a preset is how you return to a built-in face.
+Five faces are built in and need no files: the plain default ring; the gradient
+dial the app icon is drawn from (`builtin:icon`); a silver dial under a dark rim
+(`builtin:silver`), which is the same gradient running the other way; a
+honeycomb (`builtin:honeycomb`), whose lit wax walls take the face colour and
+whose cells take the wire colour; and a spiral (`builtin:spiral`), three arms
+tapering out of the hub, which takes those two colours the other way round --
+the dial is the face colour and the arms the wire. Whichever is in use, the
+*Clock face svg* field names it when no file of your own is loaded; clicking a
+preset is how you return to a built-in face.
 
 ### Smooth sweep hands
 
@@ -630,9 +632,12 @@ sits on screen are left alone, since those are placement choices rather than a
 look. As with any other change, the preset is only a preview until Save; Cancel
 puts the previous appearance and centre back.
 
-Two of the nine are see-through: **Smoked glass** is the Onyx dial faded back to
-about a quarter, and **Clear glass** has no dial at all, only a pale rim, heavy
-hour marks and hands hanging over the wallpaper.
+Three of the ten are see-through: **Smoked glass** is the Onyx dial faded back
+to about a quarter, **Clear glass** has no dial at all, only a pale rim, heavy
+hour marks and hands hanging over the wallpaper, and **Spiral** is Smoked glass
+on a dial of its own -- three silver arms winding out of the hub, with the hour
+marks pushed clear of the rim and the minute track dropped, so the sweep of the
+dial is the only thing inside the ring.
 
 Every thumbnail is the clock and nothing else -- no backdrop, no checkerboard,
 nothing to say "this one is transparent". A see-through preset simply lets the
