@@ -808,6 +808,26 @@ threshold for something read as a shape rather than as text. The far end of the
 scale is left out too, near-black against near-white being less a colour scheme
 than the absence of one.
 
+#### Letting it change itself
+
+Below the two colours is **Regenerate every _n_ minutes**, which asks the
+generated face for a different one on a timer -- the same thing clicking the
+**Kaleidoscope** preset does, so a colour marked as rolled is rolled with it and
+a colour chosen by hand is kept. Anything from one minute to nine hundred and
+ninety-nine; a minute is the floor because a face that changes faster than that
+is a distraction rather than a clock. The row is only live for a generated face,
+there being nothing to regenerate about a drawing loaded from a file.
+
+A fresh face is drawn at startup too, whenever the setting is on. Without that,
+a clock started and stopped inside the interval would show the same face for
+ever, which is the opposite of what asking for a new one every few minutes was
+for.
+
+Nothing regenerates while the Settings window is open. The dialog holds its own
+copy of these values to preview from, so a face changed behind its back would be
+undone by the next control touched, and a face that changes while you are trying
+to choose its colours is no help to anybody.
+
 ### The Settings window
 
 The controls sit on four tabs -- **Face**, **Marks**, **Hands**, **Opacity**.
