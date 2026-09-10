@@ -11,6 +11,7 @@
 class ClockWindow;
 class ColorButton;
 class QCheckBox;
+class QSpinBox;
 class QComboBox;
 class QGridLayout;
 class QLabel;
@@ -71,6 +72,8 @@ private:
     bool recolorMode() const;
 
     ClockWindow *m_clock = nullptr;
+    QCheckBox *m_regen = nullptr;
+    QSpinBox *m_regenMinutes = nullptr;
     bool m_wasRecolor = false;
     bool m_live = false;
 

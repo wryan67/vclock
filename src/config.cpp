@@ -11,7 +11,10 @@
 #include <QStandardPaths>
 #include <QtGlobal>
 
+#include <QRandomGenerator>
+
 #include <cmath>
+#include <limits>
 
 namespace {
 
@@ -245,6 +248,9 @@ Config loadConfig(const QString &requested)
                                readBool(o, "smooth_minute", kDefaults.smoothSweep));
     cfg.reverseTime = readBool(o, "reverse_time", kDefaults.reverseTime);
     cfg.faceRecolor = readBool(o, "face_recolor", kDefaults.faceRecolor);
+    cfg.faceRegen = readBool(o, "face_regen", kDefaults.faceRegen);
+    cfg.faceRegenMinutes = readPercent(o, "face_regen_minutes", kRegenMinutesMin,
+                                       kRegenMinutesMax, kDefaults.faceRegenMinutes);
 
     cfg.faceSvg = readString(o, "face_svg", kDefaults.faceSvg);
     cfg.secondColor = readString(o, "second_color", kDefaults.secondColor);
@@ -329,6 +335,8 @@ void saveConfig(const Config &cfg, const QString &requested)
     o.insert(QStringLiteral("reverse_time"), cfg.reverseTime);
     o.insert(QStringLiteral("face_color"), cfg.faceColor);
     o.insert(QStringLiteral("face_recolor"), cfg.faceRecolor);
+    o.insert(QStringLiteral("face_regen"), cfg.faceRegen);
+    o.insert(QStringLiteral("face_regen_minutes"), cfg.faceRegenMinutes);
     o.insert(QStringLiteral("wire_color"), cfg.wireColor);
     o.insert(QStringLiteral("face_color_rolled"), cfg.faceColorRandom);
     o.insert(QStringLiteral("wire_color_rolled"), cfg.wireColorRandom);
@@ -371,6 +379,103 @@ void saveConfig(const Config &cfg, const QString &requested)
         || !out.commit()) {
         qWarning("WARNING: could not save %s", qPrintable(path));
     }
+}
+
+QColor rollFaceColor()
+{
+    auto *rng = QRandomGenerator::global();
+    return QColor::fromHsvF(rng->generateDouble(), 0.30 + 0.65 * rng->generateDouble(),
+                            0.55 + 0.42 * rng->generateDouble());
+}
+
+QColor rollWireColor()
+{
+    auto *rng = QRandomGenerator::global();
+    const bool dark = rng->generateDouble() < 0.75;
+    return QColor::fromHsvF(rng->generateDouble(), 0.40 * rng->generateDouble(),
+                            dark ? 0.03 + 0.17 * rng->generateDouble()
+                                 : 0.86 + 0.13 * rng->generateDouble());
+}
+
+namespace {
+
+// How far apart two colours are to the eye, as the ratio of their luminances
+// the way the web accessibility guidelines measure it.  The scale starts at 1
+// for two colours that are the same and runs to 21 for black against white.
+double relativeLuminance(const QColor &c)
+{
+    auto channel = [](double v) {
+        return v <= 0.03928 ? v / 12.92 : std::pow((v + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * channel(c.redF()) + 0.7152 * channel(c.greenF())
+           + 0.0722 * channel(c.blueF());
+}
+
+double contrastRatio(const QColor &a, const QColor &b)
+{
+    double hi = relativeLuminance(a);
+    double lo = relativeLuminance(b);
+    if (hi < lo)
+        std::swap(hi, lo);
+    return (hi + 0.05) / (lo + 0.05);
+}
+
+// The face and wire colours are the two ends of the recolour, so the whole
+// picture lives in the gap between them: bring them together and the dial
+// flattens to a single colour with the pattern gone.  Rolling the two
+// independently lands inside that gap about three times in ten, which is often
+// enough that a run of Cycle turns up a blank disc, so a roll is only accepted
+// if the pair reads against each other.
+//
+// The floor of three to one is the guidelines' threshold for something read as
+// a shape rather than as text, which is what a dial is.  The ceiling keeps the
+// pair off the far end of the scale, where near-black against near-white is
+// less a colour scheme than the absence of one.
+constexpr double kMinContrast = 3.0;
+constexpr double kMaxContrast = 16.0;
+
+}  // namespace
+
+QColor rollAgainst(bool faceEnd, const QColor &other)
+{
+    const auto roll = [faceEnd] { return faceEnd ? rollFaceColor() : rollWireColor(); };
+    if (!other.isValid())
+        return roll();
+
+    // Keep the near miss as we go.  A colour the user chose by hand cannot
+    // always be answered from inside the roll's own range -- a mid grey face
+    // leaves the wire nowhere dark or light enough to go -- and the closest of
+    // two hundred tries is a better answer there than looping for ever, or
+    // than taking the first roll and ignoring the question.
+    QColor best;
+    double bestMiss = std::numeric_limits<double>::max();
+    for (int i = 0; i < 200; ++i) {
+        const QColor candidate = roll();
+        const double ratio = contrastRatio(candidate, other);
+        if (ratio >= kMinContrast && ratio <= kMaxContrast)
+            return candidate;
+        const double miss = ratio < kMinContrast ? kMinContrast - ratio : ratio - kMaxContrast;
+        if (miss < bestMiss) {
+            bestMiss = miss;
+            best = candidate;
+        }
+    }
+    return best;
+}
+
+void rerollGeneratedFace(Config &cfg)
+{
+    if (!cfg.generatedFace())
+        return;
+    cfg.faceSvg = kBuiltinFacePrefix + kKaleidoscopeFace + QLatin1Char(':')
+                  + QString::number(QRandomGenerator::global()->generate64());
+    // A colour chosen by hand is left alone: asking for another arrangement is
+    // not asking for different paint.  One marked as rolled is rolled again,
+    // that being what the mark is for.
+    if (cfg.faceColorRandom)
+        cfg.faceColor = rollAgainst(true, QColor(cfg.wireColor)).name();
+    if (cfg.wireColorRandom)
+        cfg.wireColor = rollAgainst(false, QColor(cfg.faceColor)).name();
 }
 
 void copyPresetKeys(const Config &from, Config &to)

@@ -122,88 +122,6 @@ void bindShown(QCheckBox *box, QSlider *slider, int &remembered)
     });
 }
 
-// A colour worth landing on.  Neither roll covers the whole cube: a face
-// wants a colour with some body to it, so the washed-out and the nearly-black
-// are left out, and line work has to read as line work, so a wire colour goes
-// near one end of the tone range rather than into the middle where it would
-// come out the same weight as what it is drawn over.
-QColor rollFaceColor()
-{
-    auto *rng = QRandomGenerator::global();
-    return QColor::fromHsvF(rng->generateDouble(), 0.30 + 0.65 * rng->generateDouble(),
-                            0.55 + 0.42 * rng->generateDouble());
-}
-
-QColor rollWireColor()
-{
-    auto *rng = QRandomGenerator::global();
-    const bool dark = rng->generateDouble() < 0.75;
-    return QColor::fromHsvF(rng->generateDouble(), 0.40 * rng->generateDouble(),
-                            dark ? 0.03 + 0.17 * rng->generateDouble()
-                                 : 0.86 + 0.13 * rng->generateDouble());
-}
-
-// How far apart two colours are to the eye, as the ratio of their luminances
-// the way the web accessibility guidelines measure it.  The scale starts at 1
-// for two colours that are the same and runs to 21 for black against white.
-double relativeLuminance(const QColor &c)
-{
-    auto channel = [](double v) {
-        return v <= 0.03928 ? v / 12.92 : std::pow((v + 0.055) / 1.055, 2.4);
-    };
-    return 0.2126 * channel(c.redF()) + 0.7152 * channel(c.greenF())
-           + 0.0722 * channel(c.blueF());
-}
-
-double contrastRatio(const QColor &a, const QColor &b)
-{
-    double hi = relativeLuminance(a);
-    double lo = relativeLuminance(b);
-    if (hi < lo)
-        std::swap(hi, lo);
-    return (hi + 0.05) / (lo + 0.05);
-}
-
-// The face and wire colours are the two ends of the recolour, so the whole
-// picture lives in the gap between them: bring them together and the dial
-// flattens to a single colour with the pattern gone.  Rolling the two
-// independently lands inside that gap about three times in ten, which is often
-// enough that a run of Cycle turns up a blank disc, so a roll is now only
-// accepted if the pair reads against each other.
-//
-// The floor of three to one is the guidelines' threshold for something read as
-// a shape rather than as text, which is what a dial is.  The ceiling keeps the
-// pair off the far end of the scale, where near-black against near-white is
-// less a colour scheme than the absence of one.
-constexpr double kMinContrast = 3.0;
-constexpr double kMaxContrast = 16.0;
-
-QColor rollAgainst(bool faceEnd, const QColor &other)
-{
-    const auto roll = [faceEnd] { return faceEnd ? rollFaceColor() : rollWireColor(); };
-    if (!other.isValid())
-        return roll();
-
-    // Keep the near miss as we go.  A colour the user chose by hand cannot
-    // always be answered from inside the roll's own range -- a mid grey face
-    // leaves the wire nowhere dark or light enough to go -- and the closest of
-    // two hundred tries is a better answer there than looping for ever, or
-    // than taking the first roll and ignoring the question.
-    QColor best;
-    double bestMiss = std::numeric_limits<double>::max();
-    for (int i = 0; i < 200; ++i) {
-        const QColor candidate = roll();
-        const double ratio = contrastRatio(candidate, other);
-        if (ratio >= kMinContrast && ratio <= kMaxContrast)
-            return candidate;
-        const double miss = ratio < kMinContrast ? kMinContrast - ratio : ratio - kMaxContrast;
-        if (miss < bestMiss) {
-            bestMiss = miss;
-            best = candidate;
-        }
-    }
-    return best;
-}
 
 }  // namespace
 
@@ -358,6 +276,33 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     m_wireCycle = new QPushButton(QStringLiteral("Cycle"), this);
     m_wireCycle->setToolTip(QStringLiteral("Roll another color"));
     chooserGrid->addLayout(withOption(m_wire, m_wireRandom, m_wireCycle), crow, 1);
+    ++crow;
+
+    // A generated face costs nothing to ask for again, so it can be left to
+    // redraw itself on a timer rather than waiting for anyone to click.  The
+    // row is only of use to a face that is generated, so it follows the two
+    // colour rows in being live only where it means something.
+    addLabel(chooserGrid, QStringLiteral("Regenerate"), crow);
+    m_regen = new QCheckBox(QStringLiteral("every"), this);
+    m_regen->setChecked(cfg.faceRegen);
+    m_regen->setToolTip(QStringLiteral(
+        "Draw a new face every so often, exactly as clicking the Kaleidoscope preset "
+        "again does: a new pattern, and fresh colors wherever the color is marked as "
+        "rolled rather than chosen.\n\n"
+        "One is drawn at startup too, so a clock left running is never showing the same "
+        "face it was shut down with."));
+    m_regenMinutes = new QSpinBox(this);
+    m_regenMinutes->setRange(kRegenMinutesMin, kRegenMinutesMax);
+    m_regenMinutes->setValue(cfg.faceRegenMinutes);
+    m_regenMinutes->setSuffix(QStringLiteral(" min"));
+    m_regenMinutes->setToolTip(QStringLiteral("How long each face is kept, in minutes"));
+    auto *regenRow = new QHBoxLayout;
+    regenRow->setContentsMargins(0, 0, 0, 0);
+    regenRow->setSpacing(8);
+    regenRow->addWidget(m_regen);
+    regenRow->addWidget(m_regenMinutes);
+    regenRow->addStretch(1);
+    chooserGrid->addLayout(regenRow, crow, 1);
     ++crow;
 
     chooserGrid->setColumnStretch(1, 1);
@@ -615,9 +560,10 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
         connect(button, &ColorButton::colorSet, this, [this, button] { onChanged(button); });
     }
     for (QCheckBox *box : {m_minuteSame, m_secondShown, m_quarterMarks, m_smoothSweep,
-                           m_reverseTime, m_syncFaceWire, m_syncHandsMarks}) {
+                           m_reverseTime, m_syncFaceWire, m_syncHandsMarks, m_regen}) {
         connect(box, &QCheckBox::toggled, this, [this] { onChanged(); });
     }
+    connect(m_regenMinutes, &QSpinBox::valueChanged, this, [this] { onChanged(); });
 
     // Ticking "random" is itself a request for a colour, so it rolls one
     // rather than only changing what the dialog will do next; Cycle then rolls
@@ -969,6 +915,8 @@ void SettingsDialog::applyValues(const Config &values, bool full)
     m_minuteSame->setChecked(values.minuteSameAsHour);
     m_secondShown->setChecked(values.showSecond);
     m_colorMode->setCurrentIndex(values.faceRecolor ? 0 : 1);
+    m_regen->setChecked(values.faceRegen);
+    m_regenMinutes->setValue(values.faceRegenMinutes);
 
     m_faceOwn = values.faceColor;
     m_minuteOwn = values.minuteColor;
@@ -1057,6 +1005,13 @@ void SettingsDialog::syncSwatches()
     m_faceRandom->setEnabled(live);
     m_wireRandom->setEnabled(live);
     m_faceCycle->setEnabled(live && m_faceRandom->isChecked());
+
+    // Regenerating means asking for a different one of something that is
+    // generated, so the row means nothing to a face loaded from a file.
+    const bool generated = faceSvg().startsWith(kBuiltinFacePrefix + kKaleidoscopeFace
+                                                + QLatin1Char(':'));
+    m_regen->setEnabled(generated);
+    m_regenMinutes->setEnabled(generated && m_regen->isChecked());
     m_wireCycle->setEnabled(live && m_wireRandom->isChecked());
     // The swatch carries the face's own opacity, so a face faded to nothing
     // reads as the checkerboard rather than as a colour that does not show.
@@ -1170,6 +1125,8 @@ Config SettingsDialog::values() const
     out.reverseTime = m_reverseTime->isChecked();
     out.faceColor = m_faceOwn;
     out.faceRecolor = recolorMode();
+    out.faceRegen = m_regen->isChecked();
+    out.faceRegenMinutes = m_regenMinutes->value();
     out.wireColor = hexOf(m_wire->color());
     out.faceColorRandom = m_faceRandom->isChecked();
     out.wireColorRandom = m_wireRandom->isChecked();

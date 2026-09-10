@@ -2,6 +2,7 @@
 // platform-native config directory.
 #pragma once
 
+#include <QColor>
 #include <QMap>
 #include <QPointF>
 #include <QString>
@@ -16,6 +17,12 @@ inline const QString kDefaultFaceLabel = QStringLiteral("built-in");
 // name carries an argument: "builtin:kaleidoscope:<seed>".  The seed is what
 // makes a particular random face reproducible, so it belongs in the config.
 inline const QString kKaleidoscopeFace = QStringLiteral("kaleidoscope");
+
+// How often a generated face may be asked to redraw itself, in minutes.  The
+// floor is a minute because a clock that changes faster than that is a
+// distraction rather than a clock, and the ceiling is a bit under a day.
+inline constexpr int kRegenMinutesMin = 1;
+inline constexpr int kRegenMinutesMax = 999;
 
 inline constexpr int kSizeMin = 50;
 inline constexpr int kSizeMaxFallback = 500;  // only used if no screen can be queried
@@ -86,6 +93,11 @@ struct Config
     // Recolour maps the artwork's brightness onto the wire/face colours, which
     // only makes sense for line art. A full-colour drawing has to be left alone.
     bool faceRecolor = true;
+    // Ask for a new generated face every so often, the way clicking the
+    // Kaleidoscope preset again does.  A face nobody has to go and change is
+    // the point of a generated one, so the clock can keep asking for another.
+    bool faceRegen = false;
+    int faceRegenMinutes = 2;
     QString faceColor = QStringLiteral("#ffffff");
     QString wireColor = QStringLiteral("#000000");
     // Whether each colour above was rolled rather than chosen.  The colour
@@ -164,6 +176,24 @@ struct Config
 
     QString minuteHandColor() const { return minuteSameAsHour ? hourColor : minuteColor; }
 };
+
+// Rolling a colour, which the settings dialog and the clock's own regeneration
+// both do.  Neither roll covers the whole colour cube: a face wants a colour
+// with some body to it, so the washed-out and the nearly-black are left out,
+// and line work has to read as line work, so a wire colour goes near one end of
+// the tone range rather than into the middle, where it would come out the same
+// weight as whatever it is drawn over.  rollAgainst() keeps the pair far enough
+// apart to read against each other.
+QColor rollFaceColor();
+QColor rollWireColor();
+QColor rollAgainst(bool faceEnd, const QColor &other);
+
+// Ask a generated face for a different one: a new seed, and fresh colours
+// wherever the config says the colour was rolled rather than chosen.  This is
+// exactly what clicking the Kaleidoscope preset again does, and the timer and
+// the preset button share it so that they cannot drift apart.  Does nothing to
+// a face that is not generated.
+void rerollGeneratedFace(Config &cfg);
 
 QString configDir();
 
