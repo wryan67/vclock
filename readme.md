@@ -636,8 +636,8 @@ Three of the ten are see-through: **Smoked glass** is the Onyx dial faded back
 to about a quarter, **Clear glass** has no dial at all, only a pale rim, heavy
 hour marks and hands hanging over the wallpaper, and **Spiral** is Smoked glass
 on a dial of its own -- a single silver arm leaving the centre as a hairline,
-winding six turns and thickening as it goes until it meets the edge and becomes
-the rim. The whole dial is drawn in
+winding six turns and thickening as it goes until it runs out through the edge,
+its last stretch merged into the rim. The whole dial is drawn in
 one weight: the hour marks are grown to sit just under the rim's own stroke, and
 the minute track is dropped, so nothing competes with the sweep.
 
