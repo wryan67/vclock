@@ -366,12 +366,12 @@ inline QByteArray kaleidoscopeFaceSvg(quint64 seed, const QString &faceHex,
     // Width grows with the radius the line is drawn at, so the pattern is
     // pencilled in at the hub and inked at the rim.  Without that the middle,
     // where every wedge's shapes crowd together, fills in solid.
-    const double lineBase = rng.uni(0.30, 0.70);
+    const double lineBase = rng.uni(0.16, 0.34);
     const auto strokeAt = [&](double radius) {
-        const double w = lineBase * (0.08 + 1.8 * std::pow(radius / kR, 1.7))
+        const double w = lineBase * (0.10 + 0.90 * std::pow(radius / kR, 1.7))
                          * rng.uni(0.75, 1.3);
         return QStringLiteral(" stroke=\"%1\" stroke-width=\"%2\"")
-            .arg(lineColor, QString::number(qBound(0.08, w, 2.2), 'f', 3));
+            .arg(lineColor, QString::number(qBound(0.06, w, 1.00), 'f', 3));
     };
 
     QStringList parts;
