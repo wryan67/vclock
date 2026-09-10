@@ -170,7 +170,7 @@ ClockWindow::ClockWindow(const QString &configPath)
     m_tipDelay->setSingleShot(true);
     connect(m_tipDelay, &QTimer::timeout, this, &ClockWindow::showTimeTip);
 
-    m_face = openFace(m_cfg.facePath(), m_cfg.faceColor, m_cfg.wireColor,
+    m_face = openFace(m_cfg.facePath(), m_cfg.generatorFaceColor(), m_cfg.generatorWireColor(),
                       m_cfg.faceMultiHue());
     if (m_cfg.size <= 0)
         m_cfg.size = defaultSizeOn(startupScreen());
@@ -1503,8 +1503,8 @@ void ClockWindow::applySettings(const Config &values)
     const bool newFace = values.faceSvg != m_cfg.faceSvg
                          || values.faceDefault != m_cfg.faceDefault
                          || (values.generatedFace()
-                             && (values.faceColor != m_cfg.faceColor
-                                 || values.wireColor != m_cfg.wireColor
+                             && (values.generatorFaceColor() != m_cfg.generatorFaceColor()
+                                 || values.generatorWireColor() != m_cfg.generatorWireColor()
                                  || values.faceMultiHue() != m_cfg.faceMultiHue()));
     const bool changedColor = values.wireColor != m_cfg.wireColor
                               || values.faceColor != m_cfg.faceColor
@@ -1521,7 +1521,7 @@ void ClockWindow::applySettings(const Config &values)
     if (changedSmooth)
         applyTickRate();
     if (newFace)
-        m_face = openFace(m_cfg.facePath(), m_cfg.faceColor, m_cfg.wireColor,
+        m_face = openFace(m_cfg.facePath(), m_cfg.generatorFaceColor(), m_cfg.generatorWireColor(),
                       m_cfg.faceMultiHue());
     if (newFace || changedColor) {
         m_rebuildTimer->stop();

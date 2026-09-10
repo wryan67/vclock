@@ -135,7 +135,29 @@ struct Config
         return !faceDefault
                && faceSvg.startsWith(kBuiltinFacePrefix + kKaleidoscopeFace + QLatin1Char(':'));
     }
-    bool faceMultiHue() const { return faceColorRandom; }
+
+    // What a generated face is actually drawn in.  Its own two colours, until
+    // they are wanted for something else: under Recolor they become the ends of
+    // a ramp the finished artwork is mapped along, and artwork already painted
+    // in those colours has nothing left for the ramp to say.  Every pixel of it
+    // arrives at the same end, so the dial comes out one flat colour with the
+    // line work swallowed -- the face colour ends up on the lines, which is
+    // precisely the pair looking swapped.
+    //
+    // So a face bound for the recolour is generated in grey, the way the drawn
+    // faces are and for the same reason, and recolor() puts the wire colour on
+    // the dark line work and the face colour on the light body.
+    QString generatorFaceColor() const
+    {
+        return faceRecolor ? QStringLiteral("#ffffff") : faceColor;
+    }
+    QString generatorWireColor() const
+    {
+        return faceRecolor ? QStringLiteral("#000000") : wireColor;
+    }
+    // Grey has no hues to spread, so the scheme means nothing to a face that is
+    // about to be recoloured.
+    bool faceMultiHue() const { return faceColorRandom && !faceRecolor; }
 
     // Where the hands pivot, as fractions of the canvas (auto = its centre).
     QPointF centerFraction() const { return center.value_or(QPointF(0.5, 0.5)); }

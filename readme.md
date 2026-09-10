@@ -598,10 +598,16 @@ at, so the pattern is pencilled in at the hub and inked at the rim; without
 that the middle, where every wedge's shapes crowd into the same small space,
 fills in solid.
 
-Being generated, it is also the one face that reads its two colours as an
-instruction about how to draw rather than as a way of repainting what was
-drawn, so the **random** tick beside *Face color* means a little more here than
-it does elsewhere. Ticked -- which is how the preset leaves it -- the face is a
+Under *Recolor* it is drawn in grey like the others and then mapped onto your
+two colours in the usual way, because artwork already painted in those colours
+has nothing left for the mapping to say: every pixel of it arrives at the same
+end of the ramp, and the dial comes out one flat colour with the line work
+swallowed into it. Drawn in grey, the wire colour lands on the lines and the
+face colour on the body, which is where the two labels say they should be.
+
+Under *Original* it reads its two colours as an instruction about how to draw
+rather than as a way of repainting what was drawn, so the **random** tick
+beside *Face color* means a little more there than it does elsewhere. Ticked -- which is how the preset leaves it -- the face is a
 scheme of several hues built around the colour in the box. Unticked, it is that
 one colour and its shades. Either way the seed decides the shape and the
 colours only decide the paint, so you can settle on a pattern and then recolour

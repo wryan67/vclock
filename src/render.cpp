@@ -410,7 +410,7 @@ namespace {
 QImage drawClock(const Config &values, int pixels)
 {
     const std::unique_ptr<Face> face =
-        openFace(values.facePath(), values.faceColor, values.wireColor,
+        openFace(values.facePath(), values.generatorFaceColor(), values.generatorWireColor(),
                  values.faceMultiHue());
     QImage art = face->render(pixels, pixels);
     if (values.faceRecolor)
