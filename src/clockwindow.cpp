@@ -37,6 +37,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <vector>
 
 namespace {
 
@@ -302,7 +304,97 @@ void ClockWindow::applyHitMask()
         for (int x = 0; x < stencil.width(); ++x)
             line[x] = qAlpha(line[x]) > 0 ? 0xffffffffu : 0u;
     }
+
+    fillEnclosedGaps(stencil);
     setMask(QBitmap::fromImage(stencil.createAlphaMask()));
+
+    // The same shape again, painted in an alpha the eye cannot see.  See
+    // paintEvent: this is what makes the clock's own gaps clickable on Windows.
+    m_hitFill = QImage(widget, QImage::Format_ARGB32_Premultiplied);
+    m_hitFill.fill(Qt::transparent);
+    for (int y = 0; y < widget.height(); ++y) {
+        const auto *src = reinterpret_cast<const QRgb *>(stencil.constScanLine(y));
+        auto *dst = reinterpret_cast<QRgb *>(m_hitFill.scanLine(y));
+        for (int x = 0; x < widget.width(); ++x)
+            dst[x] = qAlpha(src[x]) > 0 ? 0x01000000u : 0u;
+    }
+}
+
+// Close up the holes in a hit shape: every gap the clock encloses becomes part
+// of it, and only the space around the outside stays outside.
+//
+// A clock is a ring of artwork more often than it is a disc.  Wound down to
+// nothing the face is transparent between its markings, a spiral is gaps as
+// much as arm, and any face at all is see-through where the artist left it so.
+// None of those gaps are holes in the clock as far as anyone using it is
+// concerned -- they are part of its front, and pressing one should take hold of
+// the clock and not of whatever is behind it.
+//
+// So rather than ask which pixels the artwork covers, this asks which pixels
+// the outside can reach: it floods inwards from the edges of the window through
+// transparent pixels, and everything it never arrives at was enclosed by the
+// artwork and is filled in.  The boundary that leaves is the outermost line
+// where transparent meets drawn, which is exactly where a clock looks like it
+// ends.
+void ClockWindow::fillEnclosedGaps(QImage &stencil)
+{
+    const int w = stencil.width();
+    const int h = stencil.height();
+    if (w <= 0 || h <= 0)
+        return;
+
+    // Flooded from every border pixel at once rather than from one corner: a
+    // clock is not always drawn in the middle of its window and can run off any
+    // side, which would strand the outside in several disconnected pieces.
+    std::vector<uint8_t> outside(static_cast<size_t>(w) * h, 0);
+    std::vector<int> queue;
+    queue.reserve(static_cast<size_t>(w) * h / 4);
+
+    const auto consider = [&](int x, int y) {
+        const size_t i = static_cast<size_t>(y) * w + x;
+        if (outside[i])
+            return;
+        const auto *line = reinterpret_cast<const QRgb *>(stencil.constScanLine(y));
+        if (qAlpha(line[x]) > 0)
+            return;
+        outside[i] = 1;
+        queue.push_back(static_cast<int>(i));
+    };
+
+    for (int x = 0; x < w; ++x) {
+        consider(x, 0);
+        consider(x, h - 1);
+    }
+    for (int y = 0; y < h; ++y) {
+        consider(0, y);
+        consider(w - 1, y);
+    }
+
+    // Four-connected, so a gap that only escapes between two diagonally
+    // touching pixels counts as enclosed.  The clock is drawn antialiased and
+    // its edges are solid well before that; a leak that thin is a rounding
+    // artefact rather than a way out.
+    for (size_t head = 0; head < queue.size(); ++head) {
+        const int i = queue[head];
+        const int x = i % w;
+        const int y = i / w;
+        if (x > 0)
+            consider(x - 1, y);
+        if (x + 1 < w)
+            consider(x + 1, y);
+        if (y > 0)
+            consider(x, y - 1);
+        if (y + 1 < h)
+            consider(x, y + 1);
+    }
+
+    for (int y = 0; y < h; ++y) {
+        auto *line = reinterpret_cast<QRgb *>(stencil.scanLine(y));
+        for (int x = 0; x < w; ++x) {
+            if (!outside[static_cast<size_t>(y) * w + x])
+                line[x] = 0xffffffffu;
+        }
+    }
 }
 
 void ClockWindow::rebuildRaster()
@@ -1237,6 +1329,21 @@ void ClockWindow::paintEvent(QPaintEvent *)
 
     if (m_picking)
         drawPickHint(painter, center.x(), center.y(), radius);
+
+    // Windows decides what a frameless translucent window can be clicked on by
+    // looking at the alpha of each pixel, and a pixel at zero is not there to
+    // be hit however the window is shaped -- the mask set above governs the X11
+    // build and is ignored.  So every pixel the mask claims is laid down again
+    // underneath the drawing at an alpha of one: enough that the pixel exists
+    // as far as the window system is concerned, far too little for anyone to
+    // see.  Composed underneath, it reaches only the gaps and leaves every
+    // pixel that was drawn exactly as it was.
+    if (!m_hitFill.isNull()) {
+        painter.setRenderHint(QPainter::SmoothPixmapTransform, false);
+        painter.setCompositionMode(QPainter::CompositionMode_DestinationOver);
+        painter.drawImage(QRectF(0, 0, width(), height()), m_hitFill,
+                          QRectF(m_hitFill.rect()));
+    }
 }
 
 // Crosshair over the current centre while the user is picking.

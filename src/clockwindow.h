@@ -169,6 +169,7 @@ private:
     void commitPick();
     void nudgeCenter(int dx, int dy);
     void drawPickHint(class QPainter &painter, double cx, double cy, double radius);
+    static void fillEnclosedGaps(QImage &stencil);
 
     // The date-and-time bubble shown while the pointer rests on the face.
     void armTimeTip();
@@ -179,6 +180,7 @@ private:
     std::unique_ptr<Face> m_face;
     QImage m_raster;                    // the recoloured, rasterised face
     QImage m_coverage;                  // where the artwork is, before the user's opacity
+    QImage m_hitFill;                   // the hit shape at an invisible alpha; see paintEvent
     QRectF m_bounds{0, 0, 1, 1};        // content bbox of the raster, as fractions
 
     SettingsDialog *m_settings = nullptr;

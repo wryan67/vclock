@@ -978,6 +978,22 @@ stealing the clicks that land beside it. The shape follows the hands and the
 indices too, which a large **Hour mark position** can carry out past the dial,
 so anything you can see is something you can click.
 
+What is left over inside the drawing counts as the clock's, though. A face like
+the spiral is mostly gap, and a wire-only clock is almost nothing but gap, yet
+nobody aiming at a clock means to hit the window behind it because they happened
+to land between two turns of the arm. So a see-through pixel belongs to the
+clock unless it can reach the edge of the window through other see-through
+pixels: the corners get out, the space between the spiral's arms does not. That
+is a flood fill from the border, and everything it fails to reach is filled in.
+
+Windows needs one extra thing for that to hold. A translucent window there is
+hit tested by the system on each pixel's own transparency, before the shape the
+program asks for is consulted at all, so on Windows the gaps were passing clicks
+through no matter what shape was set. The enclosed ones are therefore painted
+with an alpha of 1 out of 255 -- enough for the system to count the pixel as
+present, far too little to see. Both platforms run the same code, so the two
+agree, and the behaviour was checked under Wine against a build without it.
+
 The blue on the sliders, on the selected row in Manage clocks and on selected
 text is the program's own, not the desktop's. Qt draws those in whatever colour
 the system nominates: the theme's highlight on Linux, and on Windows the system
