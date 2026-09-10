@@ -463,12 +463,15 @@ QColor rollAgainst(bool faceEnd, const QColor &other)
     return best;
 }
 
-void rerollGeneratedFace(Config &cfg)
+void rerollFace(Config &cfg)
 {
-    if (!cfg.generatedFace())
-        return;
-    cfg.faceSvg = kBuiltinFacePrefix + kKaleidoscopeFace + QLatin1Char(':')
-                  + QString::number(QRandomGenerator::global()->generate64());
+    // Only the generated face has a pattern to ask again for.  Every other
+    // face is a fixed drawing, and what is left to change about it is the two
+    // colours it is painted in -- which is all a new kaleidoscope seed would
+    // have given a drawn face anyway.
+    if (cfg.generatedFace())
+        cfg.faceSvg = kBuiltinFacePrefix + kKaleidoscopeFace + QLatin1Char(':')
+                      + QString::number(QRandomGenerator::global()->generate64());
     // A colour chosen by hand is left alone: asking for another arrangement is
     // not asking for different paint.  One marked as rolled is rolled again,
     // that being what the mark is for.

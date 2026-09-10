@@ -347,16 +347,15 @@ void ClockWindow::scheduleRebuild()
 }
 
 // Ask the face for a different one, the way clicking the Kaleidoscope preset
-// again does.  Nothing happens to a face that is not generated, and nothing
-// happens while the settings dialog is open: the dialog holds a copy of these
-// values to preview from, and a face changed behind its back would be undone
-// by the next control the user touched.
+// again does.  Nothing happens while the settings dialog is open: the dialog
+// holds a copy of these values to preview from, and a face changed behind its
+// back would be undone by the next control the user touched.
 void ClockWindow::regenerateFace()
 {
-    if (!m_cfg.generatedFace() || m_settings)
+    if (m_settings)
         return;
     Config next = m_cfg;
-    rerollGeneratedFace(next);
+    rerollFace(next);
     applySettings(next);
     queueSave();
 }
@@ -367,7 +366,7 @@ void ClockWindow::syncRegenTimer()
 {
     if (!m_regenTimer)
         return;
-    if (!m_cfg.faceRegen || !m_cfg.generatedFace()) {
+    if (!m_cfg.faceRegen) {
         m_regenTimer->stop();
         return;
     }
@@ -1559,8 +1558,7 @@ void ClockWindow::applySettings(const Config &values)
     const bool changedOnTop = values.alwaysOnTop != m_cfg.alwaysOnTop;
     const bool changedSmooth = values.smoothSweep != m_cfg.smoothSweep;
     const bool changedRegen = values.faceRegen != m_cfg.faceRegen
-                              || values.faceRegenMinutes != m_cfg.faceRegenMinutes
-                              || values.generatedFace() != m_cfg.generatedFace();
+                              || values.faceRegenMinutes != m_cfg.faceRegenMinutes;
 
     m_cfg = values;
     if (changedRegen)

@@ -278,17 +278,15 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     chooserGrid->addLayout(withOption(m_wire, m_wireRandom, m_wireCycle), crow, 1);
     ++crow;
 
-    // A generated face costs nothing to ask for again, so it can be left to
-    // redraw itself on a timer rather than waiting for anyone to click.  The
-    // row is only of use to a face that is generated, so it follows the two
-    // colour rows in being live only where it means something.
+    // A face costs nothing to ask for again, so it can be left to redraw
+    // itself on a timer rather than waiting for anyone to click.
     addLabel(chooserGrid, QStringLiteral("Regenerate"), crow);
     m_regen = new QCheckBox(QStringLiteral("every"), this);
     m_regen->setChecked(cfg.faceRegen);
     m_regen->setToolTip(QStringLiteral(
-        "Draw a new face every so often, exactly as clicking the Kaleidoscope preset "
-        "again does: a new pattern, and fresh colors wherever the color is marked as "
-        "rolled rather than chosen.\n\n"
+        "Redraw the face every so often, exactly as clicking its preset again does: "
+        "fresh colors wherever the color above is marked as random, and on the "
+        "kaleidoscope a new pattern as well.\n\n"
         "One is drawn at startup too, so a clock left running is never showing the same "
         "face it was shut down with."));
     m_regenMinutes = new QSpinBox(this);
@@ -1006,12 +1004,12 @@ void SettingsDialog::syncSwatches()
     m_wireRandom->setEnabled(live);
     m_faceCycle->setEnabled(live && m_faceRandom->isChecked());
 
-    // Regenerating means asking for a different one of something that is
-    // generated, so the row means nothing to a face loaded from a file.
-    const bool generated = faceSvg().startsWith(kBuiltinFacePrefix + kKaleidoscopeFace
-                                                + QLatin1Char(':'));
-    m_regen->setEnabled(generated);
-    m_regenMinutes->setEnabled(generated && m_regen->isChecked());
+    // Regenerating is asking for the same things again that the two rows above
+    // hold, so it is live in exactly the cases they are.  Where they are dead
+    // -- a drawn face left as its author coloured it -- there is nothing for a
+    // timer to change, and an enabled box that did nothing would say otherwise.
+    m_regen->setEnabled(live);
+    m_regenMinutes->setEnabled(live && m_regen->isChecked());
     m_wireCycle->setEnabled(live && m_wireRandom->isChecked());
     // The swatch carries the face's own opacity, so a face faded to nothing
     // reads as the checkerboard rather than as a colour that does not show.

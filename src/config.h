@@ -188,12 +188,12 @@ QColor rollFaceColor();
 QColor rollWireColor();
 QColor rollAgainst(bool faceEnd, const QColor &other);
 
-// Ask a generated face for a different one: a new seed, and fresh colours
-// wherever the config says the colour was rolled rather than chosen.  This is
-// exactly what clicking the Kaleidoscope preset again does, and the timer and
-// the preset button share it so that they cannot drift apart.  Does nothing to
-// a face that is not generated.
-void rerollGeneratedFace(Config &cfg);
+// Ask the face for a different one: a new seed where the face is generated,
+// and fresh colours wherever the config says the colour was rolled rather than
+// chosen.  This is exactly what clicking the Kaleidoscope preset again does,
+// and the timer and the preset button share it so that they cannot drift
+// apart.
+void rerollFace(Config &cfg);
 
 QString configDir();
 

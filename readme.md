@@ -810,13 +810,19 @@ than the absence of one.
 
 #### Letting it change itself
 
-Below the two colours is **Regenerate every _n_ minutes**, which asks the
-generated face for a different one on a timer -- the same thing clicking the
-**Kaleidoscope** preset does, so a colour marked as rolled is rolled with it and
-a colour chosen by hand is kept. Anything from one minute to nine hundred and
-ninety-nine; a minute is the floor because a face that changes faster than that
-is a distraction rather than a clock. The row is only live for a generated face,
-there being nothing to regenerate about a drawing loaded from a file.
+Below the two colours is **Regenerate every _n_ minutes**, which asks the face
+for a different one on a timer -- the same thing clicking its preset again does,
+so a colour marked as rolled is rolled with it and a colour chosen by hand is
+kept. Anything from one minute to nine hundred and ninety-nine; a minute is the
+floor because a face that changes faster than that is a distraction rather than
+a clock.
+
+It is offered for every face, not only the generated one. Only the kaleidoscope
+has a pattern to ask again for, but every face has the two colours it is painted
+in, and a dial that repaints itself every few minutes is worth having whether or
+not the shapes underneath it move. Where neither colour is marked as random
+there is nothing left to change, and the timer quietly does nothing -- which is
+the honest answer to a face whose colours were all chosen by hand.
 
 A fresh face is drawn at startup too, whenever the setting is on. Without that,
 a clock started and stopped inside the interval would show the same face for
