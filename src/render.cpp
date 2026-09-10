@@ -215,20 +215,21 @@ const QVector<Preset> &presets()
         // the same way, and the dial shows the desktop through it exactly as
         // Smoked does.
         //
-        // What does change is the marks. Smoked leans on the artwork's own ring
-        // of shading to give the hours something to sit against, and the spiral
-        // has none: its arms reach the rim at three points and leave the rest
-        // of it bare, so hours sitting on the dial would land on an arm as
-        // often as not. They are pushed out past where the arms stop and grown
-        // enough to hold their own there, and the minute track is dropped --
-        // sixty ticks over a spiral is two sets of fine lines fighting.
+        // What does change is the marks. The dial is drawn in one weight -- the
+        // arm thins to the rim's width and merges into it -- so the hours are
+        // grown until they sit in that same weight and no heavier: at this
+        // scale they measure a little under the rim's own stroke, which reads
+        // as of a piece with it rather than as a bolder set of marks laid over
+        // it. They sit just clear of the rim rather than out beyond it, and the
+        // minute track is dropped, sixty more ticks in that weight being a
+        // second fine ring competing with the one the spiral ends in.
         Preset spiral = smoked;
         spiral.name = QStringLiteral("Spiral");
         spiral.tip = QStringLiteral("The smoked glass dial as a spiral, with the desktop "
                                     "showing through");
         spiral.values.faceSvg = kBuiltinFacePrefix + QStringLiteral("spiral");
-        spiral.values.markScale = 130;
-        spiral.values.markPosition = 108;
+        spiral.values.markScale = 175;
+        spiral.values.markPosition = 104;
         spiral.values.minuteMarkScale = 0;
         out.append(spiral);
 
