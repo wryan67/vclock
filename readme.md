@@ -1059,6 +1059,14 @@ which row it means, is a key that will one day be pressed by mistake. Hiding is
 the reversible neighbour of it, and it is already what `Escape` on the clock
 itself does. The Del button in the row still deletes, and still asks first.
 
+The list holds its place. Showing a clock, hiding one, renaming, reordering and
+deleting all rebuild the rows from the saved list, but where you had scrolled to
+and which row you had picked are yours rather than the list's, and are put back
+afterwards -- so a long list does not send you hunting for your place again
+after every tick. The one thing that moves it is a clock appearing that was not
+there before, and then it moves only as far as it takes to bring that row into
+view.
+
 Drag a row by its grip to put the list in whatever order you want; a line shows
 where the row will land, and the order is kept between runs. The Default clock
 stays at the top and cannot be dragged, and nothing can be dropped above it: it

@@ -30,6 +30,7 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QScreen>
+#include <QScrollBar>
 #include <QShortcut>
 #include <QSignalBlocker>
 #include <QTableWidget>
@@ -297,14 +298,67 @@ ManageClocksDialog::~ManageClocksDialog()
     ClockManager::instance().releaseHold();
 }
 
+// Build the list from the registry, leaving it looking as though it had not
+// been rebuilt at all.
+//
+// Nearly everything the dialog does goes through here, because the registry is
+// what the rows are made from and a row's own widgets cannot outlive a change
+// to it.  But throwing the rows away also throws away where the list was
+// scrolled to and which row was highlighted, and a list that jumps to the top
+// every time a box is ticked is a list you have to find your place in again
+// after every action.  So the position and the highlight are carried across:
+// they are properties of the person reading the list, not of the list.
+//
+// Rows are matched by file rather than by index, since the point of some of
+// these actions is that the rows have moved.  The one time the view is allowed
+// to move is when a clock has appeared that was not there before -- a new row
+// nobody can see is worse than a list that scrolled -- and then it moves only
+// as far as it takes to bring that row into view.
 void ManageClocksDialog::rebuild()
 {
+    QStringList had;
+    had.reserve(m_table->rowCount());
+    for (int row = 0; row < m_table->rowCount(); ++row)
+        had << fileAt(row);
+    const int wasRow = m_table->currentRow();
+    const QString wasOn = wasRow >= 0 ? fileAt(wasRow) : QString();
+    const int wasAt = m_table->verticalScrollBar()->value();
+
     m_populating = true;
     m_table->setRowCount(0);
     const ClockManager &manager = ClockManager::instance();
     for (const ClockEntry &entry : manager.registry().clocks)
         addRow(entry.file, entry.name, manager.isOpen(entry.path()));
     m_populating = false;
+
+    // Nothing to carry across the first time the list is filled.
+    if (had.isEmpty())
+        return;
+
+    int arrived = -1;
+    int again = -1;
+    for (int row = 0; row < m_table->rowCount(); ++row) {
+        const QString file = fileAt(row);
+        if (arrived < 0 && !file.isEmpty() && !had.contains(file))
+            arrived = row;
+        if (again < 0 && !wasOn.isEmpty() && file == wasOn)
+            again = row;
+    }
+
+    if (again >= 0)
+        m_table->setCurrentCell(again, ColName);
+
+    if (arrived >= 0) {
+        // Put it back where it was first, so that scrolling to the new row is
+        // the short move from there rather than a jump from the top.
+        m_table->verticalScrollBar()->setValue(wasAt);
+        m_table->scrollToItem(m_table->item(arrived, ColName),
+                              QAbstractItemView::EnsureVisible);
+    } else {
+        // Set last: highlighting a row scrolls to show it, which is exactly
+        // what must not happen when it was already where the user left it.
+        m_table->verticalScrollBar()->setValue(wasAt);
+    }
 }
 
 void ManageClocksDialog::addRow(const QString &file, const QString &name, bool open)
