@@ -612,9 +612,15 @@ radius of 39 it was absent at 479 of 720 angles around the face. So once the arm
 is wide enough that its outer side would cross the rim, it is held at the radius
 that keeps that side exactly on the edge and carried one further full turn
 there. The outer side is a true circle rather than a spiral, it closes on
-itself, and the overhang is cut away by the clock's own circular mask. The last
-spiral turn running into that ring is what makes the arm melt into the edge
-rather than end at it.
+itself, and the overhang is cut away by the clock's own circular mask.
+
+That closing turn narrows as it starts, over about a third of a turn. It has to:
+by the time the arm reaches the rim the two rules have made it the widest thing
+on the face, and a ring that heavy reads as a band sitting on the edge rather
+than as an edge. It narrows to the width the arm has one turn out from the hub,
+so the face is bounded by an outline no heavier than the line it starts with.
+The last spiral turn running in underneath that ring is what makes the arm melt
+into the edge rather than end at it.
 
 `tools/gen_spiral.py` generates the artwork, and the two rules and the algebra
 that follows from them are the first thing in it. The face as it stood before,

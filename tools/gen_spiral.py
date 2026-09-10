@@ -53,8 +53,15 @@ once the arm is wide enough that its outer side would cross the rim, its
 centreline is held at the radius that keeps that side exactly on RIM, and it is
 carried one further full turn at that radius.  The outer side is then a true
 circle rather than a spiral, it closes on itself, and the overhang past R is
-cut away by the clock's own circular mask.  The last spiral turn running into
-that ring is what makes the arm appear to melt into the outer edge.
+cut away by the clock's own circular mask.
+
+That closing turn narrows to W_RING as it starts, over BLEND of a turn.  It has
+to: by the time the arm reaches the rim the two rules have made it the widest
+thing on the face, and a ring that heavy sits on the edge as a band rather than
+an outline, which is not what an edge should look like.  W_RING is the width the
+arm has one turn out from the hub, so the face is bounded by an edge no heavier
+than the line it starts with.  The last spiral turn running into that ring under
+the blend is what makes the arm appear to melt into the outer edge.
 """
 
 import math
@@ -63,6 +70,7 @@ R = 40.0  # the face radius the rest of the artwork is drawn to
 RIM = 40.5  # the arm is clamped here, just past the rim, and clipped by it
 GROWTH = 1.25  # how much thicker the arm gets over one full turn
 W_HUB = 1.75  # the width it starts at, at the very centre
+BLEND = 0.35  # the fraction of the closing turn spent narrowing into the ring
 
 # Everything below is worked out from the two rules; see the note above.
 SPREAD = (GROWTH - 1.0) / (1.0 + GROWTH)  # how fast the width grows with radius
@@ -71,22 +79,30 @@ PITCH = W_HUB * (1.0 + GROWTH) / (GROWTH - 1.0)
 # The radius at which the arm's outer side first reaches RIM, from solving
 # r + width_at(r)/2 == RIM, and the turn it happens on.
 R_CAP = (RIM - W_HUB / 2.0) / (1.0 + SPREAD / 2.0)
-TURNS = math.log(1.0 + R_CAP / PITCH) / math.log(GROWTH) + 1.0  # + the closing turn
-STEPS = int(150 * TURNS)  # samples along the arm, one side
+N_CAP = math.log(1.0 + R_CAP / PITCH) / math.log(GROWTH)
+TURNS = N_CAP + 1.0  # + the closing turn
+STEPS = int(200 * TURNS)  # samples along the arm, one side
 
-
-def centreline(t):
-    """A point on the middle of the arm, t running 0..1 from hub to rim."""
-    turn = TURNS * t
-    theta = 2.0 * math.pi * turn
-    # Held at R_CAP once the arm is wide enough to reach the rim, so the last
-    # turn rides the edge as a circle and closes the outermost ring.
-    r = min(PITCH * (GROWTH**turn - 1.0), R_CAP)
-    return r, theta
+W_RING = W_HUB * GROWTH  # the edge is as heavy as the arm one turn out, no more
 
 
 def width_at(r):
     return W_HUB + r * SPREAD
+
+
+def arm(t):
+    """Middle of the arm and its width, t running 0..1 from hub to edge."""
+    turn = TURNS * t
+    theta = 2.0 * math.pi * turn
+    if turn <= N_CAP:
+        r = PITCH * (GROWTH**turn - 1.0)
+        return r, theta, width_at(r)
+    # The closing turn: narrowed to W_RING and held against the rim, so its
+    # outer side is a circle and the outermost ring closes on itself.
+    u = min(1.0, (turn - N_CAP) / BLEND)
+    ease = u * u * (3.0 - 2.0 * u)  # smoothstep, so the join has no kink
+    w = width_at(R_CAP) + (W_RING - width_at(R_CAP)) * ease
+    return RIM - w / 2.0, theta, w
 
 
 def offset_points(sign):
@@ -94,16 +110,16 @@ def offset_points(sign):
     out = []
     for i in range(STEPS + 1):
         t = i / STEPS
-        r, theta = centreline(t)
+        r, theta, w = arm(t)
         # The tangent of r(theta) in polar form, as a plane vector.
         dt = 1e-6
-        r2, th2 = centreline(min(1.0, t + dt))
+        r2, th2, _ = arm(min(1.0, t + dt))
         x1, y1 = r * math.cos(theta), r * math.sin(theta)
         x2, y2 = r2 * math.cos(th2), r2 * math.sin(th2)
         dx, dy = x2 - x1, y2 - y1
         length = math.hypot(dx, dy) or 1.0
         nx, ny = -dy / length, dx / length
-        half = width_at(r) / 2.0
+        half = w / 2.0
         x, y = x1 + sign * nx * half, y1 + sign * ny * half
         # A backstop: the closing turn already sits exactly on RIM, but the
         # normal offset can push a point a hair past it where the arm is still
