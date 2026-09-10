@@ -129,13 +129,14 @@ void ClockManager::ensureListed(const QString &path)
     saveRegistry(m_registry);
 }
 
-void ClockManager::openClock(const QString &path)
+void ClockManager::openClock(const QString &path, Focus focus)
 {
     const QString key = canonicalise(path);
     if (ClockWindow *existing = m_clocks.value(key, nullptr)) {
         existing->show();
         existing->raise();
-        existing->activateWindow();
+        if (focus == Focus::Take)
+            existing->activateWindow();
         return;
     }
 
@@ -148,6 +149,12 @@ void ClockManager::openClock(const QString &path)
     // like putting it.  Positioning it while it is still unmapped makes the
     // request part of the initial geometry, which is honoured.
     clock->restorePosition();
+    // Mapped without taking the keyboard where the caller asked for that.  Set
+    // before the first show(), since the activation happens as the window is
+    // mapped and cannot be undone afterwards: a window manager that has just
+    // given a new window the focus will refuse to hand it straight back.
+    if (focus == Focus::Leave)
+        clock->setAttribute(Qt::WA_ShowWithoutActivating, true);
     clock->show();
     // The clock is a frameless tool window that deliberately stays out of the
     // taskbar and the window switcher, so a window manager that maps it below
@@ -155,7 +162,8 @@ void ClockManager::openClock(const QString &path)
     // nothing apparently happening.  Asking for the front explicitly makes it
     // visible on launch without forcing "always on top" on for good.
     clock->raise();
-    clock->activateWindow();
+    if (focus == Focus::Take)
+        clock->activateWindow();
 
     setShown(key, true);
     emit changed();

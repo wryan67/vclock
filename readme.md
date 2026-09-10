@@ -1051,6 +1051,14 @@ it and the config it keeps its settings in. Double clicking a name renames it,
 and so does `F2` on the selected row, as in a file manager. `Enter` saves the
 new name and `Escape` abandons it.
 
+The selected row can be worked without the mouse. `Space` shows or hides its
+clock, which is the row's Show box and so the thing a space is for. `Delete`
+hides it too rather than deleting it: deleting erases a config file for good,
+and a key that does that on one press, with nothing but a highlight to say
+which row it means, is a key that will one day be pressed by mistake. Hiding is
+the reversible neighbour of it, and it is already what `Escape` on the clock
+itself does. The Del button in the row still deletes, and still asks first.
+
 Drag a row by its grip to put the list in whatever order you want; a line shows
 where the row will land, and the order is kept between runs. The Default clock
 stays at the top and cannot be dragged, and nothing can be dropped above it: it
@@ -1077,8 +1085,12 @@ the whole set can be seen and changed in one place. It applies to that one clock
 only. On a clock that is not showing there is no window to raise, so the setting
 is written to its config and takes effect when it next comes on screen.
 
-Show puts a clock on screen and takes it off again. Whatever is showing when
-vclock stops is what comes back when it starts again, so there is nothing
+Show puts a clock on screen and takes it off again. It comes to the front as it
+appears, since a clock is a frameless window in neither the taskbar nor the
+window switcher and one mapped behind everything else would be a tick that
+seemed to do nothing -- but it does not take the keyboard, because you are still
+in the list and quite possibly about to tick the next row. Whatever is showing
+when vclock stops is what comes back when it starts again, so there is nothing
 separate to set for that. If every clock is hidden the default one comes back
 rather than the program starting with no windows at all.
 

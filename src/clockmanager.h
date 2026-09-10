@@ -39,7 +39,15 @@ public:
     ClockWindow *clockAt(const QString &path) const;
 
     // Show the clock for this config, raising it if it is already up.
-    void openClock(const QString &path);
+    //
+    // A clock brought up takes the keyboard as well as the front, because a
+    // frameless tool window is in neither the taskbar nor the window switcher
+    // and one mapped behind everything else would be lost.  That is wrong when
+    // the request came from a window the user is still working in -- Manage
+    // clocks, whose next keystroke belongs to the list, not to the clock -- so
+    // such a caller asks for the front without the focus.
+    enum class Focus { Take, Leave };
+    void openClock(const QString &path, Focus focus = Focus::Take);
     void closeClock(const QString &path);
     void closeAll();
 

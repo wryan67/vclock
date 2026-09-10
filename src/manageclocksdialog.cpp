@@ -25,6 +25,7 @@
 #include <QFile>
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QMessageBox>
 #include <QPushButton>
@@ -147,6 +148,7 @@ ManageClocksDialog::ManageClocksDialog(QWidget *parent) : QDialog(nullptr)
     // always change over with it and a single click or a keystroke can never
     // start a rename by accident.
     m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_table->installEventFilter(this);
     m_table->horizontalHeader()->setSectionResizeMode(ColGrip, QHeaderView::ResizeToContents);
     m_table->horizontalHeader()->setSectionResizeMode(ColShow, QHeaderView::ResizeToContents);
     m_table->horizontalHeader()->setSectionResizeMode(ColName, QHeaderView::Stretch);
@@ -497,6 +499,24 @@ void ManageClocksDialog::setRowEditing(int row, bool on)
 
 bool ManageClocksDialog::eventFilter(QObject *watched, QEvent *event)
 {
+    // Space on the highlighted row shows or hides that clock.  It is the one
+    // thing in a row worth reaching for without the mouse, and space is where
+    // a list puts its tick: the Show box is the row's own checkbox, so the key
+    // that ticks a checkbox ticks it.  Read here rather than as a shortcut so
+    // that it only means this while the list itself has the focus -- the boxes
+    // and buttons elsewhere in the dialog keep their own space.
+    if (watched == m_table && event->type() == QEvent::KeyPress) {
+        auto *key = static_cast<QKeyEvent *>(event);
+        if (key->key() == Qt::Key_Space && !key->modifiers() && !editing()) {
+            const int row = m_table->currentRow();
+            if (row >= 0) {
+                if (auto *show = controlIn<QCheckBox>(m_table, row, ColShow))
+                    show->setChecked(!show->isChecked());  // toggled() opens or closes it
+            }
+            return true;
+        }
+    }
+
     auto *grip = qobject_cast<QToolButton *>(watched);
     if (!grip)
         return QDialog::eventFilter(watched, event);
@@ -758,8 +778,13 @@ void ManageClocksDialog::finishEdit(bool committed)
         const QString source = cloned ? sourcePath : QString();
         QTimer::singleShot(0, this, [path, cloned, source] {
             ClockManager &manager = ClockManager::instance();
+            // A clock made from nothing is about to have its settings put in
+            // front of the user, and a settings window belongs to its clock:
+            // it is given the focus along with it.  A clone is only put on
+            // screen, so the list keeps the keyboard.
             if (!manager.isOpen(path))
-                manager.openClock(path);
+                manager.openClock(path, cloned ? ClockManager::Focus::Leave
+                                               : ClockManager::Focus::Take);
             // A copy carries the original's place on screen along with its
             // looks, so it comes up exactly on top of what it was copied from
             // and there would be no sign anything had happened.  The original
@@ -910,8 +935,13 @@ void ManageClocksDialog::toggleOpen(int row, bool open)
     if (index < 0)
         return;
     const QString path = registry.clocks.at(index).path();
+    // Shown without taking the keyboard: the user is still in this list, quite
+    // possibly about to tick the next row, and a clock that grabs the focus as
+    // it appears makes the following keystroke go somewhere they were not
+    // looking.  It still comes to the front, so the tick visibly does
+    // something.
     if (open)
-        ClockManager::instance().openClock(path);
+        ClockManager::instance().openClock(path, ClockManager::Focus::Leave);
     else
         ClockManager::instance().closeClock(path);
 }
