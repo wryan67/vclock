@@ -765,7 +765,7 @@ reason -- there is one setting there, not two.
 The presets stay above the tabs rather than living on one of them. A preset
 writes to every tab at once, so on a tab it would silently change pages you
 cannot see, which is the one thing tabs are bad at. Above them it plainly
-belongs to the whole dialog. They wrap at five to a row, so a new preset makes
+belongs to the whole dialog. They wrap at six to a row, so a new preset makes
 the box taller rather than the dialog wider.
 
 Opacity keeps all four sliders together for the same reason: *sync face/wire*

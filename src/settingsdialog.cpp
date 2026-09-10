@@ -40,7 +40,7 @@ namespace {
 // How many preset thumbnails to a row.  They wrap rather than running on, so
 // that adding another preset makes the box one row taller instead of making
 // the whole dialog wider than the tabs beneath it.
-constexpr int kPresetColumns = 5;
+constexpr int kPresetColumns = 6;
 
 // Where the file chooser starts looking for user-supplied faces.
 QString faceDir()
