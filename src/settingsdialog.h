@@ -31,6 +31,11 @@ public:
 
     // Show the pivot in canvas pixels, and keep the "auto" box in sync.
     void refreshCenter();
+    // Move the size slider by a number of steps, as the wheel over the clock
+    // does.  Routed through the slider rather than straight at the clock so the
+    // dialog keeps showing the truth, and so Cancel still puts back the size
+    // the clock had when it opened.
+    void nudgeSize(int steps, bool coarse);
     // The window title carries the clock's name, which the user can change
     // from the manage dialog while this one is open.
     void refreshTitle();

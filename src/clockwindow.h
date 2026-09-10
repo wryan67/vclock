@@ -123,6 +123,7 @@ protected:
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
     void mouseDoubleClickEvent(QMouseEvent *event) override;
+    void wheelEvent(class QWheelEvent *event) override;
     void enterEvent(QEnterEvent *event) override;
     void leaveEvent(QEvent *event) override;
     void hideEvent(QHideEvent *event) override;
@@ -211,4 +212,8 @@ private:
     QTimer *m_saveTimer = nullptr;
     QTimer *m_rebuildTimer = nullptr;
     int m_lastSecond = -1;
+    // Wheel notches arrive as 120ths of a degree turned, and a trackpad sends
+    // a stream of small deltas rather than whole notches, so the remainder is
+    // carried between events instead of being rounded away.
+    int m_wheelResidue = 0;
 };

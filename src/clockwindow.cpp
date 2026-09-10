@@ -32,6 +32,7 @@
 #include <QTime>
 #include <QTimer>
 #include <QUrl>
+#include <QWheelEvent>
 #include <QWindow>
 
 #include <algorithm>
@@ -863,6 +864,31 @@ void ClockWindow::mouseDoubleClickEvent(QMouseEvent *event)
     event->accept();
 }
 
+// The wheel over the clock resizes it, but only while its Settings dialog is
+// open.  Outside that the clock is a thing sitting on the desktop, and a wheel
+// over it should be left for whatever is underneath; with Settings open the
+// user is plainly adjusting this clock, and the wheel is the quickest way to
+// size it against what is behind it -- something the slider cannot show,
+// because the dialog is in the way.
+//
+// It goes through the dialog's slider rather than straight at the clock, so
+// the number on screen keeps up, and so Cancel still restores the size the
+// clock had when Settings opened.
+void ClockWindow::wheelEvent(QWheelEvent *event)
+{
+    if (!m_settings || m_moveMode || m_picking) {
+        QWidget::wheelEvent(event);
+        return;
+    }
+    m_wheelResidue += event->angleDelta().y();
+    const int notches = m_wheelResidue / 120;
+    if (notches != 0) {
+        m_wheelResidue -= notches * 120;
+        m_settings->nudgeSize(notches, event->modifiers().testFlag(Qt::ShiftModifier));
+    }
+    event->accept();
+}
+
 void ClockWindow::keyPressEvent(QKeyEvent *event)
 {
     const int key = event->key();
@@ -1423,7 +1449,9 @@ void ClockWindow::showHelp()
         QStringLiteral(
             "<b>Mouse</b><br>"
             "Left drag &mdash; move the clock<br>"
+            "Double click &mdash; settings<br>"
             "Right click &mdash; menu<br>"
+            "Wheel &mdash; resize, while settings are open<br>"
             "<br><b>Keyboard</b><br>"
             "%1+S &mdash; settings<br>"
             "%1+M &mdash; carry the clock on the pointer<br>"
