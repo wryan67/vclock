@@ -492,6 +492,18 @@ up and Cancel still puts back the size you started with; with Settings closed
 there is no slider to move, so it resizes the clock and writes the new size out
 once the spinning stops.
 
+A spin holds the pointer until it is finished. A clock being made smaller
+shrinks away from the cursor, and the moment the cursor is outside it the next
+notch belongs to whatever is underneath -- so without this a spin would stall
+part-way down and the small end of the range could not be reached by wheel at
+all. Holding the pointer keeps every notch going to the clock you started on,
+which is the one you are watching. It lets go as soon as the pointer really
+travels, since the cursor does not move while a clock resizes under it and
+going somewhere means you are done -- so the click you are on your way to make
+arrives normally. Failing that it lets go on its own shortly after the last
+notch, which is what makes it safe: a hold that outlived its spin would be a
+desktop that had stopped answering the mouse.
+
 The clock refuses to be minimised, maximised, or made full screen, whether the
 request comes from the window manager, a "show desktop" key, or a tiling
 shortcut. Because it keeps out of the taskbar and the window switcher, being

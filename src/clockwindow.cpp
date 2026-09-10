@@ -788,6 +788,8 @@ void ClockWindow::hideEvent(QHideEvent *event)
     // A bubble left behind by a clock that is no longer there would have
     // nothing to point at.
     hideTimeTip();
+    // A window that is going away cannot be left holding the pointer.
+    stopZoom();
     QWidget::hideEvent(event);
 }
 
@@ -859,6 +861,7 @@ void ClockWindow::hideClock()
 void ClockWindow::closeEvent(QCloseEvent *event)
 {
     hideTimeTip();
+    stopZoom();
     closeSettings();
     flushSave();
     event->accept();
@@ -888,6 +891,18 @@ QString ClockWindow::configName() const
 void ClockWindow::mousePressEvent(QMouseEvent *event)
 {
     hideTimeTip();
+    // A click ends a spin of the wheel.  The pointer is held while one is
+    // going on, so the press may well be somewhere else entirely: one that
+    // landed outside the clock was meant for whatever is there, and is
+    // swallowed rather than starting a drag or opening the menu here.
+    if (m_zooming) {
+        const bool inside = rect().contains(localPosOf(event).toPoint());
+        stopZoom();
+        if (!inside) {
+            event->accept();
+            return;
+        }
+    }
     // Any button settles a move in progress, and is swallowed so it cannot also
     // start a drag or open the menu.
     if (m_moveMode) {
@@ -924,6 +939,17 @@ void ClockWindow::mousePressEvent(QMouseEvent *event)
 
 void ClockWindow::mouseMoveEvent(QMouseEvent *event)
 {
+    // The pointer does not move while a clock resizes under it -- the clock is
+    // what moves -- so travelling away from where the spin started is the user
+    // heading somewhere else, and the grab has served its purpose.  Letting go
+    // on the way means the click they are going to make arrives normally.
+    if (m_zooming) {
+        if ((globalPosOf(event) - m_zoomAnchor).manhattanLength()
+            > QApplication::startDragDistance() * 2)
+            stopZoom();
+        event->accept();
+        return;
+    }
     if (m_moveMode) {
         centerOnCursor();
         event->accept();
@@ -1019,6 +1045,7 @@ void ClockWindow::wheelEvent(QWheelEvent *event)
     const int notches = m_wheelResidue / 120;
     if (notches != 0) {
         m_wheelResidue -= notches * 120;
+        startZoom();
         nudgeSize(notches, event->modifiers().testFlag(Qt::ShiftModifier));
     }
     event->accept();
@@ -1052,8 +1079,60 @@ void ClockWindow::nudgeSize(int notches, bool fine)
     queueSave();
 }
 
+// A clock being made smaller shrinks away from the pointer, and once the
+// pointer is outside it the next notch belongs to whatever is underneath --
+// so a spin would stop partway down and the small end of the range could not
+// be reached by wheel at all.  Growing has the same trouble in reverse at the
+// moment the clock is nudged out from under the cursor.  Holding the pointer
+// for the length of the spin keeps every notch coming to the clock the user
+// started on, which is the one they are looking at.
+//
+// The grab lets go on its own a moment after the last notch.  It is not ended
+// by the pointer leaving, because leaving is the very thing it exists to
+// survive; a watchdog is what makes it safe, since a grab that outlived its
+// spin would be a desktop that had stopped answering the mouse.
+void ClockWindow::startZoom()
+{
+    if (!m_zoomTimer) {
+        m_zoomTimer = new QTimer(this);
+        m_zoomTimer->setSingleShot(true);
+        // Long enough to ride out the gap between notches of a slow, deliberate
+        // spin, short enough that a grab is never left lying around.
+        m_zoomTimer->setInterval(600);
+        connect(m_zoomTimer, &QTimer::timeout, this, [this] { stopZoom(); });
+    }
+    if (!m_zooming) {
+        hideTimeTip();
+        m_zooming = true;
+        m_zoomAnchor = QCursor::pos();
+        // Tracking as well as the grab, because no button is held and motion
+        // would otherwise not be reported at all -- and motion is how the spin
+        // knows the user has finished with it.
+        setMouseTracking(true);
+        grabMouse();
+    }
+    m_zoomTimer->start();
+}
+
+void ClockWindow::stopZoom()
+{
+    if (!m_zooming)
+        return;
+    m_zooming = false;
+    if (m_zoomTimer)
+        m_zoomTimer->stop();
+    releaseMouse();
+    if (!m_moveMode)
+        setMouseTracking(false);
+    // Whole notches only while the spin lasts; a remainder left over from one
+    // spin must not tip the first notch of the next.
+    m_wheelResidue = 0;
+}
+
 void ClockWindow::keyPressEvent(QKeyEvent *event)
 {
+    // Reaching for the keyboard is the end of a spin whatever the key does.
+    stopZoom();
     const int key = event->key();
     const Qt::KeyboardModifiers mods = event->modifiers();
     // The "command" modifier: Ctrl everywhere, which Qt already reports as
@@ -1160,6 +1239,9 @@ void ClockWindow::keyPressEvent(QKeyEvent *event)
 void ClockWindow::startMoveMode()
 {
     hideTimeTip();
+    // Move mode takes the pointer for itself, so a spin still holding it has
+    // to let go first.
+    stopZoom();
     if (m_moveMode)
         return;
     cancelPicking();
@@ -1220,6 +1302,7 @@ void ClockWindow::centerOnCursor()
 void ClockWindow::startPicking()
 {
     hideTimeTip();
+    stopZoom();
     m_picking = true;
     m_draggingCenter = false;
     m_centerBeforePick = m_cfg.center;

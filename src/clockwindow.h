@@ -79,6 +79,14 @@ public:
     // put the size back; otherwise it moves the clock itself.
     void nudgeSize(int notches, bool fine);
 
+    // Hold the pointer for the length of a spin of the wheel.  A clock that is
+    // shrinking walks out from under the cursor, and the notch after that
+    // would go to whatever is now beneath it, so a spin could not reach the
+    // small end of the range at all.  The grab keeps every notch coming here
+    // until the spinning stops.
+    void startZoom();
+    void stopZoom();
+
     QPointF centerPixels() const;
     double handRadius() const;
     QString faceLabel() const;
@@ -238,4 +246,11 @@ private:
     // a stream of small deltas rather than whole notches, so the remainder is
     // carried between events instead of being rounded away.
     int m_wheelResidue = 0;
+    // Whether the pointer is held for the duration of a spin; see startZoom.
+    bool m_zooming = false;
+    QTimer *m_zoomTimer = nullptr;
+    // Where the pointer was when the spin began.  It does not move while a
+    // clock resizes under it, so travelling away from here is the user leaving
+    // rather than anything the resize did.
+    QPoint m_zoomAnchor;
 };
