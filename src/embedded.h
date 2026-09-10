@@ -247,7 +247,15 @@ inline QByteArray honeycombFaceSvg()
 // wedge, mirrored onto the other half, and the pair repeated around the
 // centre.  An even number of wedges is picked so the mirrors line up opposite
 // each other.
-inline QByteArray kaleidoscopeFaceSvg(quint64 seed)
+//
+// faceHex and wireHex are the escape hatch from all that randomness.  Left
+// empty, the palette is rolled from the seed, which is the kaleidoscope's own
+// idea of itself; given a face colour the fills become shades of it, and given
+// a wire colour the lines between the shapes are drawn in that.  Name both and
+// the face comes out in two colours and their shades -- the same pattern the
+// seed always gave, in colours chosen rather than dealt.
+inline QByteArray kaleidoscopeFaceSvg(quint64 seed, const QString &faceHex = QString(),
+                                      const QString &wireHex = QString())
 {
     struct Rng {
         quint64 s;
@@ -279,6 +287,10 @@ inline QByteArray kaleidoscopeFaceSvg(quint64 seed)
 
     // One scheme and one base hue, so the colours belong together however
     // wild the pattern is.  Random hues drawn independently give mud.
+    //
+    // The rolls happen either way, named colour or not, so that the seed keeps
+    // meaning the same shape: ticking "random" off must change what the face
+    // is painted in and nothing else about it.
     QVector<QString> pal;
     {
         const double base = rng.unit();
@@ -307,16 +319,67 @@ inline QByteArray kaleidoscopeFaceSvg(quint64 seed)
         double vs[5] = {0.34, 0.50, 0.64, 0.78, 0.92};
         for (int i = 4; i > 0; --i)
             std::swap(vs[i], vs[rng.range(0, i)]);
+        QVector<double> sats;
         for (int i = 0; i < hues.size(); ++i)
-            pal.append(hex(hues[i], rng.uni(0.55, 1.0), vs[i]));
+            sats.append(rng.uni(0.55, 1.0));
+
+        const QColor named(faceHex);
+        if (faceHex.isEmpty() || !named.isValid()) {
+            for (int i = 0; i < hues.size(); ++i)
+                pal.append(hex(hues[i], sats[i], vs[i]));
+        } else {
+            // One colour has to fill the same five slots, so it is the tone
+            // ladder that does the work and the hue that stays put.  The
+            // saturation moves a little with the tone -- a shade that is only
+            // darker reads as the same colour under a shadow, where one that
+            // is also less saturated reads as a colour of its own.
+            // A grey has no hue at all and reports -1, which would wrap round
+            // to red; red is as good a hue as any to shade a grey along, but
+            // only if the saturation stays where it is, which it does.
+            const double h = std::max(0.0, double(named.hueF()));
+            const double s = double(named.saturationF());
+            const double v = double(named.valueF());
+            for (int i = 0; i < hues.size(); ++i) {
+                // Spread about the named colour's own tone rather than about
+                // the middle, so a pale colour gives pale shades and a deep
+                // one deep shades, and the colour you picked is recognisably
+                // the one on the dial.
+                const double t = (vs[i] - 0.63) / 0.29;  // roughly -1 .. +1
+                pal.append(hex(h, qBound(0.12, s * (1.0 - 0.35 * t), 1.0),
+                               qBound(0.06, v + 0.30 * t, 1.0)));
+            }
+        }
     }
 
+    // The line work between the shapes.  Random, it is taken to one end of the
+    // tone range rather than picked out of the palette: line work has to read
+    // as line work, and a line in one of the five fill colours disappears the
+    // moment it lands next to that fill.
+    const QString lineColor = [&] {
+        const bool dark = rng.unit() < 0.75;
+        const QString rolled = hex(rng.unit(), rng.uni(0.0, 0.35),
+                                   dark ? rng.uni(0.03, 0.12) : rng.uni(0.90, 1.0));
+        const QColor named(wireHex);
+        return (wireHex.isEmpty() || !named.isValid()) ? rolled : named.name();
+    }();
+    // Width grows with the radius the line is drawn at, so the pattern is
+    // pencilled in at the hub and inked at the rim.  Without that the middle,
+    // where every wedge's shapes crowd together, fills in solid.
+    const double lineBase = rng.uni(0.30, 0.70);
+    const auto strokeAt = [&](double radius) {
+        const double w = lineBase * (0.08 + 1.8 * std::pow(radius / kR, 1.7))
+                         * rng.uni(0.75, 1.3);
+        return QStringLiteral(" stroke=\"%1\" stroke-width=\"%2\"")
+            .arg(lineColor, QString::number(qBound(0.08, w, 2.2), 'f', 3));
+    };
+
     QStringList parts;
+    QStringList lines;  // drawn last, over everything, so no fill can cover them
 
     // The bands, outermost first.  Drawn as full circles rather than rings,
     // so the rim needs no arcs to close it and cannot show a seam.
+    QVector<double> edges;
     {
-        QVector<double> edges;
         const int bands = rng.range(3, 5);
         for (int i = 1; i < bands; ++i)
             edges.append(kR * (double(i) / bands) * rng.uni(0.8, 1.2));
@@ -368,17 +431,34 @@ inline QByteArray kaleidoscopeFaceSvg(quint64 seed)
         for (const double mirror : {1.0, -1.0}) {
             for (const Shape &shape : motif) {
                 QStringList pts;
+                double far = 0.0;
                 for (const QPointF &p : shape.polar) {
                     const double a = base + mirror * p.y();
+                    far = std::max(far, p.x());
                     pts << QStringLiteral("%1,%2")
                                .arg(QString::number(kC + p.x() * std::cos(a), 'f', 2),
                                     QString::number(kC + p.x() * std::sin(a), 'f', 2));
                 }
-                parts << QStringLiteral("<polygon points=\"%1\" fill=\"%2\"/>")
-                             .arg(pts.join(QLatin1Char(' ')), shape.fill);
+                const QString points = pts.join(QLatin1Char(' '));
+                parts << QStringLiteral("<polygon points=\"%1\" fill=\"%2\"/>").arg(points,
+                                                                                    shape.fill);
+                // The outline goes in the top layer rather than on the polygon
+                // itself.  A shape drawn later would otherwise cover the
+                // outline of the one before it, and half an outline round a
+                // shape looks like a mistake rather than a line.
+                lines << QStringLiteral("<polygon points=\"%1\" fill=\"none\"%2/>")
+                             .arg(points, strokeAt(far));
             }
         }
     }
+
+    // The band edges last of all, so the rings read as whole circles rather
+    // than as the gaps between whatever the motif left showing.
+    for (const double r : edges)
+        lines << QStringLiteral("<circle cx=\"50\" cy=\"50\" r=\"%1\" fill=\"none\"%2/>")
+                     .arg(QString::number(r, 'f', 2), strokeAt(r));
+
+    parts += lines;
 
     return QStringLiteral("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" "
                           "height=\"100\">\n%1\n</svg>\n")

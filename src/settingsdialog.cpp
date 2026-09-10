@@ -249,12 +249,27 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     addLabel(chooserGrid, QStringLiteral("Face color"), crow);
     // useAlpha lets the swatch show the checkerboard when the face is faded.
     m_face = new ColorButton(QColor(cfg.faceColor), true, QStringLiteral("Face color"), this);
-    chooserGrid->addWidget(m_face, crow, 1, Qt::AlignLeft);
+    // Only a generated face can be asked for a colour it was not drawn in, and
+    // the kaleidoscope is the only one there is, so these two go grey for
+    // every other face rather than sitting there looking as though they do
+    // something.
+    m_faceRandom = new QCheckBox(QStringLiteral("random"), this);
+    m_faceRandom->setChecked(cfg.faceColorRandom);
+    m_faceRandom->setToolTip(QStringLiteral(
+        "Let the kaleidoscope pick its own colors. Untick to have it drawn in shades "
+        "of the face color instead; the pattern is the same either way."));
+    chooserGrid->addLayout(withOption(m_face, m_faceRandom), crow, 1);
     ++crow;
 
     addLabel(chooserGrid, QStringLiteral("Wire color"), crow);
     m_wire = new ColorButton(QColor(cfg.wireColor), false, QStringLiteral("Wire color"), this);
-    chooserGrid->addWidget(m_wire, crow, 1, Qt::AlignLeft);
+    m_wireRandom = new QCheckBox(QStringLiteral("random"), this);
+    m_wireRandom->setChecked(cfg.wireColorRandom);
+    m_wireRandom->setToolTip(QStringLiteral(
+        "Let the kaleidoscope pick the color of the lines between its shapes. Untick "
+        "to draw them in the wire color; untick both and the face comes out in your "
+        "two colors and their shades."));
+    chooserGrid->addLayout(withOption(m_wire, m_wireRandom), crow, 1);
     ++crow;
 
     chooserGrid->setColumnStretch(1, 1);
@@ -512,7 +527,8 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
         connect(button, &ColorButton::colorSet, this, [this, button] { onChanged(button); });
     }
     for (QCheckBox *box : {m_minuteSame, m_secondShown, m_quarterMarks, m_smoothSweep,
-                           m_reverseTime, m_syncFaceWire, m_syncHandsMarks}) {
+                           m_reverseTime, m_syncFaceWire, m_syncHandsMarks, m_faceRandom,
+                           m_wireRandom}) {
         connect(box, &QCheckBox::toggled, this, [this] { onChanged(); });
     }
     connect(m_colorMode, &QComboBox::currentIndexChanged, this, [this] { onChanged(); });
@@ -687,6 +703,9 @@ void SettingsDialog::onBrowse()
 
 void SettingsDialog::onPresetClicked(const Preset &preset, QToolButton *button)
 {
+    const QString kaleido = kBuiltinFacePrefix + kKaleidoscopeFace + QLatin1Char(':');
+    const bool wasKaleido = faceSvg().startsWith(kaleido);
+
     Config values = m_clock->cfg();
     copyPresetKeys(preset.values, values);
 
@@ -695,10 +714,20 @@ void SettingsDialog::onPresetClicked(const Preset &preset, QToolButton *button)
     // seed.  The button's own thumbnail is redrawn to match, because a preset
     // button that shows a picture other than the one it just applied would be
     // telling the user something untrue.
-    if (values.faceSvg.startsWith(kBuiltinFacePrefix + kKaleidoscopeFace
-                                  + QLatin1Char(':'))) {
-        values.faceSvg = kBuiltinFacePrefix + kKaleidoscopeFace + QLatin1Char(':')
-                         + QString::number(QRandomGenerator::global()->generate64());
+    if (values.faceSvg.startsWith(kaleido)) {
+        values.faceSvg =
+            kaleido + QString::number(QRandomGenerator::global()->generate64());
+        // Coming from another face this is the preset, colours and all.  Coming
+        // from a kaleidoscope it is a reroll, and a reroll is a request for a
+        // different pattern, not for different colours: someone who has settled
+        // on two of their own and clicks for another arrangement should get one
+        // in those colours.
+        if (wasKaleido) {
+            values.faceColorRandom = m_faceRandom->isChecked();
+            values.wireColorRandom = m_wireRandom->isChecked();
+            values.faceColor = m_faceOwn;
+            values.wireColor = hexOf(m_wire->color());
+        }
         if (button)
             button->setIcon(QIcon(presetThumbnail(values, kPresetThumb, devicePixelRatioF())));
     }
@@ -793,6 +822,8 @@ void SettingsDialog::applyValues(const Config &values, bool full)
     m_minuteMarkScale->setValue(values.minuteMarkScale);
     // The sync boxes go first: with one ticked, setting either slider of the
     // pair carries the other with it, which is what a preset wants anyway.
+    m_faceRandom->setChecked(values.faceColorRandom);
+    m_wireRandom->setChecked(values.wireColorRandom);
     m_syncFaceWire->setChecked(values.syncFaceWire);
     m_syncHandsMarks->setChecked(values.syncHandsMarks);
     m_faceOpacity->setValue(values.faceOpacity);
@@ -845,10 +876,17 @@ void SettingsDialog::syncSwatches()
     m_second->setEnabled(m_secondShown->isChecked());
 
     // The face and wire colours are the recolour's two ends, so they mean
-    // nothing at all when the artwork is drawn as authored.
+    // nothing at all when the artwork is drawn as authored -- unless the face
+    // is generated, which is the one case where a colour is an instruction
+    // about how to draw rather than a way of reading what was drawn.  The
+    // "random" ticks are that instruction, and no other face can take one.
     const bool recolor = recolorMode();
-    m_face->setEnabled(recolor);
-    m_wire->setEnabled(recolor);
+    const bool generated = faceSvg().startsWith(kBuiltinFacePrefix + kKaleidoscopeFace
+                                                + QLatin1Char(':'));
+    m_faceRandom->setEnabled(generated);
+    m_wireRandom->setEnabled(generated);
+    m_face->setEnabled(recolor || (generated && !m_faceRandom->isChecked()));
+    m_wire->setEnabled(recolor || (generated && !m_wireRandom->isChecked()));
     // The swatch carries the face's own opacity, so a face faded to nothing
     // reads as the checkerboard rather than as a colour that does not show.
     QColor faceColor(m_faceOwn);
@@ -962,6 +1000,8 @@ Config SettingsDialog::values() const
     out.faceColor = m_faceOwn;
     out.faceRecolor = recolorMode();
     out.wireColor = hexOf(m_wire->color());
+    out.faceColorRandom = m_faceRandom->isChecked();
+    out.wireColorRandom = m_wireRandom->isChecked();
     out.hourMarkColor = hexOf(m_hourMark->color());
     out.minuteMarkColor = hexOf(m_minuteMark->color());
     return out;

@@ -108,6 +108,10 @@ private:
     ColorButton *m_hourMark = nullptr;
     ColorButton *m_minuteMark = nullptr;
     QCheckBox *m_secondShown = nullptr;
+    // Only a generated face can be told what colours to use, so these two are
+    // grey for every other one.
+    QCheckBox *m_faceRandom = nullptr;
+    QCheckBox *m_wireRandom = nullptr;
     QCheckBox *m_hourMarkShown = nullptr;
     QCheckBox *m_minuteMarkShown = nullptr;
 

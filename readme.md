@@ -592,6 +592,25 @@ flatten it to two tones, which is the one thing this face is not. Clicking the
 **Kaleidoscope** preset rolls a new seed each time, and the preset's own
 thumbnail is redrawn to show what you just got.
 
+Every shape is outlined, which is what stops a dozen wedges of flat colour from
+running together into a smear. The lines widen with the radius they are drawn
+at, so the pattern is pencilled in at the hub and inked at the rim; without
+that the middle, where every wedge's shapes crowd into the same small space,
+fills in solid.
+
+Being generated, it is also the one face that can be asked for particular
+colours, and the **random** boxes beside *Face color* and *Wire color* are that
+request. Ticked -- which is how the preset leaves them -- it picks its own, one
+base hue and one scheme, with the tones dealt from a ladder so a palette always
+has a dark end and a light one. Untick *Face color* and the fills become shades
+of the colour you named; untick *Wire color* and the outlines are drawn in
+yours. Untick both and the face comes out in two colours and their shades. The
+pattern does not change either way -- the seed decides the shape and the
+colours only decide the paint -- so you can settle on a pattern and then recolour
+it, or settle on colours and click the preset for another arrangement in them.
+The boxes are greyed for every other face, all of which have their colours
+already by having been drawn.
+
 ### Smooth sweep hands
 
 Off by default, the hands step once a second, the way a quartz movement does.

@@ -88,6 +88,14 @@ struct Config
     bool faceRecolor = true;
     QString faceColor = QStringLiteral("#ffffff");
     QString wireColor = QStringLiteral("#000000");
+    // The kaleidoscope is generated rather than drawn, so it is the one face
+    // that can choose its own colours.  With these set it does; with them
+    // cleared it takes the two above -- the fills as shades of the face colour
+    // and the lines in the wire colour -- and the same seed then gives the same
+    // pattern in whatever colours you name.  They mean nothing to any other
+    // face, which has its colours already.
+    bool faceColorRandom = true;
+    bool wireColorRandom = true;
     QString hourMarkColor = QStringLiteral("#000000");
     QString minuteMarkColor = QStringLiteral("#000000");
 
@@ -115,6 +123,12 @@ struct Config
 
     // The face file to load, or an empty string for the embedded default.
     QString facePath() const { return faceDefault ? QString() : faceSvg; }
+
+    // What to hand a generated face as its colours.  Empty means it picks its
+    // own, which is what the "random" ticks say and what every drawn face does
+    // by having been drawn already.
+    QString faceSeedColor() const { return faceColorRandom ? QString() : faceColor; }
+    QString wireSeedColor() const { return wireColorRandom ? QString() : wireColor; }
 
     // Where the hands pivot, as fractions of the canvas (auto = its centre).
     QPointF centerFraction() const { return center.value_or(QPointF(0.5, 0.5)); }

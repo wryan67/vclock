@@ -401,7 +401,8 @@ namespace {
 // can drift away from what the running clock actually looks like.
 QImage drawClock(const Config &values, int pixels)
 {
-    const std::unique_ptr<Face> face = openFace(values.facePath());
+    const std::unique_ptr<Face> face =
+        openFace(values.facePath(), values.faceSeedColor(), values.wireSeedColor());
     QImage art = face->render(pixels, pixels);
     if (values.faceRecolor)
         art = recolor(art, values.wireColor, values.faceColor, values.faceOpacity,

@@ -15,7 +15,13 @@ class Face
 {
 public:
     // Load a face from a file, a "builtin:" name, or the embedded default.
-    explicit Face(const QString &path = QString());
+    //
+    // The two colours are only for the kaleidoscope, which is generated rather
+    // than drawn and so is the one face that can be asked for in particular
+    // colours.  Empty means let it choose, which is what every other face
+    // does by having been drawn already.
+    explicit Face(const QString &path = QString(), const QString &faceHex = QString(),
+                  const QString &wireHex = QString());
     ~Face();
 
     Face(const Face &) = delete;
@@ -38,7 +44,8 @@ private:
 };
 
 // Load a face from a path, falling back to the embedded default.
-std::unique_ptr<Face> openFace(const QString &path);
+std::unique_ptr<Face> openFace(const QString &path, const QString &faceHex = QString(),
+                               const QString &wireHex = QString());
 
 // Map the artwork's dark line work to wireHex and its light body to faceHex.
 //

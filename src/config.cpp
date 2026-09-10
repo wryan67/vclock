@@ -253,6 +253,8 @@ Config loadConfig(const QString &requested)
     cfg.minuteColor = readString(o, "minute_color", kDefaults.minuteColor);
     cfg.faceColor = readString(o, "face_color", kDefaults.faceColor);
     cfg.wireColor = readString(o, "wire_color", kDefaults.wireColor);
+    cfg.faceColorRandom = readBool(o, "face_color_random", kDefaults.faceColorRandom);
+    cfg.wireColorRandom = readBool(o, "wire_color_random", kDefaults.wireColorRandom);
     cfg.hourMarkColor = readString(o, "hour_mark_color", kDefaults.hourMarkColor);
     cfg.minuteMarkColor = readString(o, "minute_mark_color", kDefaults.minuteMarkColor);
 
@@ -323,6 +325,8 @@ void saveConfig(const Config &cfg, const QString &requested)
     o.insert(QStringLiteral("face_color"), cfg.faceColor);
     o.insert(QStringLiteral("face_recolor"), cfg.faceRecolor);
     o.insert(QStringLiteral("wire_color"), cfg.wireColor);
+    o.insert(QStringLiteral("face_color_random"), cfg.faceColorRandom);
+    o.insert(QStringLiteral("wire_color_random"), cfg.wireColorRandom);
     o.insert(QStringLiteral("hour_mark_color"), cfg.hourMarkColor);
     o.insert(QStringLiteral("minute_mark_color"), cfg.minuteMarkColor);
 
@@ -388,6 +392,8 @@ void copyPresetKeys(const Config &from, Config &to)
     to.syncHandsMarks = from.syncHandsMarks;
     to.faceRecolor = from.faceRecolor;
     to.wireColor = from.wireColor;
+    to.faceColorRandom = from.faceColorRandom;
+    to.wireColorRandom = from.wireColorRandom;
     to.hourMarkColor = from.hourMarkColor;
     to.minuteMarkColor = from.minuteMarkColor;
 }
