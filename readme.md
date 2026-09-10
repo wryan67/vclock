@@ -563,7 +563,7 @@ dial the app icon is drawn from (`builtin:icon`); a silver dial under a dark rim
 (`builtin:silver`), which is the same gradient running the other way; a
 honeycomb (`builtin:honeycomb`), whose lit wax walls take the face colour and
 whose cells take the wire colour; and a spiral (`builtin:spiral`), one arm
-tapering out of the hub and away into the rim, which takes those two colours the
+winding six turns out of the hub and broadening into the rim, which takes those two colours the
 other way round -- the dial is the face colour and the arm the wire. Whichever is in use, the
 *Clock face svg* field names it when no file of your own is loaded; clicking a
 preset is how you return to a built-in face.
@@ -635,8 +635,9 @@ puts the previous appearance and centre back.
 Three of the ten are see-through: **Smoked glass** is the Onyx dial faded back
 to about a quarter, **Clear glass** has no dial at all, only a pale rim, heavy
 hour marks and hands hanging over the wallpaper, and **Spiral** is Smoked glass
-on a dial of its own -- a single silver arm winding out of the hub, thinning as
-it goes until it merges into the rim and becomes it. The whole dial is drawn in
+on a dial of its own -- a single silver arm leaving the centre as a hairline,
+winding six turns and thickening as it goes until it meets the edge and becomes
+the rim. The whole dial is drawn in
 one weight: the hour marks are grown to sit just under the rim's own stroke, and
 the minute track is dropped, so nothing competes with the sweep.
 
