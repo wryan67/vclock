@@ -34,6 +34,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace {
 
@@ -140,6 +141,68 @@ QColor rollWireColor()
     return QColor::fromHsvF(rng->generateDouble(), 0.40 * rng->generateDouble(),
                             dark ? 0.03 + 0.17 * rng->generateDouble()
                                  : 0.86 + 0.13 * rng->generateDouble());
+}
+
+// How far apart two colours are to the eye, as the ratio of their luminances
+// the way the web accessibility guidelines measure it.  The scale starts at 1
+// for two colours that are the same and runs to 21 for black against white.
+double relativeLuminance(const QColor &c)
+{
+    auto channel = [](double v) {
+        return v <= 0.03928 ? v / 12.92 : std::pow((v + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * channel(c.redF()) + 0.7152 * channel(c.greenF())
+           + 0.0722 * channel(c.blueF());
+}
+
+double contrastRatio(const QColor &a, const QColor &b)
+{
+    double hi = relativeLuminance(a);
+    double lo = relativeLuminance(b);
+    if (hi < lo)
+        std::swap(hi, lo);
+    return (hi + 0.05) / (lo + 0.05);
+}
+
+// The face and wire colours are the two ends of the recolour, so the whole
+// picture lives in the gap between them: bring them together and the dial
+// flattens to a single colour with the pattern gone.  Rolling the two
+// independently lands inside that gap about three times in ten, which is often
+// enough that a run of Cycle turns up a blank disc, so a roll is now only
+// accepted if the pair reads against each other.
+//
+// The floor of three to one is the guidelines' threshold for something read as
+// a shape rather than as text, which is what a dial is.  The ceiling keeps the
+// pair off the far end of the scale, where near-black against near-white is
+// less a colour scheme than the absence of one.
+constexpr double kMinContrast = 3.0;
+constexpr double kMaxContrast = 16.0;
+
+QColor rollAgainst(bool faceEnd, const QColor &other)
+{
+    const auto roll = [faceEnd] { return faceEnd ? rollFaceColor() : rollWireColor(); };
+    if (!other.isValid())
+        return roll();
+
+    // Keep the near miss as we go.  A colour the user chose by hand cannot
+    // always be answered from inside the roll's own range -- a mid grey face
+    // leaves the wire nowhere dark or light enough to go -- and the closest of
+    // two hundred tries is a better answer there than looping for ever, or
+    // than taking the first roll and ignoring the question.
+    QColor best;
+    double bestMiss = std::numeric_limits<double>::max();
+    for (int i = 0; i < 200; ++i) {
+        const QColor candidate = roll();
+        const double ratio = contrastRatio(candidate, other);
+        if (ratio >= kMinContrast && ratio <= kMaxContrast)
+            return candidate;
+        const double miss = ratio < kMinContrast ? kMinContrast - ratio : ratio - kMaxContrast;
+        if (miss < bestMiss) {
+            bestMiss = miss;
+            best = candidate;
+        }
+    }
+    return best;
 }
 
 }  // namespace
@@ -777,9 +840,9 @@ void SettingsDialog::onPresetClicked(const Preset &preset, QToolButton *button)
             // the same blue, so where the preset says the colour is rolled,
             // roll it.
             if (values.faceColorRandom)
-                values.faceColor = hexOf(rollFaceColor());
+                values.faceColor = hexOf(rollAgainst(true, QColor(values.wireColor)));
             if (values.wireColorRandom)
-                values.wireColor = hexOf(rollWireColor());
+                values.wireColor = hexOf(rollAgainst(false, QColor(values.faceColor)));
         }
         if (button)
             button->setIcon(QIcon(presetThumbnail(values, kPresetThumb, devicePixelRatioF())));
@@ -907,9 +970,9 @@ void SettingsDialog::applyValues(const Config &values, bool full)
 void SettingsDialog::rollColor(bool faceEnd)
 {
     if (faceEnd)
-        m_faceOwn = hexOf(rollFaceColor());
+        m_faceOwn = hexOf(rollAgainst(true, m_wire->color()));
     else
-        m_wire->setColor(rollWireColor());
+        m_wire->setColor(rollAgainst(false, QColor(m_faceOwn)));
     onChanged();
 }
 

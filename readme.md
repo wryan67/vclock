@@ -773,6 +773,17 @@ read as line work, so a wire colour lands near one end of the tone range instead
 of in the middle, where it would come out the same weight as whatever it is
 drawn over. Both are off to begin with on every face.
 
+The two are also rolled against each other rather than separately. In *Recolor*
+the face and wire colours are the two ends of the ramp the artwork is painted
+along, so the whole picture lives in the gap between them: roll them close
+together and the dial flattens to one colour with the pattern gone. Rolled
+independently that happened about three times in ten, often enough that a run of
+Cycle would turn up a blank disc, so a roll is now only kept if the pair are far
+enough apart to read -- three to one by the usual contrast measure, which is the
+threshold for something read as a shape rather than as text. The far end of the
+scale is left out too, near-black against near-white being less a colour scheme
+than the absence of one.
+
 ### The Settings window
 
 The controls sit on four tabs -- **Face**, **Marks**, **Hands**, **Opacity**.
