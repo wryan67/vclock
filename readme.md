@@ -583,7 +583,7 @@ other way round -- the dial is the face colour and the arm the wire. Whichever i
 preset is how you return to a built-in face.
 
 The spiral is not drawn so much as grown, from two rules and nothing else:
-every full turn the arm is a fifth thicker than it was, and the white space
+every full turn the arm is a quarter thicker than it was, and the white space
 between two turns is as wide as the arm beside it. That is the whole of it.
 
 Those two rules decide everything, including the things you might expect to
@@ -596,13 +596,25 @@ every pair of turns from hub to rim, and that evenness is the one thing no shell
 or fern or galaxy has. It reads as set out with a ruler.
 
 The turn count is not chosen either. It is however many turns it takes to reach
-the rim, which works out at about six. Nor is the width at the edge, which comes
-out near a seventh of the radius. The only real dial is how thick the arm starts
+the rim, which works out at about five and a half, plus one more to close the
+outer ring. Nor is the width at the edge, which comes out near a seventh of the
+radius. The only real dial is how thick the arm starts
 at the hub, and asking for a thinner start does not give a finer face -- it
 gives more turns and a heavier rim, because that is the only way to keep both
 rules true across the same disc. It starts at 1.75 units of the hundred-wide
 artwork, which leaves the innermost arm and the gap beside it both about a pixel
 and a half at a ninety-pixel clock, the smallest the face is asked to be drawn.
+
+The arm does not stop when it gets to the rim. Left to itself the spiral only
+touches the outer edge over the last hundred degrees or so of its final turn,
+which leaves the outermost ring as an arc with two thirds of it missing -- at a
+radius of 39 it was absent at 479 of 720 angles around the face. So once the arm
+is wide enough that its outer side would cross the rim, it is held at the radius
+that keeps that side exactly on the edge and carried one further full turn
+there. The outer side is a true circle rather than a spiral, it closes on
+itself, and the overhang is cut away by the clock's own circular mask. The last
+spiral turn running into that ring is what makes the arm melt into the edge
+rather than end at it.
 
 `tools/gen_spiral.py` generates the artwork, and the two rules and the algebra
 that follows from them are the first thing in it. The face as it stood before,

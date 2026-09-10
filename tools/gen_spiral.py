@@ -46,33 +46,47 @@ arm and its neighbouring gap both a little under two units of the hundred-wide
 artwork -- about one and a half pixels at a ninety-pixel clock, which is the
 smallest the face is asked to be drawn.
 
-The arm is allowed to run past the rim and is clamped there, so the last part
-of it is a band lying along the rim rather than a spiral stopping at a tangent.
-That is what makes the arm appear to melt into the outer circle.
+The arm does not stop when it reaches the rim.  Left to itself the spiral only
+touches the outer edge over the last hundred degrees or so of its final turn,
+which leaves the outermost ring as an arc with two thirds of it missing.  So
+once the arm is wide enough that its outer side would cross the rim, its
+centreline is held at the radius that keeps that side exactly on RIM, and it is
+carried one further full turn at that radius.  The outer side is then a true
+circle rather than a spiral, it closes on itself, and the overhang past R is
+cut away by the clock's own circular mask.  The last spiral turn running into
+that ring is what makes the arm appear to melt into the outer edge.
 """
 
 import math
 
 R = 40.0  # the face radius the rest of the artwork is drawn to
 RIM = 40.5  # the arm is clamped here, just past the rim, and clipped by it
-GROWTH = 1.2  # how much thicker the arm gets over one full turn
+GROWTH = 1.25  # how much thicker the arm gets over one full turn
 W_HUB = 1.75  # the width it starts at, at the very centre
 
 # Everything below is worked out from the two rules; see the note above.
+SPREAD = (GROWTH - 1.0) / (1.0 + GROWTH)  # how fast the width grows with radius
 PITCH = W_HUB * (1.0 + GROWTH) / (GROWTH - 1.0)
-TURNS = math.log(1.0 + R / PITCH) / math.log(GROWTH)
-STEPS = int(120 * TURNS)  # samples along the arm, one side
+
+# The radius at which the arm's outer side first reaches RIM, from solving
+# r + width_at(r)/2 == RIM, and the turn it happens on.
+R_CAP = (RIM - W_HUB / 2.0) / (1.0 + SPREAD / 2.0)
+TURNS = math.log(1.0 + R_CAP / PITCH) / math.log(GROWTH) + 1.0  # + the closing turn
+STEPS = int(150 * TURNS)  # samples along the arm, one side
 
 
 def centreline(t):
     """A point on the middle of the arm, t running 0..1 from hub to rim."""
-    theta = 2.0 * math.pi * TURNS * t
-    r = PITCH * (GROWTH ** (TURNS * t) - 1.0)
+    turn = TURNS * t
+    theta = 2.0 * math.pi * turn
+    # Held at R_CAP once the arm is wide enough to reach the rim, so the last
+    # turn rides the edge as a circle and closes the outermost ring.
+    r = min(PITCH * (GROWTH**turn - 1.0), R_CAP)
     return r, theta
 
 
 def width_at(r):
-    return W_HUB + r * (GROWTH - 1.0) / (1.0 + GROWTH)
+    return W_HUB + r * SPREAD
 
 
 def offset_points(sign):
@@ -91,9 +105,9 @@ def offset_points(sign):
         nx, ny = -dy / length, dx / length
         half = width_at(r) / 2.0
         x, y = x1 + sign * nx * half, y1 + sign * ny * half
-        # Clamp to the rim rather than stopping at it, so the arm ends as a
-        # band lying along the outer circle instead of a spiral cut off at a
-        # tangent.
+        # A backstop: the closing turn already sits exactly on RIM, but the
+        # normal offset can push a point a hair past it where the arm is still
+        # curving into the cap.
         rr = math.hypot(x, y)
         if rr > RIM:
             x, y = x * RIM / rr, y * RIM / rr
