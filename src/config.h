@@ -12,6 +12,11 @@
 inline const QString kBuiltinFacePrefix = QStringLiteral("builtin:");
 inline const QString kDefaultFaceLabel = QStringLiteral("built-in");
 
+// The one built-in that is generated rather than stored, and so the one whose
+// name carries an argument: "builtin:kaleidoscope:<seed>".  The seed is what
+// makes a particular random face reproducible, so it belongs in the config.
+inline const QString kKaleidoscopeFace = QStringLiteral("kaleidoscope");
+
 inline constexpr int kSizeMin = 50;
 inline constexpr int kSizeMaxFallback = 500;  // only used if no screen can be queried
 

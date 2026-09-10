@@ -155,6 +155,28 @@ const QVector<Preset> &presets()
         comb.values.secondColor = QStringLiteral("#ffec8c");
         out.append(comb);
 
+        // The kaleidoscope is the one preset whose face is different every
+        // time it is applied, so what is fixed here is only the seed it starts
+        // from; the settings dialog rolls a new one on each click.  Hands are
+        // white and the marks are off: the artwork is already busy enough to
+        // read as a dial without indices drawn over it, and against a face
+        // whose colours are not known in advance white is the one hand colour
+        // that stays visible over most of them.
+        Preset kal;
+        kal.name = QStringLiteral("Kaleidoscope");
+        kal.tip = QStringLiteral("A random coloured kaleidoscope; click again for another");
+        kal.values.faceSvg =
+            kBuiltinFacePrefix + kKaleidoscopeFace + QStringLiteral(":1");
+        kal.values.faceDefault = false;
+        kal.values.faceRecolor = false;  // full colour: recolouring would flatten it
+        kal.values.markScale = 0;
+        kal.values.minuteMarkScale = 0;
+        kal.values.hourColor = QStringLiteral("#ffffff");
+        kal.values.minuteColor = QStringLiteral("#ffffff");
+        kal.values.minuteSameAsHour = true;
+        kal.values.secondColor = QStringLiteral("#ffffff");
+        out.append(kal);
+
         // The two glass dials fade the artwork rather than recolouring it, so
         // the desktop shows through and the clock reads as something sitting on
         // the glass rather than painted on it.  They are the first presets to

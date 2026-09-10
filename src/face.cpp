@@ -16,6 +16,10 @@
 namespace {
 
 // Faces that live inside the program rather than on disk.
+//
+// A name may carry an argument after a colon, which is how the kaleidoscope
+// keeps its seed: "kaleidoscope:12345" is one particular random face, and the
+// same digits give the same drawing every time.
 QByteArray builtinFaceData(const QString &name)
 {
     if (name == QLatin1String("icon"))
@@ -26,6 +30,8 @@ QByteArray builtinFaceData(const QString &name)
         return honeycombFaceSvg();
     if (name == QLatin1String("spiral"))
         return spiralFaceSvg();
+    if (name.startsWith(kKaleidoscopeFace + QLatin1Char(':')))
+        return kaleidoscopeFaceSvg(name.mid(kKaleidoscopeFace.size() + 1).toULongLong());
     return QByteArray();
 }
 
@@ -39,6 +45,10 @@ QString builtinFaceLabel(const QString &name)
         return QStringLiteral("honeycomb");
     if (name == QLatin1String("spiral"))
         return QStringLiteral("spiral dial");
+    // The seed is part of the name but not worth reading out, so the label
+    // says which face it is and leaves the digits in the config.
+    if (name.startsWith(kKaleidoscopeFace + QLatin1Char(':')))
+        return QStringLiteral("kaleidoscope");
     return name;
 }
 

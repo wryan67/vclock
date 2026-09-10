@@ -572,7 +572,7 @@ the mode is whatever you last set it to and stays there when you change faces.
 Recolouring a full-colour picture is a legitimate thing to want — it flattens
 the artwork to your own two colours and can look rather good.
 
-Five faces are built in and need no files: the plain default ring; the gradient
+Six faces are built in and need no files: the plain default ring; the gradient
 dial the app icon is drawn from (`builtin:icon`); a silver dial under a dark rim
 (`builtin:silver`), which is the same gradient running the other way; a
 honeycomb (`builtin:honeycomb`), whose lit wax walls take the face colour and
@@ -581,6 +581,16 @@ winding six turns out of the hub and broadening into the rim, which takes those 
 other way round -- the dial is the face colour and the arm the wire. Whichever is in use, the
 *Clock face svg* field names it when no file of your own is loaded; clicking a
 preset is how you return to a built-in face.
+
+The sixth is the kaleidoscope (`builtin:kaleidoscope:<seed>`), and it is the
+only one that is not drawn in advance but worked out when it is asked for. Its
+name carries the digits it was generated from, so a face is stored as a seed
+rather than as a picture: two words in the config that redraw the same dial
+after a save, a reload, or a copy to another clock. It is also the only
+built-in in full colour, so it wants *Original* colouring; recolouring would
+flatten it to two tones, which is the one thing this face is not. Clicking the
+**Kaleidoscope** preset rolls a new seed each time, and the preset's own
+thumbnail is redrawn to show what you just got.
 
 ### Smooth sweep hands
 

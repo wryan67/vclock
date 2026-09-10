@@ -21,6 +21,7 @@
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QRandomGenerator>
 #include <QRadioButton>
 #include <QScreen>
 #include <QScrollArea>
@@ -180,7 +181,7 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
         button->setAutoRaise(false);
         button->setToolTip(preset.name + QStringLiteral(" \u2014 ") + preset.tip);
         connect(button, &QToolButton::clicked, this,
-                [this, &preset] { onPresetClicked(preset); });
+                [this, &preset, button] { onPresetClicked(preset, button); });
         presetsLayout->addWidget(button, prow, pcol);
         if (++pcol == kPresetColumns) {
             pcol = 0;
@@ -684,10 +685,24 @@ void SettingsDialog::onBrowse()
     onChanged();
 }
 
-void SettingsDialog::onPresetClicked(const Preset &preset)
+void SettingsDialog::onPresetClicked(const Preset &preset, QToolButton *button)
 {
     Config values = m_clock->cfg();
     copyPresetKeys(preset.values, values);
+
+    // The kaleidoscope is a different face every time it is asked for, so its
+    // button is a reroll rather than a fixed choice: each click picks a new
+    // seed.  The button's own thumbnail is redrawn to match, because a preset
+    // button that shows a picture other than the one it just applied would be
+    // telling the user something untrue.
+    if (values.faceSvg.startsWith(kBuiltinFacePrefix + kKaleidoscopeFace
+                                  + QLatin1Char(':'))) {
+        values.faceSvg = kBuiltinFacePrefix + kKaleidoscopeFace + QLatin1Char(':')
+                         + QString::number(QRandomGenerator::global()->generate64());
+        if (button)
+            button->setIcon(QIcon(presetThumbnail(values, kPresetThumb, devicePixelRatioF())));
+    }
+
     applyValues(values, false);
 }
 

@@ -3,6 +3,14 @@
 #pragma once
 
 #include <QByteArray>
+#include <QColor>
+#include <QPointF>
+#include <QString>
+#include <QStringList>
+#include <QVector>
+
+#include <algorithm>
+#include <cmath>
 
 // The built-in default face: used on first run, whenever no config exists,
 // and whenever the "default" box is ticked.
@@ -212,6 +220,170 @@ inline QByteArray honeycombFaceSvg()
   <polygon points="72.2,83.3 70.0,84.6 67.7,85.9 65.6,86.8 65.6,82.2 70.3,79.5 74.3,81.8" fill="#757575" />
   <circle cx="50" cy="50" r="40" fill="none" stroke="#000000" stroke-width="3" />
 </svg>)SVG");
+}
+
+// A sixth built-in face: a kaleidoscope, and the only one not written out
+// here but generated when it is asked for.  It is also the only one in full
+// colour, so it is meant to be drawn in Original mode; recolor() would flatten
+// it back to two tones, which is the one thing this face is not.
+//
+// The design is random, and so it needs somewhere to keep which random.  That
+// is the seed: the config stores "builtin:kaleidoscope:12345" and the face is
+// rebuilt from those digits every time it is drawn.  Storing the seed rather
+// than the drawing is what lets a two-word setting survive a save, a reload
+// and a copy to another clock, and it costs a few hundred microseconds of
+// arithmetic to redraw.  The generator is a plain xorshift written out below
+// rather than QRandomGenerator, because the seed is saved in the user's config
+// and must still mean the same picture after a Qt upgrade.
+//
+// Two things keep the artwork inside the dial without a clip path, which SVG
+// Tiny does not have.  The bands are whole circles drawn largest first, each
+// one painting over the middle of the last, so the outer edge is a true circle
+// rather than a ring of arcs that have to meet.  The motif is polygons whose
+// every vertex is inside the disc -- and a disc being convex, a polygon with
+// its corners inside it lies inside it entirely.
+//
+// The symmetry is the ordinary kaleidoscope one: a motif drawn in half a
+// wedge, mirrored onto the other half, and the pair repeated around the
+// centre.  An even number of wedges is picked so the mirrors line up opposite
+// each other.
+inline QByteArray kaleidoscopeFaceSvg(quint64 seed)
+{
+    struct Rng {
+        quint64 s;
+        explicit Rng(quint64 seed)
+            : s(seed * 2685821657736338717ULL + 1442695040888963407ULL)
+        {
+            if (s == 0)
+                s = 0x9E3779B97F4A7C15ULL;
+        }
+        quint64 next()
+        {
+            s ^= s << 13;
+            s ^= s >> 7;
+            s ^= s << 17;
+            return s * 0x2545F4914F6CDD1DULL;
+        }
+        double unit() { return double(next() >> 11) / double(1ULL << 53); }
+        int range(int lo, int hi) { return lo + int(next() % quint64(hi - lo + 1)); }
+        double uni(double lo, double hi) { return lo + unit() * (hi - lo); }
+    } rng(seed);
+
+    const double kR = 40.0, kC = 50.0;
+    const auto hex = [](double h, double s, double v) {
+        h -= std::floor(h);
+        return QColor::fromHsvF(qBound(0.0, h, 0.999999), qBound(0.0, s, 1.0),
+                                qBound(0.0, v, 1.0))
+            .name();
+    };
+
+    // One scheme and one base hue, so the colours belong together however
+    // wild the pattern is.  Random hues drawn independently give mud.
+    QVector<QString> pal;
+    {
+        const double base = rng.unit();
+        QVector<double> hues;
+        switch (rng.range(0, 3)) {
+        case 0: {  // analogous
+            const double spread = rng.uni(0.06, 0.14);
+            for (int i = 0; i < 5; ++i)
+                hues.append(base + (i - 2) * spread);
+            break;
+        }
+        case 1:  // triadic, with two shades between
+            hues = {base, base + 1.0 / 3.0, base + 2.0 / 3.0, base + 1.0 / 6.0, base + 0.5};
+            break;
+        case 2:  // a complementary pair, each split
+            hues = {base, base + 0.5, base + 0.06, base + 0.56, base + 0.5};
+            break;
+        default:  // right round the wheel
+            for (int i = 0; i < 5; ++i)
+                hues.append(base + i / 5.0);
+            break;
+        }
+        // Tone is dealt out rather than rolled per colour, so every palette
+        // has a dark end and a light one and no face can come out as five
+        // shades of the same thing.  Which hue gets which tone is shuffled.
+        double vs[5] = {0.34, 0.50, 0.64, 0.78, 0.92};
+        for (int i = 4; i > 0; --i)
+            std::swap(vs[i], vs[rng.range(0, i)]);
+        for (int i = 0; i < hues.size(); ++i)
+            pal.append(hex(hues[i], rng.uni(0.55, 1.0), vs[i]));
+    }
+
+    QStringList parts;
+
+    // The bands, outermost first.  Drawn as full circles rather than rings,
+    // so the rim needs no arcs to close it and cannot show a seam.
+    {
+        QVector<double> edges;
+        const int bands = rng.range(3, 5);
+        for (int i = 1; i < bands; ++i)
+            edges.append(kR * (double(i) / bands) * rng.uni(0.8, 1.2));
+        edges.append(kR);
+        std::sort(edges.begin(), edges.end());
+        int last = -1;
+        for (int i = edges.size() - 1; i >= 0; --i) {
+            int c = rng.range(0, pal.size() - 1);
+            if (c == last)  // never two bands running in the same colour
+                c = (c + 1 + rng.range(0, pal.size() - 2)) % pal.size();
+            last = c;
+            parts << QStringLiteral("<circle cx=\"50\" cy=\"50\" r=\"%1\" fill=\"%2\"/>")
+                         .arg(QString::number(edges[i], 'f', 2), pal[c]);
+        }
+    }
+
+    // The motif, in half a wedge: radius and angle for each corner, kept in
+    // polar form so mirroring is a change of sign.
+    const int wedges = 6 + 2 * rng.range(0, 3);  // 6, 8, 10 or 12
+    const double wedge = 2.0 * M_PI / wedges;
+    struct Shape {
+        QVector<QPointF> polar;  // x = radius, y = angle
+        QString fill;
+    };
+    QVector<Shape> motif;
+    for (int i = 0, n = rng.range(6, 9); i < n; ++i) {
+        const double r0 = rng.uni(0.05, 0.95) * kR;
+        const double r1 = std::min(kR, r0 + rng.uni(0.12, 0.45) * kR);
+        const double a0 = rng.uni(0.0, wedge / 2.0);
+        const double a1 = rng.uni(0.0, wedge / 2.0);
+        Shape shape;
+        switch (rng.range(0, 2)) {
+        case 0:  // a spike out from the mirror line
+            shape.polar = {{r0, 0.0}, {r1, a0}, {r1, a1}};
+            break;
+        case 1:  // a panel spanning the band
+            shape.polar = {{r0, a0}, {r1, a0}, {r1, a1}, {r0, a1}};
+            break;
+        default:  // a kite sitting on the mirror line
+            shape.polar = {{r0, 0.0}, {(r0 + r1) / 2.0, std::max(a0, a1)}, {r1, 0.0}};
+            break;
+        }
+        shape.fill = pal[rng.range(0, pal.size() - 1)];
+        motif.append(shape);
+    }
+
+    for (int k = 0; k < wedges; ++k) {
+        const double base = k * wedge - M_PI / 2.0;
+        for (const double mirror : {1.0, -1.0}) {
+            for (const Shape &shape : motif) {
+                QStringList pts;
+                for (const QPointF &p : shape.polar) {
+                    const double a = base + mirror * p.y();
+                    pts << QStringLiteral("%1,%2")
+                               .arg(QString::number(kC + p.x() * std::cos(a), 'f', 2),
+                                    QString::number(kC + p.x() * std::sin(a), 'f', 2));
+                }
+                parts << QStringLiteral("<polygon points=\"%1\" fill=\"%2\"/>")
+                             .arg(pts.join(QLatin1Char(' ')), shape.fill);
+            }
+        }
+    }
+
+    return QStringLiteral("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" "
+                          "height=\"100\">\n%1\n</svg>\n")
+        .arg(parts.join(QLatin1Char('\n')))
+        .toUtf8();
 }
 
 inline const char *aboutText()

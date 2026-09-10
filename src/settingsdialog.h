@@ -17,6 +17,7 @@ class QLabel;
 class QLineEdit;
 class QScrollArea;
 class QSlider;
+class QToolButton;
 
 class SettingsDialog : public QDialog
 {
@@ -56,7 +57,7 @@ private:
 
     void onChanged(const QObject *sender = nullptr);
     void onBrowse();
-    void onPresetClicked(const Preset &preset);
+    void onPresetClicked(const Preset &preset, QToolButton *button = nullptr);
     void onResetClicked();
     // What the Reset button's question came back with.
     enum class ResetTo { Cancelled, Opened, Factory };
