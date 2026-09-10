@@ -577,10 +577,31 @@ dial the app icon is drawn from (`builtin:icon`); a silver dial under a dark rim
 (`builtin:silver`), which is the same gradient running the other way; a
 honeycomb (`builtin:honeycomb`), whose lit wax walls take the face colour and
 whose cells take the wire colour; and a spiral (`builtin:spiral`), one arm
-winding six turns out of the hub and broadening into the rim, which takes those two colours the
+winding out of the hub and broadening into the rim, which takes those two colours the
 other way round -- the dial is the face colour and the arm the wire. Whichever is in use, the
 *Clock face svg* field names it when no file of your own is loaded; clicking a
 preset is how you return to a built-in face.
+
+The spiral's winding tightens as it goes in. An Archimedean spiral -- the
+obvious one, where the radius keeps pace with the angle -- puts the same gap
+between every pair of turns from hub to rim, and that evenness is the thing no
+shell or fern or galaxy has; it reads as drawn by a machine. Raising the radius
+to a power of the angle instead closes the gap up towards the middle, the
+spacing falling off as the radius does, and the face stops looking set out with
+a ruler.
+
+The exponent is 1.5, and it is a ceiling rather than a taste. The gap between
+the first and second turns collapses as the exponent climbs -- near seven units
+of the hundred-wide artwork at 1.0, under three at 1.5, under one at 2.0 -- and
+the face has to hold together drawn at ninety pixels across, where anything
+below about one and a half units fills in and the hub goes to a smudge. The
+turn count is tied to the exponent for a related reason: tightening the middle
+without widening the outside needs more turns to fill the same disc, so the arm
+now winds about eight and a half times rather than six, which leaves the rim
+spacing where it was and spends the whole of the taper on the middle.
+
+`tools/gen_spiral.py` generates the artwork, and the two laws are the first
+things in it. The face before the taper is tagged `spiral-v1`.
 
 The sixth is the kaleidoscope (`builtin:kaleidoscope:<seed>`), and it is the
 only one that is not drawn in advance but worked out when it is asked for. Its
