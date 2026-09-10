@@ -809,17 +809,20 @@ void SettingsDialog::refreshTitle()
                                    : QStringLiteral("Clock Settings \u2014 ") + which);
 }
 
-void SettingsDialog::nudgeSize(int steps, bool coarse)
+void SettingsDialog::nudgeSize(int steps, bool fine)
 {
     // A step is a fixed share of the size rather than a fixed number of
     // pixels, so a notch of the wheel is the same visible change whatever the
     // clock is: five pixels is a fifth of a small clock and nothing at all on
-    // a large one.  Coarse multiplies that, matching the pivot nudge, where
-    // Shift is likewise the bigger move.
+    // a large one.
+    //
+    // The plain wheel takes the big step and Shift the small one, which is the
+    // way round a wheel is actually used: you spin it to get somewhere and
+    // then want to creep the last bit, and creeping is the part worth holding
+    // a key for.
     const int value = m_size->value();
-    int step = std::max(1, static_cast<int>(std::lround(value * 0.02)));
-    if (coarse)
-        step *= 5;
+    const int step = fine ? std::max(1, static_cast<int>(std::lround(value * 0.02)))
+                          : std::max(1, static_cast<int>(std::lround(value * 0.10)));
     m_size->setValue(std::clamp(value + steps * step, m_size->minimum(), m_size->maximum()));
 }
 

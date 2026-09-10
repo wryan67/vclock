@@ -1451,7 +1451,7 @@ void ClockWindow::showHelp()
             "Left drag &mdash; move the clock<br>"
             "Double click &mdash; settings<br>"
             "Right click &mdash; menu<br>"
-            "Wheel &mdash; resize, while settings are open<br>"
+            "Wheel &mdash; resize, while settings are open (Shift for finer steps)<br>"
             "<br><b>Keyboard</b><br>"
             "%1+S &mdash; settings<br>"
             "%1+M &mdash; carry the clock on the pointer<br>"

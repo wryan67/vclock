@@ -442,7 +442,7 @@ than were asked for.
 | Hover | the date and time, spelled out |
 | Left drag | move the clock |
 | Double click | settings |
-| Wheel | resize, while Settings is open (`Shift` for bigger steps) |
+| Wheel | resize, while Settings is open (`Shift` for finer steps) |
 | Right click | menu (Always on top, Manage clocks, Settings, Move, Reset defaults, Help, About, Hide, Quit) |
 | `Ctrl`/`Cmd`+K | manage clocks |
 | `Ctrl`/`Cmd`+S | settings |
@@ -479,11 +479,13 @@ open. The rest of the time the clock is a thing sitting on the desktop, and a
 wheel over it belongs to whatever is underneath; with Settings open you are
 plainly adjusting this clock, and the wheel sizes it against what is behind it
 -- which the size slider cannot show you, because the dialog is in the way.
-Each notch is two percent of the current size rather than a fixed number of
-pixels, so it is the same visible change on a large clock as on a small one,
-and `Shift` makes the step five times bigger. It moves the slider rather than
-the clock directly, so the number on screen keeps up and Cancel still puts back
-the size you started with.
+Each notch is a tenth of the current size rather than a fixed number of pixels,
+so it is the same visible change on a large clock as on a small one, and
+`Shift` cuts the step to two percent. The plain wheel is the coarse one on
+purpose: you spin a wheel to cross a distance and then creep the last little
+way, and creeping is the part worth holding a key for. It moves the slider
+rather than the clock directly, so the number on screen keeps up and Cancel
+still puts back the size you started with.
 
 The clock refuses to be minimised, maximised, or made full screen, whether the
 request comes from the window manager, a "show desktop" key, or a tiling

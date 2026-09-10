@@ -35,7 +35,7 @@ public:
     // does.  Routed through the slider rather than straight at the clock so the
     // dialog keeps showing the truth, and so Cancel still puts back the size
     // the clock had when it opened.
-    void nudgeSize(int steps, bool coarse);
+    void nudgeSize(int steps, bool fine);
     // The window title carries the clock's name, which the user can change
     // from the manage dialog while this one is open.
     void refreshTitle();
