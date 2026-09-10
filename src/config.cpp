@@ -507,6 +507,11 @@ void copyPresetKeys(const Config &from, Config &to)
     to.wireColor = from.wireColor;
     to.faceColorRandom = from.faceColorRandom;
     to.wireColorRandom = from.wireColorRandom;
+    // Regeneration goes with the two flags above rather than with the interval
+    // beside it.  A preset names the colours it wants, and asking for named
+    // colours is asking to keep them; the number of minutes is a preference of
+    // the user's own and no business of the preset's, so it is left alone.
+    to.faceRegen = from.faceRegen;
     to.hourMarkColor = from.hourMarkColor;
     to.minuteMarkColor = from.minuteMarkColor;
 }

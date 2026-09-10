@@ -1004,12 +1004,18 @@ void SettingsDialog::syncSwatches()
     m_wireRandom->setEnabled(live);
     m_faceCycle->setEnabled(live && m_faceRandom->isChecked());
 
-    // Regenerating is asking for the same things again that the two rows above
-    // hold, so it is live in exactly the cases they are.  Where they are dead
-    // -- a drawn face left as its author coloured it -- there is nothing for a
-    // timer to change, and an enabled box that did nothing would say otherwise.
-    m_regen->setEnabled(live);
-    m_regenMinutes->setEnabled(live && m_regen->isChecked());
+    // Regenerating asks again for the things the two rows above hold: a new
+    // pattern where the face has one, and a new colour wherever the colour was
+    // rolled rather than chosen.  So it is offered only where at least one of
+    // those is true.  A drawn face in two colours the user picked has nothing
+    // for a timer to change, and a box that could be ticked and then do
+    // nothing is the one thing worse than not offering it.
+    const bool generated = faceSvg().startsWith(kBuiltinFacePrefix + kKaleidoscopeFace
+                                                + QLatin1Char(':'));
+    const bool rerollable =
+        generated || (live && (m_faceRandom->isChecked() || m_wireRandom->isChecked()));
+    m_regen->setEnabled(rerollable);
+    m_regenMinutes->setEnabled(rerollable && m_regen->isChecked());
     m_wireCycle->setEnabled(live && m_wireRandom->isChecked());
     // The swatch carries the face's own opacity, so a face faded to nothing
     // reads as the checkerboard rather than as a colour that does not show.

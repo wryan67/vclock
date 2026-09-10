@@ -820,9 +820,15 @@ a clock.
 It is offered for every face, not only the generated one. Only the kaleidoscope
 has a pattern to ask again for, but every face has the two colours it is painted
 in, and a dial that repaints itself every few minutes is worth having whether or
-not the shapes underneath it move. Where neither colour is marked as random
-there is nothing left to change, and the timer quietly does nothing -- which is
-the honest answer to a face whose colours were all chosen by hand.
+not the shapes underneath it move. It is offered only where there is something
+to ask for, though: a drawn face in two colours you picked yourself has nothing
+a timer could change, so the row greys out until one of the colours is marked as
+random again.
+
+Clicking a preset turns it off, for the same reason the preset unticks both
+**random** boxes -- a preset names the colours it wants, and asking for named
+colours is asking to keep them. The interval is left as you set it, being a
+preference of yours rather than part of any look.
 
 A fresh face is drawn at startup too, whenever the setting is on. Without that,
 a clock started and stopped inside the interval would show the same face for
