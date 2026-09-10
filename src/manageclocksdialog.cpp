@@ -170,6 +170,26 @@ ManageClocksDialog::ManageClocksDialog(QWidget *parent) : QDialog(nullptr)
             beginEdit(row);
     });
 
+    // Delete on the selected row hides that clock: it unticks Show, which is
+    // exactly what the box beside it does.  Not what Delete usually means in a
+    // list, and deliberately so.  Deleting here erases a config file for good,
+    // and a key that does that on one press with nothing selected but a
+    // highlight is a key that will one day be pressed by mistake.  Hiding is
+    // the reversible neighbour of it, and it is what Esc on the clock itself
+    // already does, so the key lands on the thing you can take back.  The Del
+    // button in the row still removes the clock, and still asks first.
+    auto *hide = new QShortcut(QKeySequence(Qt::Key_Delete), this);
+    hide->setContext(Qt::WidgetWithChildrenShortcut);
+    connect(hide, &QShortcut::activated, this, [this] {
+        const int row = m_table->currentRow();
+        if (row < 0 || editing())
+            return;
+        if (auto *show = controlIn<QCheckBox>(m_table, row, ColShow)) {
+            if (show->isChecked())
+                show->setChecked(false);  // toggled() closes the clock
+        }
+    });
+
     // The delegate tells commit from cancel: Enter reaches commitData first,
     // Escape closes the editor without it.  A click is the awkward case.  Qt
     // looks up the parent chain from whatever was clicked for something that
