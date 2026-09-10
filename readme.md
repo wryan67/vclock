@@ -590,7 +590,24 @@ after a save, a reload, or a copy to another clock. It is also the only
 built-in in full colour, so it wants *Original* colouring; recolouring would
 flatten it to two tones, which is the one thing this face is not. Clicking the
 **Kaleidoscope** preset rolls a new seed each time, and the preset's own
-thumbnail is redrawn to show what you just got.
+thumbnail is redrawn to show what you just got. A colour you chose by hand is
+carried across the reroll, but one you left marked as rolled is rolled again
+along with the seed -- otherwise clicking for another kaleidoscope would hand
+back the same line colour and look as though the button had half missed.
+
+Because the palette is several colours, the *Face color* swatch beside it would
+otherwise be showing one colour out of many and no particular one. So the dial
+is made to agree with the swatch instead: whichever colour comes out covering
+more of the face than any other is repainted in the chosen one, everywhere it
+appears. Doing it that way round rather than reading the colour off the finished
+drawing matters, because a colour read off the drawing would feed back into the
+next drawing of it and never settle.
+
+Switching the kaleidoscope from *Recolor* back to *Original* rolls a fresh pair
+of colours and marks both as rolled. The two colours mean different things
+either side of that switch -- ramp ends under *Recolor*, the paint the picture
+is built out of under *Original* -- and a pair picked to make a good ramp is not
+a pair anyone chose to be drawn in.
 
 Every shape is outlined, which is what stops a dozen wedges of flat colour from
 running together into a smear. The lines widen with the radius they are drawn
