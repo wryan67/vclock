@@ -6,6 +6,7 @@
 #include <QColor>
 #include <QFileInfo>
 #include <QPainter>
+#include <QRegularExpression>
 #include <QSvgRenderer>
 #include <QtGlobal>
 
@@ -20,6 +21,77 @@ namespace {
 // A name may carry an argument after a colon, which is how the kaleidoscope
 // keeps its seed: "kaleidoscope:12345" is one particular random face, and the
 // same digits give the same drawing every time.
+// Make the face colour the one the dial is mostly painted in.
+//
+// A many-hued kaleidoscope has no single colour, but the swatch beside it has
+// to show something, and the honest answer is whichever colour covers most of
+// the dial.  Rather than read that colour off the picture and put it in the
+// swatch -- which would feed straight back into the next drawing and never
+// settle -- the picture is changed to agree with the swatch: the colour that
+// wins the most ground is replaced by the chosen one everywhere it appears.
+// So the colour goes in, and the same colour comes back out as the one a
+// glance would name.
+//
+// Only fills are counted.  The line work is stroked, and it has a swatch of
+// its own already.
+QByteArray anchorFaceColor(const QByteArray &svg, const QString &faceHex)
+{
+    const QColor face(faceHex);
+    if (!face.isValid())
+        return svg;
+
+    QStringList candidates;
+    static const QRegularExpression fill(QStringLiteral("fill=\"(#[0-9a-fA-F]{6})\""));
+    auto it = fill.globalMatch(QString::fromUtf8(svg));
+    while (it.hasNext()) {
+        const QString hex = it.next().captured(1).toLower();
+        if (!candidates.contains(hex))
+            candidates.append(hex);
+    }
+    if (candidates.size() < 2)
+        return svg;
+
+    QSvgRenderer renderer(svg);
+    if (!renderer.isValid())
+        return svg;
+    // Small enough to be cheap, large enough that the shares come out in the
+    // same order they would at any size.
+    QImage shot(160, 160, QImage::Format_ARGB32_Premultiplied);
+    shot.fill(Qt::transparent);
+    {
+        QPainter painter(&shot);
+        renderer.render(&painter, QRectF(0, 0, shot.width(), shot.height()));
+    }
+
+    QVector<int> counts(candidates.size(), 0);
+    QVector<QRgb> keys;
+    keys.reserve(candidates.size());
+    for (const QString &hex : candidates)
+        keys.append(QColor(hex).rgb() & 0xffffff);
+    for (int y = 0; y < shot.height(); ++y) {
+        const QRgb *row = reinterpret_cast<const QRgb *>(shot.constScanLine(y));
+        for (int x = 0; x < shot.width(); ++x) {
+            if (qAlpha(row[x]) < 250)
+                continue;
+            const int at = keys.indexOf(row[x] & 0xffffff);
+            if (at >= 0)
+                ++counts[at];
+        }
+    }
+
+    int winner = 0;
+    for (int i = 1; i < counts.size(); ++i)
+        if (counts[i] > counts[winner])
+            winner = i;
+    if (counts[winner] == 0)
+        return svg;
+
+    QByteArray out = svg;
+    out.replace(QStringLiteral("fill=\"%1\"").arg(candidates[winner]).toUtf8(),
+                QStringLiteral("fill=\"%1\"").arg(face.name()).toUtf8());
+    return out;
+}
+
 QByteArray builtinFaceData(const QString &name, const QString &faceHex = QString(),
                            const QString &wireHex = QString(), bool multiHue = false)
 {
@@ -31,9 +103,15 @@ QByteArray builtinFaceData(const QString &name, const QString &faceHex = QString
         return honeycombFaceSvg();
     if (name == QLatin1String("spiral"))
         return spiralFaceSvg();
-    if (name.startsWith(kKaleidoscopeFace + QLatin1Char(':')))
-        return kaleidoscopeFaceSvg(name.mid(kKaleidoscopeFace.size() + 1).toULongLong(),
-                                   faceHex, wireHex, multiHue);
+    if (name.startsWith(kKaleidoscopeFace + QLatin1Char(':'))) {
+        const QByteArray art =
+            kaleidoscopeFaceSvg(name.mid(kKaleidoscopeFace.size() + 1).toULongLong(), faceHex,
+                                wireHex, multiHue);
+        // Only worth doing when the palette is many hues.  A single-hue face is
+        // already shades of the chosen colour, and a face drawn in grey for
+        // recolouring must keep its greys or the ramp loses its middle.
+        return multiHue ? anchorFaceColor(art, faceHex) : art;
+    }
     return QByteArray();
 }
 
