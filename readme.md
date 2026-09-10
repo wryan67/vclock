@@ -1061,7 +1061,12 @@ and so does `F2` on the selected row, as in a file manager. `Enter` saves the
 new name and `Escape` abandons it.
 
 The selected row can be worked without the mouse. `Space` shows or hides its
-clock, which is the row's Show box and so the thing a space is for. `Delete`
+clock, which is the row's Show box and so the thing a space is for. `Enter`
+opens that clock's settings, putting it on screen first if it was hidden, since
+there is nothing to change the look of otherwise. `Enter` used to make a new
+clock, because a dialog gives it to the first button that will be the default
+one and New clock was that button -- an answer to a question the highlight was
+not asking. Neither button takes it now. `Delete`
 hides it too rather than deleting it: deleting erases a config file for good,
 and a key that does that on one press, with nothing but a highlight to say
 which row it means, is a key that will one day be pressed by mistake. Hiding is
@@ -1085,6 +1090,12 @@ is the clock the program falls back on, so it is always in the same place.
 comes up on screen with its settings already open, since making a clock is the
 point at which you have something in mind for it, and it saves going back to the
 list to ask. Leaving the name blank, or pressing `Escape`, drops the new row.
+
+`Ctrl`+N is the key for it, the key every program that makes things uses, and
+it works from a clock as well as from this dialog: pressed on a clock it brings
+the list up and starts the new row in it, because a clock is made by being named
+in the list and so there is nowhere else for the key to go. It is in the clock's
+right click menu beside Manage clocks for the same reason.
 
 The Default clock cannot be renamed, so where its Name button would be there is
 a clone button instead, which makes a clock that starts out as a copy of it.

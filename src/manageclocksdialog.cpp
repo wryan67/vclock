@@ -114,6 +114,18 @@ void ManageClocksDialog::showDialog(QWidget *parent)
     s_instance->activateWindow();
 }
 
+void ManageClocksDialog::newClockIn(QWidget *parent)
+{
+    showDialog(parent);
+    // Deferred so the dialog is on screen and has the keyboard before the row
+    // opens its name editor.  Asking a window that is still being mapped to
+    // start an edit gives the typing to whatever had the focus before.
+    QTimer::singleShot(0, s_instance, [] {
+        if (s_instance)
+            s_instance->newClock();
+    });
+}
+
 // Deliberately parentless.  The dialog outlives the clock its menu was opened
 // from -- unchecking that clock's Show box closes it, and a child of a window
 // being deleted is deleted with it, which would take this dialog down mid-use.
@@ -212,13 +224,29 @@ ManageClocksDialog::ManageClocksDialog(QWidget *parent) : QDialog(nullptr)
 
     m_newButton = new QPushButton(glyphIcon(Glyph::New, GlyphRole::Go), QStringLiteral("New clock"));
     m_newButton->setIconSize(QSize(18, 18));
+    m_newButton->setToolTip(QStringLiteral("Add a clock to the list (%1)")
+                                .arg(QKeySequence(QKeySequence::New)
+                                         .toString(QKeySequence::NativeText)));
     connect(m_newButton, &QPushButton::clicked, this, &ManageClocksDialog::newClock);
+
+    // Ctrl+N makes a clock, the key every program that makes things uses for
+    // it, and the reason Enter is free to do the obvious thing on a row.
+    auto *create = new QShortcut(QKeySequence::New, this);
+    create->setContext(Qt::WidgetWithChildrenShortcut);
+    connect(create, &QShortcut::activated, this, &ManageClocksDialog::newClock);
 
     auto *buttons = new QDialogButtonBox(this);
     buttons->addButton(m_newButton, QDialogButtonBox::ActionRole);
     auto *close = buttons->addButton(QDialogButtonBox::Close);
     close->setIcon(glyphIcon(Glyph::Cancel, GlyphRole::Neutral));
     close->setIconSize(QSize(18, 18));
+    // Neither button answers to Enter.  A dialog hands Enter to the first
+    // button willing to be the default one, and this dialog is a list rather
+    // than a question: Enter belongs to the row that is highlighted.
+    m_newButton->setAutoDefault(false);
+    m_newButton->setDefault(false);
+    close->setAutoDefault(false);
+    close->setDefault(false);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::close);
 
     // Whether the desktop starts vclock at login.  It belongs here rather than
@@ -567,6 +595,18 @@ bool ManageClocksDialog::eventFilter(QObject *watched, QEvent *event)
                 if (auto *show = controlIn<QCheckBox>(m_table, row, ColShow))
                     show->setChecked(!show->isChecked());  // toggled() opens or closes it
             }
+            return true;
+        }
+        // Enter opens the highlighted clock's settings, which is what Enter on
+        // a list means everywhere else: open the thing that is selected.  It
+        // used to make a new clock, because a dialog gives Enter to its
+        // default button and the New clock button was the first one there --
+        // an answer to a question the highlight was not asking.
+        if ((key->key() == Qt::Key_Return || key->key() == Qt::Key_Enter)
+            && !key->modifiers() && !editing()) {
+            const int row = m_table->currentRow();
+            if (row >= 0)
+                openRowSettings(row);
             return true;
         }
     }

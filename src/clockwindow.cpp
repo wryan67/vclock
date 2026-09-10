@@ -1095,6 +1095,9 @@ void ClockWindow::keyPressEvent(QKeyEvent *event)
         case Qt::Key_K:
             manageClocks();
             return;
+        case Qt::Key_N:
+            newClock();
+            return;
         case Qt::Key_M:
             startMoveMode();
             return;
@@ -1376,6 +1379,12 @@ void ClockWindow::buildMenu()
     QAction *manage = m_menu->addAction(menuHotkey(QStringLiteral("Manage clocks"), "K"));
     connect(manage, &QAction::triggered, this, &ClockWindow::manageClocks);
 
+    // Next to Manage clocks because that is where it lands: a new clock is
+    // made by being named in the list, so the list comes up with the name
+    // waiting to be typed.
+    QAction *create = m_menu->addAction(menuHotkey(QStringLiteral("New clock"), "N"));
+    connect(create, &QAction::triggered, this, &ClockWindow::newClock);
+
     QAction *settings = m_menu->addAction(menuHotkey(QStringLiteral("Settings"), "S"));
     connect(settings, &QAction::triggered, this, &ClockWindow::openSettings);
 
@@ -1423,6 +1432,11 @@ void ClockWindow::buildMenu()
 void ClockWindow::manageClocks()
 {
     ManageClocksDialog::showDialog(this);
+}
+
+void ClockWindow::newClock()
+{
+    ManageClocksDialog::newClockIn(this);
 }
 
 void ClockWindow::applyAlwaysOnTop()
@@ -1607,6 +1621,7 @@ void ClockWindow::showHelp()
             "%1+S &mdash; settings<br>"
             "%1+M &mdash; carry the clock on the pointer<br>"
             "%1+K &mdash; manage clocks<br>"
+            "%1+N &mdash; new clock<br>"
             "F1 &mdash; this help<br>"
             "%1+A &mdash; about<br>"
             "%1+R &mdash; reset defaults<br>"

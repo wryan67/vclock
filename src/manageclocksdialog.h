@@ -24,6 +24,11 @@ public:
     // single shared list, so a second copy could only disagree with the first.
     static void showDialog(QWidget *parent);
 
+    // Bring the dialog up and start a new clock in it.  A clock is made by
+    // being named in the list, so there is nowhere else for Ctrl+N to go: the
+    // list is the thing that would have to appear anyway.
+    static void newClockIn(QWidget *parent);
+
     ~ManageClocksDialog() override;
 
 private:

@@ -99,6 +99,7 @@ public:
     Config defaultConfig() const;
 
     void manageClocks();
+    void newClock();
 
     // Re-read this clock's display name, which the manage dialog can change
     // while the clock is up.
