@@ -57,6 +57,8 @@ public:
 
     // Apply a settings record to the live widget (used for preview too).
     void applySettings(const Config &values);
+    void regenerateFace();
+    void syncRegenTimer();
 
     // Largest allowed clock size: the height of the screen it sits on.
     int maxSize() const;
@@ -211,6 +213,7 @@ private:
     QTimer *m_tick = nullptr;
     QTimer *m_saveTimer = nullptr;
     QTimer *m_rebuildTimer = nullptr;
+    QTimer *m_regenTimer = nullptr;
     int m_lastSecond = -1;
     // Wheel notches arrive as 120ths of a degree turned, and a trackpad sends
     // a stream of small deltas rather than whole notches, so the remainder is

@@ -211,6 +211,17 @@ ClockWindow::ClockWindow(const QString &configPath)
     applyTickRate();
     m_tick->start();
 
+    // A generated face can be asked for again at no cost, so it can be left to
+    // change itself on a timer.  Starting with a fresh one matters as much as
+    // the timer does: without it a clock that is started and stopped inside the
+    // interval shows the same face for ever, which is the opposite of what
+    // asking for a new one every few minutes was for.
+    m_regenTimer = new QTimer(this);
+    connect(m_regenTimer, &QTimer::timeout, this, [this] { regenerateFace(); });
+    if (m_cfg.faceRegen)
+        regenerateFace();
+    syncRegenTimer();
+
     connect(qApp, &QGuiApplication::screenRemoved, this,
             [this](QScreen *) { handleScreenRemoved(); });
 }
@@ -333,6 +344,39 @@ void ClockWindow::rebuildRaster()
 void ClockWindow::scheduleRebuild()
 {
     m_rebuildTimer->start();
+}
+
+// Ask the face for a different one, the way clicking the Kaleidoscope preset
+// again does.  Nothing happens to a face that is not generated, and nothing
+// happens while the settings dialog is open: the dialog holds a copy of these
+// values to preview from, and a face changed behind its back would be undone
+// by the next control the user touched.
+void ClockWindow::regenerateFace()
+{
+    if (!m_cfg.generatedFace() || m_settings)
+        return;
+    Config next = m_cfg;
+    rerollGeneratedFace(next);
+    applySettings(next);
+    queueSave();
+}
+
+// The interval is only read when the timer is started, so it has to be
+// restarted whenever the setting moves.
+void ClockWindow::syncRegenTimer()
+{
+    if (!m_regenTimer)
+        return;
+    if (!m_cfg.faceRegen || !m_cfg.generatedFace()) {
+        m_regenTimer->stop();
+        return;
+    }
+    const int interval = qBound(kRegenMinutesMin, m_cfg.faceRegenMinutes, kRegenMinutesMax)
+                         * 60 * 1000;
+    if (!m_regenTimer->isActive() || m_regenTimer->interval() != interval) {
+        m_regenTimer->setInterval(interval);
+        m_regenTimer->start();
+    }
 }
 
 void ClockWindow::queueSave()
@@ -1514,8 +1558,13 @@ void ClockWindow::applySettings(const Config &values)
     const bool changedSize = values.size != m_cfg.size;
     const bool changedOnTop = values.alwaysOnTop != m_cfg.alwaysOnTop;
     const bool changedSmooth = values.smoothSweep != m_cfg.smoothSweep;
+    const bool changedRegen = values.faceRegen != m_cfg.faceRegen
+                              || values.faceRegenMinutes != m_cfg.faceRegenMinutes
+                              || values.generatedFace() != m_cfg.generatedFace();
 
     m_cfg = values;
+    if (changedRegen)
+        syncRegenTimer();
     if (changedOnTop)
         syncAlwaysOnTop();
     if (changedSmooth)
