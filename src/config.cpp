@@ -253,8 +253,13 @@ Config loadConfig(const QString &requested)
     cfg.minuteColor = readString(o, "minute_color", kDefaults.minuteColor);
     cfg.faceColor = readString(o, "face_color", kDefaults.faceColor);
     cfg.wireColor = readString(o, "wire_color", kDefaults.wireColor);
-    cfg.faceColorRandom = readBool(o, "face_color_random", kDefaults.faceColorRandom);
-    cfg.wireColorRandom = readBool(o, "wire_color_random", kDefaults.wireColorRandom);
+    // Deliberately not the old face_color_random / wire_color_random.  Those
+    // keys answered a different question -- whether the face chose its own
+    // colours -- and were written true by default, so reading them here would
+    // start every clock saved by that version with a tick it never asked for.
+    // The new key is absent from those files, which is the right answer.
+    cfg.faceColorRandom = readBool(o, "face_color_rolled", kDefaults.faceColorRandom);
+    cfg.wireColorRandom = readBool(o, "wire_color_rolled", kDefaults.wireColorRandom);
     cfg.hourMarkColor = readString(o, "hour_mark_color", kDefaults.hourMarkColor);
     cfg.minuteMarkColor = readString(o, "minute_mark_color", kDefaults.minuteMarkColor);
 
@@ -325,8 +330,8 @@ void saveConfig(const Config &cfg, const QString &requested)
     o.insert(QStringLiteral("face_color"), cfg.faceColor);
     o.insert(QStringLiteral("face_recolor"), cfg.faceRecolor);
     o.insert(QStringLiteral("wire_color"), cfg.wireColor);
-    o.insert(QStringLiteral("face_color_random"), cfg.faceColorRandom);
-    o.insert(QStringLiteral("wire_color_random"), cfg.wireColorRandom);
+    o.insert(QStringLiteral("face_color_rolled"), cfg.faceColorRandom);
+    o.insert(QStringLiteral("wire_color_rolled"), cfg.wireColorRandom);
     o.insert(QStringLiteral("hour_mark_color"), cfg.hourMarkColor);
     o.insert(QStringLiteral("minute_mark_color"), cfg.minuteMarkColor);
 
