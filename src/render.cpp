@@ -215,22 +215,35 @@ const QVector<Preset> &presets()
         // the same way, and the dial shows the desktop through it exactly as
         // Smoked does.
         //
-        // What does change is the marks. The dial is drawn in one weight -- the
-        // arm thins to the rim's width and merges into it -- so the hours are
-        // grown until they sit in that same weight and no heavier: at this
-        // scale they measure a little under the rim's own stroke, which reads
-        // as of a piece with it rather than as a bolder set of marks laid over
-        // it. They sit just clear of the rim rather than out beyond it, and the
-        // minute track is dropped, sixty more ticks in that weight being a
-        // second fine ring competing with the one the spiral ends in.
+        // What changes is everything laid over the dial, and it all goes the
+        // same way: off.  The spiral is already a drawing that fills the face
+        // and leads the eye out to the rim, and marks set around that rim only
+        // fence it in; the minute track adds sixty more ticks in the rim's own
+        // weight, which reads as a second fine ring competing with the one the
+        // spiral ends in, and the hours do the same more sparsely.  So neither
+        // is drawn, and the dial is left to be the drawing.  Time is read off
+        // two hands against the turns of the arm, which is as much as a face
+        // like this is for.
+        //
+        // The second hand goes with them.  It is the one part that moves
+        // visibly, and against a still spiral that is the only thing the eye
+        // will settle on.
+        //
+        // The mark settings are still carried, because a preset writes every
+        // key it owns and they are what the marks return to if the size is
+        // turned back up: just clear of the rim, and in a silver a shade under
+        // the hands so that turning them on does not put anything on the dial
+        // heavier than the hands are.
         Preset spiral = smoked;
         spiral.name = QStringLiteral("Spiral");
         spiral.tip = QStringLiteral("The smoked glass dial as a spiral, with the desktop "
                                     "showing through");
         spiral.values.faceSvg = kBuiltinFacePrefix + QStringLiteral("spiral");
-        spiral.values.markScale = 175;
+        spiral.values.markScale = 0;       // no hour marks
         spiral.values.markPosition = 104;
-        spiral.values.minuteMarkScale = 0;
+        spiral.values.minuteMarkScale = 0;  // no minute track
+        spiral.values.hourMarkColor = QStringLiteral("#dfdfdf");
+        spiral.values.showSecond = false;
         out.append(spiral);
 
         return out;

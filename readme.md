@@ -442,6 +442,7 @@ than were asked for.
 | Hover | the date and time, spelled out |
 | Left drag | move the clock |
 | Double click | settings |
+| Wheel | resize, while Settings is open (`Shift` for bigger steps) |
 | Right click | menu (Always on top, Manage clocks, Settings, Move, Reset defaults, Help, About, Hide, Quit) |
 | `Ctrl`/`Cmd`+K | manage clocks |
 | `Ctrl`/`Cmd`+S | settings |
@@ -472,6 +473,17 @@ A drag only begins once the pointer has actually travelled a few pixels, so a
 double click that stays put opens Settings instead of being swallowed by the
 start of a move. The clock therefore trails the pointer by that small threshold
 for the rest of a drag, which is the ordinary feel of dragging anything.
+
+The wheel over the clock resizes it, but only while its Settings dialog is
+open. The rest of the time the clock is a thing sitting on the desktop, and a
+wheel over it belongs to whatever is underneath; with Settings open you are
+plainly adjusting this clock, and the wheel sizes it against what is behind it
+-- which the size slider cannot show you, because the dialog is in the way.
+Each notch is two percent of the current size rather than a fixed number of
+pixels, so it is the same visible change on a large clock as on a small one,
+and `Shift` makes the step five times bigger. It moves the slider rather than
+the clock directly, so the number on screen keeps up and Cancel still puts back
+the size you started with.
 
 The clock refuses to be minimised, maximised, or made full screen, whether the
 request comes from the window manager, a "show desktop" key, or a tiling
@@ -637,9 +649,10 @@ to about a quarter, **Clear glass** has no dial at all, only a pale rim, heavy
 hour marks and hands hanging over the wallpaper, and **Spiral** is Smoked glass
 on a dial of its own -- a single silver arm leaving the centre as a hairline,
 winding six turns and thickening as it goes until it runs out through the edge,
-its last stretch merged into the rim. The whole dial is drawn in
-one weight: the hour marks are grown to sit just under the rim's own stroke, and
-the minute track is dropped, so nothing competes with the sweep.
+its last stretch merged into the rim. Nothing else is drawn on it: no hour
+marks, no minute track and no second hand, because the spiral is already a
+drawing that fills the face, and marks set around the rim only fence it in. The
+time is read off two hands against the turns of the arm.
 
 Every thumbnail is the clock and nothing else -- no backdrop, no checkerboard,
 nothing to say "this one is transparent". A see-through preset simply lets the
