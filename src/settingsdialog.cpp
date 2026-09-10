@@ -98,6 +98,28 @@ void centreMiddleItem(QHBoxLayout *row, QWidget *left, QWidget *right)
         row->addSpacing(leftWidth - rightWidth);
 }
 
+// Tie an "enabled" box to the size slider that decides whether the thing is
+// drawn at all.  Two views of one setting, so the binding runs both ways, and
+// the size the slider held when it was turned off is kept so that turning it
+// back on returns what was there rather than a default.
+void bindShown(QCheckBox *box, QSlider *slider, int &remembered)
+{
+    remembered = slider->value() > 0 ? slider->value() : 100;
+    box->setChecked(slider->value() > 0);
+    QObject::connect(box, &QCheckBox::toggled, slider, [box, slider, &remembered](bool on) {
+        if (on == (slider->value() > 0))
+            return;
+        const QSignalBlocker blockBox(box);  // the slider will tick it for us
+        slider->setValue(on ? remembered : 0);
+    });
+    QObject::connect(slider, &QSlider::valueChanged, box, [box, &remembered](int value) {
+        if (value > 0)
+            remembered = value;
+        const QSignalBlocker block(box);  // setting the box back would fight the slider
+        box->setChecked(value > 0);
+    });
+}
+
 }  // namespace
 
 SettingsDialog::SettingsDialog(ClockWindow *clock)
@@ -183,6 +205,13 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     chooserGrid->setHorizontalSpacing(10);
     int crow = 0;
 
+    // Size heads the page.  It is the one setting that is about the clock
+    // rather than about any part of it, and it is the one reached most often,
+    // so it goes where the dialog opens rather than on a page of its own.
+    const int maxSize = m_clock->maxSize();
+    m_size = addSlider(chooserGrid, crow++, QStringLiteral("Clock size (px)"), cfg.size,
+                       kSizeMin, maxSize, false);
+
     addLabel(chooserGrid, QStringLiteral("Image"), crow);
     auto *faceRow = new QHBoxLayout;
     faceRow->setSpacing(6);
@@ -230,29 +259,7 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     chooserGrid->setColumnStretch(1, 1);
     chooserGrid->setRowStretch(crow, 1);
 
-    // --------------------------------------------------------- sizes tab
-    auto *sizesBox = new QWidget;
-    auto *sizesGrid = new QGridLayout(sizesBox);
-    sizesGrid->setHorizontalSpacing(10);
-    sizesGrid->setVerticalSpacing(8);
-    int srow = 0;
-
-    const int maxSize = m_clock->maxSize();
-    m_size = addSlider(sizesGrid, srow++, QStringLiteral("Clock size (px)"), cfg.size, kSizeMin,
-                       maxSize, false);
-    m_handScale = addSlider(sizesGrid, srow++, QStringLiteral("Hand size (%)"), cfg.handScale,
-                            kHandScaleMin, kHandScaleMax, true);
-    m_markScale = addSlider(sizesGrid, srow++, QStringLiteral("Hour mark size (%)"),
-                            cfg.markScale, kMarkScaleMin, kMarkScaleMax, true);
-    m_markPosition = addSlider(sizesGrid, srow++, QStringLiteral("Hour mark position (%)"),
-                               cfg.markPosition, kMarkScaleMin, kMarkScaleMax, true);
-    m_minuteMarkScale = addSlider(sizesGrid, srow++, QStringLiteral("Minute mark size (%)"),
-                                  cfg.minuteMarkScale, kMarkScaleMin, kMarkScaleMax, true);
-    m_minuteMarkScale->setToolTip(
-        QStringLiteral("Percentage of the hour mark size. 0 hides the minute marks."));
-    sizesGrid->setRowStretch(srow, 1);
-
-    // ------------------------------------------------------- opacity tab
+    // --------------------------------------------------------- opacity tab
     //
     // Each part of the drawing fades on its own, so a face can wash out to
     // bare wire over the wallpaper while the hands stay solid.  The two sync
@@ -315,10 +322,19 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     handsGrid->setHorizontalSpacing(10);
     int hrow = 0;
 
-    handsGrid->addWidget(m_smoothSweep, hrow, 0, 1, 2);
+    // The two switches share a row.  Neither has a long label and neither
+    // needs a column of its own, and pairing them buys the page the height the
+    // hand size slider needs.
+    auto *handSwitches = new QHBoxLayout;
+    handSwitches->setSpacing(12);
+    handSwitches->addWidget(m_smoothSweep);
+    handSwitches->addWidget(m_reverseTime);
+    handSwitches->addStretch(1);
+    handsGrid->addLayout(handSwitches, hrow, 0, 1, 2);
     ++hrow;
-    handsGrid->addWidget(m_reverseTime, hrow, 0, 1, 2);
-    ++hrow;
+
+    m_handScale = addSlider(handsGrid, hrow++, QStringLiteral("Hand size (%)"), cfg.handScale,
+                            kHandScaleMin, kHandScaleMax, true);
 
     addLabel(handsGrid, QStringLiteral("Second"), hrow);
     m_second = new ColorButton(QColor(cfg.secondColor), false,
@@ -382,26 +398,51 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     marksGrid->addWidget(m_quarterMarks, mrow, 0, 1, 2);
     ++mrow;
 
+    // Each kind of mark keeps its own block -- colour, then the sliders that
+    // size and place it -- rather than the colours sitting together on one tab
+    // and the sizes together on another.  Someone adjusting the hour marks
+    // wants everything about them within reach.
     addLabel(marksGrid, QStringLiteral("Hour"), mrow);
     m_hourMark = new ColorButton(QColor(cfg.hourMarkColor), false,
                                  QStringLiteral("Hour mark color"), this);
-    marksGrid->addWidget(m_hourMark, mrow, 1, Qt::AlignLeft);
+    // Untick to drop the hour marks: the size goes to zero and the size it had
+    // is remembered, so ticking the box back on returns the marks you had
+    // rather than some default.  Zeroing the slider by hand ticks the box off
+    // for the same reason -- the two are two views of one setting.
+    m_hourMarkShown = new QCheckBox(QStringLiteral("enabled"), this);
+    m_hourMarkShown->setToolTip(QStringLiteral("Draw the hour marks"));
+    marksGrid->addLayout(withOption(m_hourMark, m_hourMarkShown), mrow, 1);
     ++mrow;
+
+    m_markScale = addSlider(marksGrid, mrow++, QStringLiteral("Hour mark size (%)"),
+                            cfg.markScale, kMarkScaleMin, kMarkScaleMax, true);
+    m_markPosition = addSlider(marksGrid, mrow++, QStringLiteral("Hour mark position (%)"),
+                               cfg.markPosition, kMarkScaleMin, kMarkScaleMax, true);
 
     addLabel(marksGrid, QStringLiteral("Minute"), mrow);
     m_minuteMark = new ColorButton(QColor(cfg.minuteMarkColor), false,
                                    QStringLiteral("Minute mark color"), this);
-    marksGrid->addWidget(m_minuteMark, mrow, 1, Qt::AlignLeft);
+    m_minuteMarkShown = new QCheckBox(QStringLiteral("enabled"), this);
+    m_minuteMarkShown->setToolTip(QStringLiteral("Draw the minute marks"));
+    marksGrid->addLayout(withOption(m_minuteMark, m_minuteMarkShown), mrow, 1);
     ++mrow;
+
+    m_minuteMarkScale = addSlider(marksGrid, mrow++, QStringLiteral("Minute mark size (%)"),
+                                  cfg.minuteMarkScale, kMarkScaleMin, kMarkScaleMax, true);
+    m_minuteMarkScale->setToolTip(
+        QStringLiteral("Percentage of the hour mark size. 0 hides the minute marks."));
+
+    bindShown(m_hourMarkShown, m_markScale, m_hourMarkLast);
+    bindShown(m_minuteMarkShown, m_minuteMarkScale, m_minuteMarkLast);
+
     marksGrid->setRowStretch(mrow, 1);
 
     // The tab order, in one place.  The three parts of the clock first, in the
     // order they are drawn -- face behind, then its marks, then the hands over
-    // both -- and after them the two pages that cut across all three.
+    // both -- and after them the page that cuts across all three.
     tabs->addTab(chooserBox, QStringLiteral("Face"));
     tabs->addTab(marksBox, QStringLiteral("Marks"));
     tabs->addTab(handsBox, QStringLiteral("Hands"));
-    tabs->addTab(sizesBox, QStringLiteral("Sizes"));
     tabs->addTab(opacityBox, QStringLiteral("Opacity"));
 
     // --------------------------------------------------------------- buttons

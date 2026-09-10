@@ -734,11 +734,23 @@ its code is used — this is a plain Qt widget written from scratch.
 
 ### The Settings window
 
-The controls sit on five tabs -- **Face**, **Marks**, **Hands**, **Sizes**,
-**Opacity**. The first three are the parts of the clock, in the order they are
-drawn: the face behind, its marks on top of that, the hands over both. The last
-two are the settings that cut across all three, and each is a column of sliders
-that reads better gathered than scattered.
+The controls sit on four tabs -- **Face**, **Marks**, **Hands**, **Opacity**.
+The first three are the parts of the clock, in the order they are drawn: the
+face behind, its marks on top of that, the hands over both. Each carries
+everything about its own part, sizes included: someone adjusting the hour marks
+wants their colour, their size and their position within reach, not the colour
+on one page and the size on another. **Opacity** is the one page left that cuts
+across all three.
+
+Clock size heads the Face tab. It is the only setting that is about the clock
+rather than about any part of it, and it is the one reached most often, so it
+goes where the dialog opens rather than on a page of its own.
+
+Beside the hour and minute mark colours is an **enabled** box, which is a
+second view of that mark's size slider: unticking it takes the size to zero and
+remembers what it was, so ticking it back on returns the marks you had rather
+than a made-up default. Zeroing the slider by hand unticks the box for the same
+reason -- there is one setting there, not two.
 
 The presets stay above the tabs rather than living on one of them. A preset
 writes to every tab at once, so on a tab it would silently change pages you
@@ -780,7 +792,7 @@ Because it acts on the dialog's own controls, the button resets only what the
 dialog shows. Always on top has no control here, so it is left as it is; the
 menu's *Reset defaults* covers that one too.
 
-Every slider in Sizes and Opacity has its value in a box beside it that can be
+Every slider has its value in a box beside it that can be
 typed into as well as read, which is the only way to set an exact number on a
 slider whose range is wider than the pixels it is drawn in. A value outside the
 range is refused as it is typed, and a half-finished one is rounded to the

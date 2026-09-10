@@ -107,6 +107,13 @@ private:
     ColorButton *m_hourMark = nullptr;
     ColorButton *m_minuteMark = nullptr;
     QCheckBox *m_secondShown = nullptr;
+    QCheckBox *m_hourMarkShown = nullptr;
+    QCheckBox *m_minuteMarkShown = nullptr;
+
+    // The size each mark slider held when its box was last unticked, so that
+    // ticking it back on restores that rather than a made-up default.
+    int m_hourMarkLast = 100;
+    int m_minuteMarkLast = 100;
     QCheckBox *m_minuteSame = nullptr;
 
     // The user's own minute colour is remembered while "same as hour" is
