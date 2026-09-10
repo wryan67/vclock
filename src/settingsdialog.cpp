@@ -17,6 +17,7 @@
 #include <QGroupBox>
 #include <QGuiApplication>
 #include <QHBoxLayout>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
@@ -28,6 +29,7 @@
 #include <QScrollBar>
 #include <QSlider>
 #include <QSpinBox>
+#include <QStyle>
 #include <QTabWidget>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -63,9 +65,39 @@ constexpr int kReadoutDigits = 4;
 // The value beside a slider, which can also be typed into.  Editing it is the
 // only way to set an exact number on a slider whose range is wider than the
 // pixels it is drawn in -- clock size steps several pixels per pixel of travel.
+//
+// Left and right step the value as up and down do.  A spin box normally gives
+// those two to the cursor in its text, but the box sits against a horizontal
+// slider and shows one number rather than a sentence: reaching for left after
+// nudging the slider with left is the obvious thing to do, and having it move
+// an invisible caret instead would look like the key had done nothing.  Typing
+// still works -- Home, End and the mouse place the caret when there is a number
+// being edited to place it in.
+class Readout : public QSpinBox
+{
+public:
+    using QSpinBox::QSpinBox;
+
+protected:
+    void keyPressEvent(QKeyEvent *event) override
+    {
+        if (!event->modifiers()) {
+            if (event->key() == Qt::Key_Left) {
+                stepBy(-1);
+                return;
+            }
+            if (event->key() == Qt::Key_Right) {
+                stepBy(1);
+                return;
+            }
+        }
+        QSpinBox::keyPressEvent(event);
+    }
+};
+
 QSpinBox *makeReadout(int low, int high)
 {
-    auto *box = new QSpinBox;
+    auto *box = new Readout;
     box->setRange(low, high);
     box->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     // Typing is clamped rather than rejected: QSpinBox keeps what is typed
@@ -73,10 +105,17 @@ QSpinBox *makeReadout(int low, int high)
     // half-finished number when focus leaves rather than reverting it.
     box->setKeyboardTracking(false);
     box->setCorrectionMode(QAbstractSpinBox::CorrectToNearestValue);
-    box->setButtonSymbols(QAbstractSpinBox::NoButtons);
+    // A slider is a coarse thing to aim with -- the wider ranges here move
+    // several units per pixel of travel -- so the box beside it carries the
+    // arrows that move one unit at a time, for the mouse as well as the
+    // keyboard.  Holding one down repeats, which is the quickest way across a
+    // long range without letting go of exactness.
+    box->setButtonSymbols(QAbstractSpinBox::UpDownArrows);
+    // Room for the digits and for the arrows beside them, so a four-digit
+    // value is never squeezed by the buttons that were added next to it.
     const int width = box->fontMetrics().horizontalAdvance(
                           QString(kReadoutDigits, QLatin1Char('0')))
-                      + 14;
+                      + 14 + box->style()->pixelMetric(QStyle::PM_SpinBoxSliderHeight, nullptr, box);
     box->setFixedWidth(width);
     return box;
 }

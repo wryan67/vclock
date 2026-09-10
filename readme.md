@@ -950,6 +950,15 @@ slider whose range is wider than the pixels it is drawn in. A value outside the
 range is refused as it is typed, and a half-finished one is rounded to the
 nearest allowed value when you leave the box.
 
+The box carries a pair of arrows for the step either side of the number you are
+looking at, because a slider that spans a thousand pixel sizes in a few hundred
+pixels of screen cannot be dragged to a particular one. The keyboard steps it
+too, and all four arrow keys do: up and down are what a value box normally
+answers to, and left and right are given the same job rather than walking a
+caret through the digits, since the box is showing a quantity and not a word.
+Typing wins over both -- a number part-way through being entered is taken as
+read the moment an arrow is pressed, so the step lands on what you typed.
+
 Opacity fades the four parts of the clock separately, each from solid down to
 gone:
 
