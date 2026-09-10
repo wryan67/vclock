@@ -321,6 +321,7 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     m_colorMode->addItem(QStringLiteral("Recolor"), true);
     m_colorMode->addItem(QStringLiteral("Original"), false);
     m_colorMode->setCurrentIndex(cfg.faceRecolor ? 0 : 1);
+    m_wasRecolor = cfg.faceRecolor;
     m_colorMode->setToolTip(QStringLiteral(
         "Recolor maps the artwork's shading onto the face and wire colors below, so "
         "the drawing comes out in your colors with its shading intact.\n\n"
@@ -636,7 +637,26 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     });
     connect(m_faceCycle, &QPushButton::clicked, this, [this] { rollColor(true); });
     connect(m_wireCycle, &QPushButton::clicked, this, [this] { rollColor(false); });
-    connect(m_colorMode, &QComboBox::currentIndexChanged, this, [this] { onChanged(); });
+    connect(m_colorMode, &QComboBox::currentIndexChanged, this, [this] {
+        // Leaving Recolor for Original on a generated face changes what the two
+        // colours are for: under Recolor they are the ends of a ramp laid over
+        // grey artwork, and under Original they are what the drawing is built
+        // out of.  A pair picked to make a good ramp is not a pair anyone chose
+        // to be drawn in, so the switch rolls a fresh pair rather than carrying
+        // the old one over into a job it was never meant for.
+        const bool generated =
+            faceSvg().startsWith(kBuiltinFacePrefix + kKaleidoscopeFace + QLatin1Char(':'));
+        if (m_live && generated && m_wasRecolor && !recolorMode()) {
+            const QSignalBlocker faceBlock(m_faceRandom);
+            const QSignalBlocker wireBlock(m_wireRandom);
+            m_faceRandom->setChecked(true);
+            m_wireRandom->setChecked(true);
+            m_faceOwn = hexOf(rollAgainst(true, m_wire->color()));
+            m_wire->setColor(rollAgainst(false, QColor(m_faceOwn)));
+        }
+        m_wasRecolor = recolorMode();
+        onChanged();
+    });
 
     syncSwatches();
     refreshCenter();
@@ -824,26 +844,25 @@ void SettingsDialog::onPresetClicked(const Preset &preset, QToolButton *button)
     if (values.faceSvg.startsWith(kaleido)) {
         values.faceSvg =
             kaleido + QString::number(QRandomGenerator::global()->generate64());
-        // Coming from another face this is the preset, colours and all.  Coming
-        // from a kaleidoscope it is a reroll, and a reroll is a request for a
-        // different pattern, not for different colours: someone who has settled
-        // on two of their own and clicks for another arrangement should get one
-        // in those colours.
+        // Coming from a kaleidoscope, the colours on screen are the ones to
+        // start from, so a colour chosen by hand survives a reroll.  Coming
+        // from another face the preset's own colours are the starting point --
+        // though they are only what its thumbnail is drawn in, and taking them
+        // as they stand would make every kaleidoscope in the world the same
+        // blue.
         if (wasKaleido) {
             values.faceColorRandom = m_faceRandom->isChecked();
             values.wireColorRandom = m_wireRandom->isChecked();
             values.faceColor = m_faceOwn;
             values.wireColor = hexOf(m_wire->color());
-        } else {
-            // The preset's own colours are the ones its thumbnail is drawn in.
-            // Taking them as well would make every kaleidoscope in the world
-            // the same blue, so where the preset says the colour is rolled,
-            // roll it.
-            if (values.faceColorRandom)
-                values.faceColor = hexOf(rollAgainst(true, QColor(values.wireColor)));
-            if (values.wireColorRandom)
-                values.wireColor = hexOf(rollAgainst(false, QColor(values.faceColor)));
         }
+        // Either way, a colour marked as rolled is rolled again.  That is what
+        // the mark means, and asking for another kaleidoscope and getting the
+        // old line colour back looks like the button half missed.
+        if (values.faceColorRandom)
+            values.faceColor = hexOf(rollAgainst(true, QColor(values.wireColor)));
+        if (values.wireColorRandom)
+            values.wireColor = hexOf(rollAgainst(false, QColor(values.faceColor)));
         if (button)
             button->setIcon(QIcon(presetThumbnail(values, kPresetThumb, devicePixelRatioF())));
     }
@@ -960,6 +979,7 @@ void SettingsDialog::applyValues(const Config &values, bool full)
     m_minuteMark->setColor(QColor(values.minuteMarkColor));
 
     m_live = wasLive;
+    m_wasRecolor = values.faceRecolor;
     onChanged();
 }
 

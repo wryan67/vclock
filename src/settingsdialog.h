@@ -71,6 +71,7 @@ private:
     bool recolorMode() const;
 
     ClockWindow *m_clock = nullptr;
+    bool m_wasRecolor = false;
     bool m_live = false;
 
     // The clock as it stood when this dialog opened, so Reset can offer to
