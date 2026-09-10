@@ -1,33 +1,50 @@
 #!/usr/bin/env python3
 """Generate the spiral face's artwork for src/embedded.h.
 
-The face is one filled ribbon: a spiral arm that starts pencil-thin at the hub,
-broadens as it winds out, and runs into the rim rather than stopping short of
-it.  It is drawn as a single closed path -- out along one side of the arm and
-back along the other -- because Qt renders SVG Tiny, which has no variable-width
-stroke and no clip-path.
+The face is one filled ribbon: a spiral arm that winds out of the hub, thickens
+as it goes, and runs into the rim rather than stopping short of it.  It is
+drawn as a single closed path -- out along one side of the arm and back along
+the other -- because Qt renders SVG Tiny, which has no variable-width stroke
+and no clip-path.
 
-Two laws describe it.
+The whole shape follows from two rules, and everything else here is worked out
+from them rather than chosen:
 
-    radius   r(t) = R * t**TAPER          t running 0..1 over TURNS turns
-    width    w(r) = W_HUB + (W_RIM - W_HUB) * (r/R)**SWELL
+    1. every full turn, the arm is GROWTH times thicker than it was
+    2. the white space between two turns is as wide as the arm beside it
 
-TAPER is the interesting one.  At 1 the spiral is Archimedean: every turn sits
-the same distance from the last, which is the one thing a shell or a fern never
-does and is what made the old face look mechanical.  Above 1 the gap between
-turns closes up towards the middle -- the spacing goes as r**(1 - 1/TAPER) --
-so the winding tightens as it approaches the hub, which is what growth actually
-looks like.
+The first rule alone says the width at turn n is W_HUB * GROWTH**n.  The second
+fixes how far apart the turns sit: the distance from one turn to the next has
+to cover half of this arm, half of the next one, and a gap equal to the two --
+which is w(n) + w(n+1), or w(n) * (1 + GROWTH).
 
-Tightening the middle without also widening the outside means there have to be
-more turns to fill the same disc, and TURNS is tied to TAPER for that reason:
-the gap at the rim is about R*TAPER/TURNS, so holding TURNS at 5.75*TAPER holds
-the rim spacing where it was and spends the taper entirely on the middle.
+Those two together decide the spiral.  Summing the pitches out from the hub
+gives the radius after n turns,
 
-1.5 is as far as it goes.  The gap between the first and second turns falls as
-TAPER**-something steep -- 6.9 units at 1.0, 2.9 at 1.5, 0.9 at 2.0 -- and the
-face has to survive being drawn at ninety pixels across, where a gap under
-about 1.5 units closes up and the hub becomes a smudge.
+    r(n) = A * (GROWTH**n - 1)      A = W_HUB * (1 + GROWTH) / (GROWTH - 1)
+
+and inverting it gives the width as a function of radius, which falls out
+linear:
+
+    w(r) = W_HUB + r * (GROWTH - 1) / (1 + GROWTH)
+
+Note what is *not* a parameter.  The turn count is not chosen -- it is however
+many turns it takes to reach the rim, log(1 + R/A) over log(GROWTH).  Nor is the
+width at the rim.  Ask for a thinner arm at the hub and the spiral answers with
+more turns and a thicker one at the edge, because that is the only way to keep
+both rules true across the same disc.
+
+This also means the spiral is logarithmic rather than Archimedean.  An
+Archimedean spiral puts the same gap between every pair of turns from hub to
+rim, and that evenness is the one thing no shell or fern has; it reads as set
+out with a ruler.  Here the spacing grows with the radius at a fixed rate,
+which is what growth actually looks like.
+
+W_HUB is the only real dial, and 1.75 is a balance: it puts about six turns on
+the face, near enough to what the face has always had, and leaves the innermost
+arm and its neighbouring gap both a little under two units of the hundred-wide
+artwork -- about one and a half pixels at a ninety-pixel clock, which is the
+smallest the face is asked to be drawn.
 
 The arm is allowed to run past the rim and is clamped there, so the last part
 of it is a band lying along the rim rather than a spiral stopping at a tangent.
@@ -38,23 +55,24 @@ import math
 
 R = 40.0  # the face radius the rest of the artwork is drawn to
 RIM = 40.5  # the arm is clamped here, just past the rim, and clipped by it
-TURNS = 8.62  # TAPER * 5.75, which holds the gap at the rim where it was
-TAPER = 1.5  # >1 packs the turns towards the hub
-SWELL = 3.26  # how sharply the arm broadens with radius
-W_HUB = 0.40  # the width it starts at, at the very centre
-W_RIM = 3.20  # the width it would reach at the rim
-STEPS = 780  # samples along the arm, one side
+GROWTH = 1.2  # how much thicker the arm gets over one full turn
+W_HUB = 1.75  # the width it starts at, at the very centre
+
+# Everything below is worked out from the two rules; see the note above.
+PITCH = W_HUB * (1.0 + GROWTH) / (GROWTH - 1.0)
+TURNS = math.log(1.0 + R / PITCH) / math.log(GROWTH)
+STEPS = int(120 * TURNS)  # samples along the arm, one side
 
 
 def centreline(t):
-    """A point on the middle of the arm, and the direction it is heading."""
+    """A point on the middle of the arm, t running 0..1 from hub to rim."""
     theta = 2.0 * math.pi * TURNS * t
-    r = R * t**TAPER
+    r = PITCH * (GROWTH ** (TURNS * t) - 1.0)
     return r, theta
 
 
 def width_at(r):
-    return W_HUB + (W_RIM - W_HUB) * (r / R) ** SWELL
+    return W_HUB + r * (GROWTH - 1.0) / (1.0 + GROWTH)
 
 
 def offset_points(sign):

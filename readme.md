@@ -582,26 +582,31 @@ other way round -- the dial is the face colour and the arm the wire. Whichever i
 *Clock face svg* field names it when no file of your own is loaded; clicking a
 preset is how you return to a built-in face.
 
-The spiral's winding tightens as it goes in. An Archimedean spiral -- the
-obvious one, where the radius keeps pace with the angle -- puts the same gap
-between every pair of turns from hub to rim, and that evenness is the thing no
-shell or fern or galaxy has; it reads as drawn by a machine. Raising the radius
-to a power of the angle instead closes the gap up towards the middle, the
-spacing falling off as the radius does, and the face stops looking set out with
-a ruler.
+The spiral is not drawn so much as grown, from two rules and nothing else:
+every full turn the arm is a fifth thicker than it was, and the white space
+between two turns is as wide as the arm beside it. That is the whole of it.
 
-The exponent is 1.5, and it is a ceiling rather than a taste. The gap between
-the first and second turns collapses as the exponent climbs -- near seven units
-of the hundred-wide artwork at 1.0, under three at 1.5, under one at 2.0 -- and
-the face has to hold together drawn at ninety pixels across, where anything
-below about one and a half units fills in and the hub goes to a smudge. The
-turn count is tied to the exponent for a related reason: tightening the middle
-without widening the outside needs more turns to fill the same disc, so the arm
-now winds about eight and a half times rather than six, which leaves the rim
-spacing where it was and spends the whole of the taper on the middle.
+Those two rules decide everything, including the things you might expect to
+choose. The second one fixes how far apart the turns sit -- far enough to cover
+half of this arm, half of the next, and a gap as wide as both -- and summing
+those distances out from the hub gives a spiral whose spacing grows with the
+radius at a fixed rate. That makes it logarithmic rather than Archimedean, and
+the difference is the point: an Archimedean spiral puts the same gap between
+every pair of turns from hub to rim, and that evenness is the one thing no shell
+or fern or galaxy has. It reads as set out with a ruler.
 
-`tools/gen_spiral.py` generates the artwork, and the two laws are the first
-things in it. The face before the taper is tagged `spiral-v1`.
+The turn count is not chosen either. It is however many turns it takes to reach
+the rim, which works out at about six. Nor is the width at the edge, which comes
+out near a seventh of the radius. The only real dial is how thick the arm starts
+at the hub, and asking for a thinner start does not give a finer face -- it
+gives more turns and a heavier rim, because that is the only way to keep both
+rules true across the same disc. It starts at 1.75 units of the hundred-wide
+artwork, which leaves the innermost arm and the gap beside it both about a pixel
+and a half at a ninety-pixel clock, the smallest the face is asked to be drawn.
+
+`tools/gen_spiral.py` generates the artwork, and the two rules and the algebra
+that follows from them are the first thing in it. The face as it stood before,
+wound evenly and far finer, is tagged `spiral-v1`.
 
 The sixth is the kaleidoscope (`builtin:kaleidoscope:<seed>`), and it is the
 only one that is not drawn in advance but worked out when it is asked for. Its
