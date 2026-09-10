@@ -43,7 +43,7 @@ public:
 
 private:
     QLabel *addLabel(QGridLayout *grid, const QString &text, int row, int col = 0);
-    class QHBoxLayout *withOption(QWidget *control, QWidget *box);
+    class QHBoxLayout *withOption(QWidget *control, QWidget *box, QWidget *extra = nullptr);
     QSlider *addSlider(QGridLayout *grid, int row, const QString &caption, int value, int low,
                        int high, bool markHundred);
 
@@ -57,6 +57,7 @@ private:
 
     void onChanged(const QObject *sender = nullptr);
     void onBrowse();
+    void rollColor(bool faceEnd);
     void onPresetClicked(const Preset &preset, QToolButton *button = nullptr);
     void onResetClicked();
     // What the Reset button's question came back with.
@@ -108,10 +109,10 @@ private:
     ColorButton *m_hourMark = nullptr;
     ColorButton *m_minuteMark = nullptr;
     QCheckBox *m_secondShown = nullptr;
-    // Only a generated face can be told what colours to use, so these two are
-    // grey for every other one.
     QCheckBox *m_faceRandom = nullptr;
     QCheckBox *m_wireRandom = nullptr;
+    class QPushButton *m_faceCycle = nullptr;
+    class QPushButton *m_wireCycle = nullptr;
     QCheckBox *m_hourMarkShown = nullptr;
     QCheckBox *m_minuteMarkShown = nullptr;
 

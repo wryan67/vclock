@@ -121,6 +121,27 @@ void bindShown(QCheckBox *box, QSlider *slider, int &remembered)
     });
 }
 
+// A colour worth landing on.  Neither roll covers the whole cube: a face
+// wants a colour with some body to it, so the washed-out and the nearly-black
+// are left out, and line work has to read as line work, so a wire colour goes
+// near one end of the tone range rather than into the middle where it would
+// come out the same weight as what it is drawn over.
+QColor rollFaceColor()
+{
+    auto *rng = QRandomGenerator::global();
+    return QColor::fromHsvF(rng->generateDouble(), 0.30 + 0.65 * rng->generateDouble(),
+                            0.55 + 0.42 * rng->generateDouble());
+}
+
+QColor rollWireColor()
+{
+    auto *rng = QRandomGenerator::global();
+    const bool dark = rng->generateDouble() < 0.75;
+    return QColor::fromHsvF(rng->generateDouble(), 0.40 * rng->generateDouble(),
+                            dark ? 0.03 + 0.17 * rng->generateDouble()
+                                 : 0.86 + 0.13 * rng->generateDouble());
+}
+
 }  // namespace
 
 SettingsDialog::SettingsDialog(ClockWindow *clock)
@@ -249,16 +270,17 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     addLabel(chooserGrid, QStringLiteral("Face color"), crow);
     // useAlpha lets the swatch show the checkerboard when the face is faded.
     m_face = new ColorButton(QColor(cfg.faceColor), true, QStringLiteral("Face color"), this);
-    // Only a generated face can be asked for a colour it was not drawn in, and
-    // the kaleidoscope is the only one there is, so these two go grey for
-    // every other face rather than sitting there looking as though they do
-    // something.
     m_faceRandom = new QCheckBox(QStringLiteral("random"), this);
     m_faceRandom->setChecked(cfg.faceColorRandom);
     m_faceRandom->setToolTip(QStringLiteral(
-        "Let the kaleidoscope pick its own colors. Untick to have it drawn in shades "
-        "of the face color instead; the pattern is the same either way."));
-    chooserGrid->addLayout(withOption(m_face, m_faceRandom), crow, 1);
+        "Pick this color by chance instead of choosing it. The color it lands on goes "
+        "into the swatch, so what is on screen is always what is in the box.\n\n"
+        "On the kaleidoscope it means a little more: rolled, the face is a scheme of "
+        "several hues built around the color, and chosen, it is that one color and its "
+        "shades."));
+    m_faceCycle = new QPushButton(QStringLiteral("Cycle"), this);
+    m_faceCycle->setToolTip(QStringLiteral("Roll another color"));
+    chooserGrid->addLayout(withOption(m_face, m_faceRandom, m_faceCycle), crow, 1);
     ++crow;
 
     addLabel(chooserGrid, QStringLiteral("Wire color"), crow);
@@ -266,10 +288,12 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     m_wireRandom = new QCheckBox(QStringLiteral("random"), this);
     m_wireRandom->setChecked(cfg.wireColorRandom);
     m_wireRandom->setToolTip(QStringLiteral(
-        "Let the kaleidoscope pick the color of the lines between its shapes. Untick "
-        "to draw them in the wire color; untick both and the face comes out in your "
-        "two colors and their shades."));
-    chooserGrid->addLayout(withOption(m_wire, m_wireRandom), crow, 1);
+        "Pick the line color by chance instead of choosing it. Line work has to read as "
+        "line work, so the roll stays near one end of the tone range rather than "
+        "wandering into the middle."));
+    m_wireCycle = new QPushButton(QStringLiteral("Cycle"), this);
+    m_wireCycle->setToolTip(QStringLiteral("Roll another color"));
+    chooserGrid->addLayout(withOption(m_wire, m_wireRandom, m_wireCycle), crow, 1);
     ++crow;
 
     chooserGrid->setColumnStretch(1, 1);
@@ -527,10 +551,28 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
         connect(button, &ColorButton::colorSet, this, [this, button] { onChanged(button); });
     }
     for (QCheckBox *box : {m_minuteSame, m_secondShown, m_quarterMarks, m_smoothSweep,
-                           m_reverseTime, m_syncFaceWire, m_syncHandsMarks, m_faceRandom,
-                           m_wireRandom}) {
+                           m_reverseTime, m_syncFaceWire, m_syncHandsMarks}) {
         connect(box, &QCheckBox::toggled, this, [this] { onChanged(); });
     }
+
+    // Ticking "random" is itself a request for a colour, so it rolls one
+    // rather than only changing what the dialog will do next; Cycle then rolls
+    // another.  Unticking leaves the colour where it is, so the roll you
+    // happened to like is the one you keep and can then adjust.
+    connect(m_faceRandom, &QCheckBox::toggled, this, [this](bool on) {
+        if (on)
+            rollColor(true);
+        else
+            onChanged();
+    });
+    connect(m_wireRandom, &QCheckBox::toggled, this, [this](bool on) {
+        if (on)
+            rollColor(false);
+        else
+            onChanged();
+    });
+    connect(m_faceCycle, &QPushButton::clicked, this, [this] { rollColor(true); });
+    connect(m_wireCycle, &QPushButton::clicked, this, [this] { rollColor(false); });
     connect(m_colorMode, &QComboBox::currentIndexChanged, this, [this] { onChanged(); });
 
     syncSwatches();
@@ -579,13 +621,15 @@ void SettingsDialog::resizeToFit(QWidget *content, QScrollArea *scroll,
 
 // A control with the checkbox that qualifies it sitting right beside it, rather
 // than adrift in a far column where it reads as belonging to nothing.
-QHBoxLayout *SettingsDialog::withOption(QWidget *control, QWidget *box)
+QHBoxLayout *SettingsDialog::withOption(QWidget *control, QWidget *box, QWidget *extra)
 {
     auto *layout = new QHBoxLayout;
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(8);
     layout->addWidget(control, 0);
     layout->addWidget(box, 0);
+    if (extra)
+        layout->addWidget(extra, 0);
     layout->addStretch(1);
     return layout;
 }
@@ -727,6 +771,15 @@ void SettingsDialog::onPresetClicked(const Preset &preset, QToolButton *button)
             values.wireColorRandom = m_wireRandom->isChecked();
             values.faceColor = m_faceOwn;
             values.wireColor = hexOf(m_wire->color());
+        } else {
+            // The preset's own colours are the ones its thumbnail is drawn in.
+            // Taking them as well would make every kaleidoscope in the world
+            // the same blue, so where the preset says the colour is rolled,
+            // roll it.
+            if (values.faceColorRandom)
+                values.faceColor = hexOf(rollFaceColor());
+            if (values.wireColorRandom)
+                values.wireColor = hexOf(rollWireColor());
         }
         if (button)
             button->setIcon(QIcon(presetThumbnail(values, kPresetThumb, devicePixelRatioF())));
@@ -847,6 +900,19 @@ void SettingsDialog::applyValues(const Config &values, bool full)
     onChanged();
 }
 
+// Roll one of the two face colours and put it where it can be seen.  The
+// swatch is the record of what was rolled -- there is no separate memory of
+// it -- so a rolled colour is a colour like any other and can be nudged by
+// hand afterwards.
+void SettingsDialog::rollColor(bool faceEnd)
+{
+    if (faceEnd)
+        m_faceOwn = hexOf(rollFaceColor());
+    else
+        m_wire->setColor(rollWireColor());
+    onChanged();
+}
+
 void SettingsDialog::onChanged(const QObject *sender)
 {
     if (sender == m_minute && !m_minuteSame->isChecked())
@@ -876,17 +942,22 @@ void SettingsDialog::syncSwatches()
     m_second->setEnabled(m_secondShown->isChecked());
 
     // The face and wire colours are the recolour's two ends, so they mean
-    // nothing at all when the artwork is drawn as authored -- unless the face
-    // is generated, which is the one case where a colour is an instruction
-    // about how to draw rather than a way of reading what was drawn.  The
-    // "random" ticks are that instruction, and no other face can take one.
-    const bool recolor = recolorMode();
-    const bool generated = faceSvg().startsWith(kBuiltinFacePrefix + kKaleidoscopeFace
-                                                + QLatin1Char(':'));
-    m_faceRandom->setEnabled(generated);
-    m_wireRandom->setEnabled(generated);
-    m_face->setEnabled(recolor || (generated && !m_faceRandom->isChecked()));
-    m_wire->setEnabled(recolor || (generated && !m_wireRandom->isChecked()));
+    // nothing at all when a drawn face is left as it was authored.  A
+    // generated face is the exception: it is built from the two colours rather
+    // than repainted with them, so they matter to it whatever the mode says.
+    //
+    // Whether a colour was rolled or chosen makes no difference to that, so
+    // the ticks and their Cycle buttons follow the swatches: live wherever the
+    // colour beside them is live.
+    const bool live = recolorMode() || faceSvg().startsWith(kBuiltinFacePrefix
+                                                            + kKaleidoscopeFace
+                                                            + QLatin1Char(':'));
+    m_face->setEnabled(live);
+    m_wire->setEnabled(live);
+    m_faceRandom->setEnabled(live);
+    m_wireRandom->setEnabled(live);
+    m_faceCycle->setEnabled(live && m_faceRandom->isChecked());
+    m_wireCycle->setEnabled(live && m_wireRandom->isChecked());
     // The swatch carries the face's own opacity, so a face faded to nothing
     // reads as the checkerboard rather than as a colour that does not show.
     QColor faceColor(m_faceOwn);

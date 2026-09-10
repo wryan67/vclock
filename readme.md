@@ -757,6 +757,22 @@ colour live, and Cancel restores what was there before.
 The layout is modelled on [iro.js](https://github.com/jaames/iro.js), but none of
 its code is used — this is a plain Qt widget written from scratch.
 
+#### Rolling one instead of choosing it
+
+Beside *Face color* and *Wire color* is a **random** box and a **Cycle** button.
+Ticking the box rolls a colour and puts it in the swatch; Cycle rolls another.
+There is nowhere else the rolled colour is kept, so what is on screen is always
+what is in the box, and a roll you nearly like can be opened in the picker and
+nudged the rest of the way. Unticking leaves the colour where it is rather than
+putting the old one back, for the same reason: the roll you stopped on is the
+one you meant to keep.
+
+Neither roll covers the whole colour cube. A face wants a colour with some body
+to it, so the washed-out and the nearly-black are left out. Line work has to
+read as line work, so a wire colour lands near one end of the tone range instead
+of in the middle, where it would come out the same weight as whatever it is
+drawn over. Both are off to begin with on every face.
+
 ### The Settings window
 
 The controls sit on four tabs -- **Face**, **Marks**, **Hands**, **Opacity**.
