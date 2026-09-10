@@ -88,14 +88,18 @@ struct Config
     bool faceRecolor = true;
     QString faceColor = QStringLiteral("#ffffff");
     QString wireColor = QStringLiteral("#000000");
-    // The kaleidoscope is generated rather than drawn, so it is the one face
-    // that can choose its own colours.  With these set it does; with them
-    // cleared it takes the two above -- the fills as shades of the face colour
-    // and the lines in the wire colour -- and the same seed then gives the same
-    // pattern in whatever colours you name.  They mean nothing to any other
-    // face, which has its colours already.
-    bool faceColorRandom = true;
-    bool wireColorRandom = true;
+    // Whether each colour above was rolled rather than chosen.  The colour
+    // itself is stored either way, so these do not decide what is drawn so much
+    // as what the dialog offers to do next: a rolled colour has a Cycle button
+    // beside it that rolls another.
+    //
+    // The face flag does carry one extra meaning, and only for the generated
+    // face: rolled, its palette is a scheme of several hues built around the
+    // face colour, and chosen, it is that one colour and its shades.  Asking
+    // for a colour is asking for that colour, where leaving it to chance is
+    // asking for something to look at.
+    bool faceColorRandom = false;
+    bool wireColorRandom = false;
     QString hourMarkColor = QStringLiteral("#000000");
     QString minuteMarkColor = QStringLiteral("#000000");
 
@@ -124,11 +128,14 @@ struct Config
     // The face file to load, or an empty string for the embedded default.
     QString facePath() const { return faceDefault ? QString() : faceSvg; }
 
-    // What to hand a generated face as its colours.  Empty means it picks its
-    // own, which is what the "random" ticks say and what every drawn face does
-    // by having been drawn already.
-    QString faceSeedColor() const { return faceColorRandom ? QString() : faceColor; }
-    QString wireSeedColor() const { return wireColorRandom ? QString() : wireColor; }
+    // A generated face is built from its colours as much as from its seed, so
+    // for that one a change of colour is a change of face and not a repaint.
+    bool generatedFace() const
+    {
+        return !faceDefault
+               && faceSvg.startsWith(kBuiltinFacePrefix + kKaleidoscopeFace + QLatin1Char(':'));
+    }
+    bool faceMultiHue() const { return faceColorRandom; }
 
     // Where the hands pivot, as fractions of the canvas (auto = its centre).
     QPointF centerFraction() const { return center.value_or(QPointF(0.5, 0.5)); }

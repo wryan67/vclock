@@ -169,6 +169,14 @@ const QVector<Preset> &presets()
             kBuiltinFacePrefix + kKaleidoscopeFace + QStringLiteral(":1");
         kal.values.faceDefault = false;
         kal.values.faceRecolor = false;  // full colour: recolouring would flatten it
+        // Both colours rolled: on this face that is what makes it a
+        // kaleidoscope rather than one hue and its shades.  The pair here is
+        // only what the button's thumbnail is drawn in -- clicking it rolls
+        // another.
+        kal.values.faceColorRandom = true;
+        kal.values.wireColorRandom = true;
+        kal.values.faceColor = QStringLiteral("#3aa0d8");
+        kal.values.wireColor = QStringLiteral("#0b0d14");
         kal.values.markScale = 0;
         kal.values.minuteMarkScale = 0;
         kal.values.hourColor = QStringLiteral("#ffffff");
@@ -402,7 +410,8 @@ namespace {
 QImage drawClock(const Config &values, int pixels)
 {
     const std::unique_ptr<Face> face =
-        openFace(values.facePath(), values.faceSeedColor(), values.wireSeedColor());
+        openFace(values.facePath(), values.faceColor, values.wireColor,
+                 values.faceMultiHue());
     QImage art = face->render(pixels, pixels);
     if (values.faceRecolor)
         art = recolor(art, values.wireColor, values.faceColor, values.faceOpacity,

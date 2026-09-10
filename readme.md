@@ -598,18 +598,14 @@ at, so the pattern is pencilled in at the hub and inked at the rim; without
 that the middle, where every wedge's shapes crowd into the same small space,
 fills in solid.
 
-Being generated, it is also the one face that can be asked for particular
-colours, and the **random** boxes beside *Face color* and *Wire color* are that
-request. Ticked -- which is how the preset leaves them -- it picks its own, one
-base hue and one scheme, with the tones dealt from a ladder so a palette always
-has a dark end and a light one. Untick *Face color* and the fills become shades
-of the colour you named; untick *Wire color* and the outlines are drawn in
-yours. Untick both and the face comes out in two colours and their shades. The
-pattern does not change either way -- the seed decides the shape and the
-colours only decide the paint -- so you can settle on a pattern and then recolour
-it, or settle on colours and click the preset for another arrangement in them.
-The boxes are greyed for every other face, all of which have their colours
-already by having been drawn.
+Being generated, it is also the one face that reads its two colours as an
+instruction about how to draw rather than as a way of repainting what was
+drawn, so the **random** tick beside *Face color* means a little more here than
+it does elsewhere. Ticked -- which is how the preset leaves it -- the face is a
+scheme of several hues built around the colour in the box. Unticked, it is that
+one colour and its shades. Either way the seed decides the shape and the
+colours only decide the paint, so you can settle on a pattern and then recolour
+it, or click the preset again for another arrangement in the colours you have.
 
 ### Smooth sweep hands
 

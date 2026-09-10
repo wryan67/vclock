@@ -21,7 +21,7 @@ namespace {
 // keeps its seed: "kaleidoscope:12345" is one particular random face, and the
 // same digits give the same drawing every time.
 QByteArray builtinFaceData(const QString &name, const QString &faceHex = QString(),
-                           const QString &wireHex = QString())
+                           const QString &wireHex = QString(), bool multiHue = false)
 {
     if (name == QLatin1String("icon"))
         return iconFaceSvg();
@@ -33,7 +33,7 @@ QByteArray builtinFaceData(const QString &name, const QString &faceHex = QString
         return spiralFaceSvg();
     if (name.startsWith(kKaleidoscopeFace + QLatin1Char(':')))
         return kaleidoscopeFaceSvg(name.mid(kKaleidoscopeFace.size() + 1).toULongLong(),
-                                   faceHex, wireHex);
+                                   faceHex, wireHex, multiHue);
     return QByteArray();
 }
 
@@ -56,7 +56,7 @@ QString builtinFaceLabel(const QString &name)
 
 }  // namespace
 
-Face::Face(const QString &path, const QString &faceHex, const QString &wireHex)
+Face::Face(const QString &path, const QString &faceHex, const QString &wireHex, bool multiHue)
     : m_path(path)
 {
     if (!m_path.isEmpty() && m_path.startsWith(kBuiltinFacePrefix)) {
@@ -73,7 +73,7 @@ Face::Face(const QString &path, const QString &faceHex, const QString &wireHex)
     m_renderer = std::make_unique<QSvgRenderer>();
     bool ok = false;
     if (!m_builtin.isEmpty()) {
-        ok = m_renderer->load(builtinFaceData(m_builtin, faceHex, wireHex));
+        ok = m_renderer->load(builtinFaceData(m_builtin, faceHex, wireHex, multiHue));
     } else if (!m_path.isEmpty()) {
         ok = m_renderer->load(m_path);
     } else {
@@ -134,11 +134,11 @@ QImage Face::render(int width, int height) const
 }
 
 std::unique_ptr<Face> openFace(const QString &path, const QString &faceHex,
-                               const QString &wireHex)
+                               const QString &wireHex, bool multiHue)
 {
     if (!path.isEmpty()) {
         try {
-            return std::make_unique<Face>(path, faceHex, wireHex);
+            return std::make_unique<Face>(path, faceHex, wireHex, multiHue);
         } catch (const std::exception &) {
             qWarning("WARNING: could not load face %s", qPrintable(path));
         }

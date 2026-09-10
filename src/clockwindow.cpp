@@ -170,7 +170,8 @@ ClockWindow::ClockWindow(const QString &configPath)
     m_tipDelay->setSingleShot(true);
     connect(m_tipDelay, &QTimer::timeout, this, &ClockWindow::showTimeTip);
 
-    m_face = openFace(m_cfg.facePath(), m_cfg.faceSeedColor(), m_cfg.wireSeedColor());
+    m_face = openFace(m_cfg.facePath(), m_cfg.faceColor, m_cfg.wireColor,
+                      m_cfg.faceMultiHue());
     if (m_cfg.size <= 0)
         m_cfg.size = defaultSizeOn(startupScreen());
     m_cfg.size = std::min(m_cfg.size, maxSize());
@@ -1501,8 +1502,10 @@ void ClockWindow::applySettings(const Config &values)
     // change to either is a new face and not merely a repaint of this one.
     const bool newFace = values.faceSvg != m_cfg.faceSvg
                          || values.faceDefault != m_cfg.faceDefault
-                         || values.faceSeedColor() != m_cfg.faceSeedColor()
-                         || values.wireSeedColor() != m_cfg.wireSeedColor();
+                         || (values.generatedFace()
+                             && (values.faceColor != m_cfg.faceColor
+                                 || values.wireColor != m_cfg.wireColor
+                                 || values.faceMultiHue() != m_cfg.faceMultiHue()));
     const bool changedColor = values.wireColor != m_cfg.wireColor
                               || values.faceColor != m_cfg.faceColor
                               || values.faceOpacity != m_cfg.faceOpacity
@@ -1518,7 +1521,8 @@ void ClockWindow::applySettings(const Config &values)
     if (changedSmooth)
         applyTickRate();
     if (newFace)
-        m_face = openFace(m_cfg.facePath(), m_cfg.faceSeedColor(), m_cfg.wireSeedColor());
+        m_face = openFace(m_cfg.facePath(), m_cfg.faceColor, m_cfg.wireColor,
+                      m_cfg.faceMultiHue());
     if (newFace || changedColor) {
         m_rebuildTimer->stop();
         applySize();

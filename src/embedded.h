@@ -248,14 +248,18 @@ inline QByteArray honeycombFaceSvg()
 // centre.  An even number of wedges is picked so the mirrors line up opposite
 // each other.
 //
-// faceHex and wireHex are the escape hatch from all that randomness.  Left
-// empty, the palette is rolled from the seed, which is the kaleidoscope's own
-// idea of itself; given a face colour the fills become shades of it, and given
-// a wire colour the lines between the shapes are drawn in that.  Name both and
-// the face comes out in two colours and their shades -- the same pattern the
-// seed always gave, in colours chosen rather than dealt.
-inline QByteArray kaleidoscopeFaceSvg(quint64 seed, const QString &faceHex = QString(),
-                                      const QString &wireHex = QString())
+// faceHex is the colour the fills are built from and wireHex the colour of the
+// lines between them, and multiHue decides which of the two things the face
+// colour means.  Set, the palette is a scheme of several hues -- analogous,
+// triadic, or right round the wheel -- laid out around that colour, which is
+// how the face comes out looking like a kaleidoscope.  Clear, the palette is
+// that one colour and its shades, and the face comes out in two colours.
+//
+// Either way the seed decides the pattern alone.  Recolouring a face never
+// moves a shape, so a pattern can be settled on and then painted, or a colour
+// settled on and the pattern rerolled under it.
+inline QByteArray kaleidoscopeFaceSvg(quint64 seed, const QString &faceHex,
+                                      const QString &wireHex, bool multiHue)
 {
     struct Rng {
         quint64 s;
@@ -285,15 +289,24 @@ inline QByteArray kaleidoscopeFaceSvg(quint64 seed, const QString &faceHex = QSt
             .name();
     };
 
-    // One scheme and one base hue, so the colours belong together however
-    // wild the pattern is.  Random hues drawn independently give mud.
+    // One scheme and one base hue, so the colours belong together however wild
+    // the pattern is.  Hues drawn independently give mud, so the base hue is
+    // the face colour's and the seed decides only how the rest are spaced from
+    // it.
     //
-    // The rolls happen either way, named colour or not, so that the seed keeps
-    // meaning the same shape: ticking "random" off must change what the face
-    // is painted in and nothing else about it.
+    // The rolls happen either way, multi-hue or not, so that the seed keeps
+    // meaning the same shape: changing how a face is coloured must not move
+    // anything in it.
     QVector<QString> pal;
     {
-        const double base = rng.unit();
+        // A grey has no hue at all and reports -1, which would wrap round to
+        // red.  Red is as good a base as any to build on, and the saturation
+        // stays where it is, so a grey still comes out grey.
+        const QColor named = QColor(faceHex).isValid() ? QColor(faceHex) : QColor(Qt::white);
+        const double base = std::max(0.0, double(named.hueF()));
+        const double sat = double(named.saturationF());
+        const double val = double(named.valueF());
+
         QVector<double> hues;
         switch (rng.range(0, 3)) {
         case 0: {  // analogous
@@ -323,45 +336,33 @@ inline QByteArray kaleidoscopeFaceSvg(quint64 seed, const QString &faceHex = QSt
         for (int i = 0; i < hues.size(); ++i)
             sats.append(rng.uni(0.55, 1.0));
 
-        const QColor named(faceHex);
-        if (faceHex.isEmpty() || !named.isValid()) {
-            for (int i = 0; i < hues.size(); ++i)
-                pal.append(hex(hues[i], sats[i], vs[i]));
-        } else {
-            // One colour has to fill the same five slots, so it is the tone
-            // ladder that does the work and the hue that stays put.  The
-            // saturation moves a little with the tone -- a shade that is only
-            // darker reads as the same colour under a shadow, where one that
-            // is also less saturated reads as a colour of its own.
-            // A grey has no hue at all and reports -1, which would wrap round
-            // to red; red is as good a hue as any to shade a grey along, but
-            // only if the saturation stays where it is, which it does.
-            const double h = std::max(0.0, double(named.hueF()));
-            const double s = double(named.saturationF());
-            const double v = double(named.valueF());
-            for (int i = 0; i < hues.size(); ++i) {
-                // Spread about the named colour's own tone rather than about
-                // the middle, so a pale colour gives pale shades and a deep
-                // one deep shades, and the colour you picked is recognisably
-                // the one on the dial.
+        for (int i = 0; i < hues.size(); ++i) {
+            if (multiHue) {
+                pal.append(hex(hues[i], std::max(0.35, sats[i] * (0.45 + 0.55 * sat)), vs[i]));
+            } else {
+                // One colour has to fill the same five slots, so it is the tone
+                // ladder that does the work and the hue that stays put.  The
+                // saturation moves a little with the tone -- a shade that is
+                // only darker reads as the same colour under a shadow, where
+                // one that is also less saturated reads as a colour of its own.
+                //
+                // The spread is about the colour's own tone rather than about
+                // the middle, so a pale colour gives pale shades and a deep one
+                // deep shades, and the colour picked is recognisably the one on
+                // the dial.
                 const double t = (vs[i] - 0.63) / 0.29;  // roughly -1 .. +1
-                pal.append(hex(h, qBound(0.12, s * (1.0 - 0.35 * t), 1.0),
-                               qBound(0.06, v + 0.30 * t, 1.0)));
+                pal.append(hex(base, qBound(0.12, sat * (1.0 - 0.35 * t), 1.0),
+                               qBound(0.06, val + 0.30 * t, 1.0)));
             }
         }
     }
 
-    // The line work between the shapes.  Random, it is taken to one end of the
-    // tone range rather than picked out of the palette: line work has to read
-    // as line work, and a line in one of the five fill colours disappears the
-    // moment it lands next to that fill.
-    const QString lineColor = [&] {
-        const bool dark = rng.unit() < 0.75;
-        const QString rolled = hex(rng.unit(), rng.uni(0.0, 0.35),
-                                   dark ? rng.uni(0.03, 0.12) : rng.uni(0.90, 1.0));
-        const QColor named(wireHex);
-        return (wireHex.isEmpty() || !named.isValid()) ? rolled : named.name();
-    }();
+    // The line work between the shapes.  It is always the wire colour: line
+    // work has to read as line work, and a line in one of the five fill colours
+    // disappears the moment it lands next to that fill, which is exactly what
+    // picking it out of the palette would do.
+    const QColor namedWire(wireHex);
+    const QString lineColor = namedWire.isValid() ? namedWire.name() : QStringLiteral("#000000");
     // Width grows with the radius the line is drawn at, so the pattern is
     // pencilled in at the hub and inked at the rim.  Without that the middle,
     // where every wedge's shapes crowd together, fills in solid.
