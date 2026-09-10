@@ -1074,18 +1074,10 @@ void SettingsDialog::refreshTitle()
 
 void SettingsDialog::nudgeSize(int steps, bool fine)
 {
-    // A step is a fixed share of the size rather than a fixed number of
-    // pixels, so a notch of the wheel is the same visible change whatever the
-    // clock is: five pixels is a fifth of a small clock and nothing at all on
-    // a large one.
-    //
-    // The plain wheel takes the big step and Shift the small one, which is the
-    // way round a wheel is actually used: you spin it to get somewhere and
-    // then want to creep the last bit, and creeping is the part worth holding
-    // a key for.
+    // The step rule lives on the clock, which resizes by the wheel too when
+    // this dialog is not open; a notch must mean the same thing either way.
     const int value = m_size->value();
-    const int step = fine ? std::max(1, static_cast<int>(std::lround(value * 0.02)))
-                          : std::max(1, static_cast<int>(std::lround(value * 0.10)));
+    const int step = ClockWindow::sizeStep(value, fine);
     m_size->setValue(std::clamp(value + steps * step, m_size->minimum(), m_size->maximum()));
 }
 

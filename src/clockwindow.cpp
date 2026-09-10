@@ -1000,19 +1000,18 @@ void ClockWindow::mouseDoubleClickEvent(QMouseEvent *event)
     event->accept();
 }
 
-// The wheel over the clock resizes it, but only while its Settings dialog is
-// open.  Outside that the clock is a thing sitting on the desktop, and a wheel
-// over it should be left for whatever is underneath; with Settings open the
-// user is plainly adjusting this clock, and the wheel is the quickest way to
-// size it against what is behind it -- something the slider cannot show,
-// because the dialog is in the way.
-//
-// It goes through the dialog's slider rather than straight at the clock, so
-// the number on screen keeps up, and so Cancel still restores the size the
-// clock had when Settings opened.
+// The wheel over the clock resizes it.  Held with Ctrl it always does, because
+// then the user has said which window they mean and a modified wheel is not
+// something anything underneath is waiting for.  On its own it resizes only
+// while the clock's Settings dialog is open: outside that the clock is a thing
+// sitting on the desktop, and a bare wheel over it should be left for whatever
+// is behind.  With Settings open the user is plainly adjusting this clock, and
+// the wheel is the quickest way to size it against what is behind it --
+// something the slider cannot show, because the dialog is in the way.
 void ClockWindow::wheelEvent(QWheelEvent *event)
 {
-    if (!m_settings || m_moveMode || m_picking) {
+    const bool held = event->modifiers().testFlag(Qt::ControlModifier);
+    if ((!m_settings && !held) || m_moveMode || m_picking) {
         QWidget::wheelEvent(event);
         return;
     }
@@ -1020,9 +1019,37 @@ void ClockWindow::wheelEvent(QWheelEvent *event)
     const int notches = m_wheelResidue / 120;
     if (notches != 0) {
         m_wheelResidue -= notches * 120;
-        m_settings->nudgeSize(notches, event->modifiers().testFlag(Qt::ShiftModifier));
+        nudgeSize(notches, event->modifiers().testFlag(Qt::ShiftModifier));
     }
     event->accept();
+}
+
+int ClockWindow::sizeStep(int value, bool fine)
+{
+    const double share = fine ? 0.02 : 0.10;
+    return std::max(1, static_cast<int>(std::lround(value * share)));
+}
+
+void ClockWindow::nudgeSize(int notches, bool fine)
+{
+    // Through the dialog's slider where there is one, so the number on screen
+    // keeps up, and so Cancel still restores the size the clock had when
+    // Settings opened.
+    if (m_settings) {
+        m_settings->nudgeSize(notches, fine);
+        return;
+    }
+
+    const int wanted = std::clamp(m_cfg.size + notches * sizeStep(m_cfg.size, fine),
+                                  kSizeMin, maxSize());
+    if (wanted == m_cfg.size)
+        return;
+    Config values = m_cfg;
+    values.size = wanted;
+    applySettings(values);
+    // Saved on a timer rather than at once: a spin of the wheel is a run of
+    // these, and only where it stops is worth writing down.
+    queueSave();
 }
 
 void ClockWindow::keyPressEvent(QKeyEvent *event)
@@ -1616,7 +1643,8 @@ void ClockWindow::showHelp()
             "Left drag &mdash; move the clock<br>"
             "Double click &mdash; settings<br>"
             "Right click &mdash; menu<br>"
-            "Wheel &mdash; resize, while settings are open (Shift for finer steps)<br>"
+            "Wheel &mdash; resize, holding %1 or while settings are open "
+            "(Shift for finer steps)<br>"
             "<br><b>Keyboard</b><br>"
             "%1+S &mdash; settings<br>"
             "%1+M &mdash; carry the clock on the pointer<br>"

@@ -63,6 +63,22 @@ public:
     // Largest allowed clock size: the height of the screen it sits on.
     int maxSize() const;
 
+    // How far one notch of the wheel moves a clock of this size.  A fixed
+    // share of the size rather than a fixed number of pixels, so a notch is
+    // the same visible change whatever the clock is: five pixels is a fifth of
+    // a small clock and nothing at all on a large one.
+    //
+    // The plain wheel takes the big step and Shift the small one, which is the
+    // way round a wheel is actually used: you spin it to get somewhere and
+    // then want to creep the last bit, and creeping is the part worth holding
+    // a key for.
+    static int sizeStep(int value, bool fine);
+
+    // Resize by whole notches of the wheel.  Goes through the Settings dialog
+    // when there is one, so the number on screen keeps up and Cancel can still
+    // put the size back; otherwise it moves the clock itself.
+    void nudgeSize(int notches, bool fine);
+
     QPointF centerPixels() const;
     double handRadius() const;
     QString faceLabel() const;

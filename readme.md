@@ -474,18 +474,23 @@ double click that stays put opens Settings instead of being swallowed by the
 start of a move. The clock therefore trails the pointer by that small threshold
 for the rest of a drag, which is the ordinary feel of dragging anything.
 
-The wheel over the clock resizes it, but only while its Settings dialog is
-open. The rest of the time the clock is a thing sitting on the desktop, and a
-wheel over it belongs to whatever is underneath; with Settings open you are
-plainly adjusting this clock, and the wheel sizes it against what is behind it
--- which the size slider cannot show you, because the dialog is in the way.
+The wheel over the clock resizes it. Held with `Ctrl` it always does; on its
+own it does so only while the clock's Settings dialog is open. The difference
+is who the wheel belongs to. A bare wheel over a clock sitting on the desktop
+belongs to whatever is underneath, and taking it would be rude; a wheel with
+`Ctrl` held is nobody else's, and it says which window you mean. With Settings
+open you are plainly adjusting this clock anyway, and the wheel sizes it
+against what is behind it -- which the size slider cannot show you, because the
+dialog is in the way.
 Each notch is a tenth of the current size rather than a fixed number of pixels,
 so it is the same visible change on a large clock as on a small one, and
 `Shift` cuts the step to two percent. The plain wheel is the coarse one on
 purpose: you spin a wheel to cross a distance and then creep the last little
-way, and creeping is the part worth holding a key for. It moves the slider
-rather than the clock directly, so the number on screen keeps up and Cancel
-still puts back the size you started with.
+way, and creeping is the part worth holding a key for. With Settings open it
+moves the slider rather than the clock directly, so the number on screen keeps
+up and Cancel still puts back the size you started with; with Settings closed
+there is no slider to move, so it resizes the clock and writes the new size out
+once the spinning stops.
 
 The clock refuses to be minimised, maximised, or made full screen, whether the
 request comes from the window manager, a "show desktop" key, or a tiling
