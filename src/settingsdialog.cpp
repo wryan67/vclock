@@ -984,6 +984,23 @@ void SettingsDialog::onChanged(const QObject *sender)
     // itself is taken back from it -- hexOf() drops the alpha for us.
     if (sender == m_face)
         m_faceOwn = hexOf(m_face->color());
+
+    // Picking a colour by hand answers the same question the tick does, and
+    // answers it the other way: this one was chosen, not rolled.  Only a
+    // colour the user set counts, which is what makes the sender worth
+    // testing -- setColor() is silent, so a rolled colour arrives here with no
+    // sender at all and leaves the tick alone.  The signal is blocked because
+    // the apply below already covers the change; letting the box emit would
+    // run the whole of onChanged() a second time.
+    if (sender == m_face && m_faceRandom->isChecked()) {
+        const QSignalBlocker block(m_faceRandom);
+        m_faceRandom->setChecked(false);
+    }
+    if (sender == m_wire && m_wireRandom->isChecked()) {
+        const QSignalBlocker block(m_wireRandom);
+        m_wireRandom->setChecked(false);
+    }
+
     syncSwatches();
     if (m_live) {
         m_clock->applySettings(values());

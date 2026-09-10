@@ -763,9 +763,10 @@ Beside *Face color* and *Wire color* is a **random** box and a **Cycle** button.
 Ticking the box rolls a colour and puts it in the swatch; Cycle rolls another.
 There is nowhere else the rolled colour is kept, so what is on screen is always
 what is in the box, and a roll you nearly like can be opened in the picker and
-nudged the rest of the way. Unticking leaves the colour where it is rather than
-putting the old one back, for the same reason: the roll you stopped on is the
-one you meant to keep.
+nudged the rest of the way -- doing so unticks the box, since choosing a colour
+answers the same question the tick does and answers it the other way. Unticking
+by hand leaves the colour where it is rather than putting the old one back, for
+the same reason: the roll you stopped on is the one you meant to keep.
 
 Neither roll covers the whole colour cube. A face wants a colour with some body
 to it, so the washed-out and the nearly-black are left out. Line work has to
