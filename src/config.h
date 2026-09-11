@@ -57,11 +57,15 @@ inline constexpr int kMarkScaleMin = 0, kMarkScaleMax = 200;  // 0 hides the ind
 // can always be reached by right clicking where the clock is.
 inline constexpr int kOpacityMin = 0, kOpacityMax = 100;
 
-// How fast the face turns, as a percentage of one full turn a second.  Zero
-// is what it has always done, and the range runs either side of it: a face
-// can turn the way the hands do or against them, and neither is more natural
-// than the other once the face is moving at all.
-inline constexpr int kSpinMin = -100, kSpinMax = 100;
+// How fast the face turns, as a percentage of one full turn a second, so the
+// ends of the range are two turns a second either way.  Zero is what it has
+// always done, and the range runs either side of it: a face can turn the way
+// the hands do or against them, and neither is more natural than the other
+// once the face is moving at all.  The unit stays a percentage of a turn a
+// second rather than being rescaled so that the top is called a hundred --
+// the number on the slider then means the same thing it always did, and a
+// face set to 50 keeps turning at the speed it was turning at.
+inline constexpr int kSpinMin = -200, kSpinMax = 200;
 
 // Where the clock sat, and how big it was, on one particular monitor.
 //

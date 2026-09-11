@@ -904,11 +904,17 @@ to choose its colours is no help to anybody.
 ### Spin
 
 At the foot of the Face tab is **Spin**, a percentage of one full turn a
-second. The scale runs from minus a hundred to plus a hundred, with zero in the
-middle: zero leaves the face still, which is what it has always done, and a
-hundred either way carries it right round once a second. Everything in between
-is proportional. It is the last row on the page because it is the only thing
+second. The scale runs from minus two hundred to plus two hundred, with zero in
+the middle: zero leaves the face still, which is what it has always done, and
+either end carries it round twice a second. Everything in between is
+proportional. It is the last row on the page because it is the only thing
 there about what the face does rather than what it looks like.
+
+The unit stays a percentage of a turn a second rather than being rescaled so
+that the top of the scale is called a hundred. A number on the slider then
+means the same thing it has always meant, and a face already set to 50 goes on
+turning at the speed it was turning at rather than quietly doubling because the
+range around it grew.
 
 The sign is the direction. Positive turns the face the way the hands go and
 negative turns it against them, because once a face is moving at all neither way
