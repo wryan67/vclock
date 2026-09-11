@@ -247,6 +247,7 @@ Config loadConfig(const QString &requested)
     cfg.smoothSweep = readBool(o, "smooth_sweep",
                                readBool(o, "smooth_minute", kDefaults.smoothSweep));
     cfg.reverseTime = readBool(o, "reverse_time", kDefaults.reverseTime);
+    cfg.faceSpin = readPercent(o, "face_spin", kSpinMin, kSpinMax, kDefaults.faceSpin);
     cfg.faceRecolor = readBool(o, "face_recolor", kDefaults.faceRecolor);
     cfg.faceRegen = readBool(o, "face_regen", kDefaults.faceRegen);
     cfg.faceRegenMinutes = readPercent(o, "face_regen_minutes", kRegenMinutesMin,
@@ -333,6 +334,7 @@ void saveConfig(const Config &cfg, const QString &requested)
     o.insert(QStringLiteral("minute_same_as_hour"), cfg.minuteSameAsHour);
     o.insert(QStringLiteral("smooth_sweep"), cfg.smoothSweep);
     o.insert(QStringLiteral("reverse_time"), cfg.reverseTime);
+    o.insert(QStringLiteral("face_spin"), cfg.faceSpin);
     o.insert(QStringLiteral("face_color"), cfg.faceColor);
     o.insert(QStringLiteral("face_recolor"), cfg.faceRecolor);
     o.insert(QStringLiteral("face_regen"), cfg.faceRegen);
@@ -523,4 +525,9 @@ void copyResetKeys(const Config &from, Config &to)
     to.alwaysOnTop = from.alwaysOnTop;
     to.smoothSweep = from.smoothSweep;
     to.reverseTime = from.reverseTime;
+    // Spin sits with the other two rather than with the preset keys: a preset
+    // says what the clock looks like, not whether it is moving, and a face
+    // that stopped turning every time a preset was tried would be a setting
+    // that could not be held still long enough to judge.
+    to.faceSpin = from.faceSpin;
 }

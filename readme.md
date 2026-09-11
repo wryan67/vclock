@@ -901,6 +901,53 @@ copy of these values to preview from, so a face changed behind its back would be
 undone by the next control touched, and a face that changes while you are trying
 to choose its colours is no help to anybody.
 
+### Spin
+
+At the foot of the Face tab is **Spin**, a percentage of one full turn a
+second. Zero leaves the face still, which is what it has always done; a hundred
+carries it right round once a second, and everything in between is
+proportional. It is the last row on the page because it is the only thing there
+about what the face does rather than what it looks like.
+
+Only the artwork turns. The hands stay where they were and the marks stay where
+they were, because they are how the clock is read, and a clock that is spinning
+is still meant to be telling the time. Faces that carry their own numerals turn
+those with them, which is the honest answer: the numerals are part of the
+picture, not part of the mechanism.
+
+It turns about the hands' pivot rather than the middle of the window, since the
+pivot is what the face was drawn around. Turning a face with an off-centre pivot
+about the window instead would make it wobble rather than spin.
+
+The angle comes from real elapsed time rather than a count of frames, so a
+dropped frame costs a moment of smoothness instead of leaving the face
+permanently behind -- the same reasoning that makes the sweeping second hand
+take the exact angle for the instant rather than stepping. A spinning face
+repaints at sixty frames a second whether or not **Smooth sweep** is on, because
+something on the clock is always moving now.
+
+Turning the spin back off winds the face to square rather than leaving it at
+whatever angle it had reached, so a face that is meant to sit upright does.
+
+A preset leaves the spin alone, unlike the **random** boxes it unticks. A preset
+says what the clock looks like, not whether it is moving, and a face that stopped
+turning every time a preset was tried would be a setting you could not hold still
+long enough to judge.
+
+The window does not grow to hold the turn, so artwork drawn out to the corners
+of its own square will clip as it swings past the edges. Round faces -- which is
+nearly all of them -- never notice.
+
+What the clock takes clicks on changes while it is spinning. A turning face
+passes through every angle, so the shape it can occupy is a disc: the radius is
+measured once, when the face is rasterised, out to the farthest pixel the
+artwork actually paints. It has to be the real reach and not the corner of the
+artwork's bounding box, because half the diagonal of a box is a good deal wider
+than a round face sitting inside it, and a clock that took clicks in its empty
+corners would be no better than a plain rectangle. Recomputing the true outline
+sixty times a second is out of the question, and a mask that flickered in and
+out as the artwork swung by would be worse than either.
+
 ### The Settings window
 
 The controls sit on four tabs -- **Face**, **Hands**, **Marks**, **Opacity**.

@@ -91,6 +91,7 @@ private:
     QComboBox *m_colorMode = nullptr;
 
     QSlider *m_size = nullptr;
+    QSlider *m_faceSpin = nullptr;
     QSlider *m_handScale = nullptr;
     QSlider *m_markScale = nullptr;
     QSlider *m_markPosition = nullptr;

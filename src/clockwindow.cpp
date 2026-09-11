@@ -196,11 +196,12 @@ ClockWindow::ClockWindow(const QString &configPath)
     });
 
     // Polled rather than fired once a second, so the hands land on the new
-    // second promptly however far the timer has drifted. In smooth mode it runs
-    // at 60 fps and every tick repaints, since the minute hand is always moving.
+    // second promptly however far the timer has drifted. In smooth mode, or
+    // whenever the face is turning, it runs at 60 fps and every tick repaints,
+    // since something on the clock is always moving.
     m_tick = new QTimer(this);
     connect(m_tick, &QTimer::timeout, this, [this] {
-        if (m_cfg.smoothSweep) {
+        if (m_cfg.smoothSweep || spinning()) {
             update();
             return;
         }
@@ -258,6 +259,18 @@ double ClockWindow::reachRadius() const
                               size.height()));
 }
 
+// How far the artwork reaches from the pivot.  A turning face sweeps every
+// point of itself all the way round, so the shape it can occupy is a disc of
+// this radius -- which is what the hit mask has to cover while it is spinning,
+// since working the real outline out afresh sixty times a second is far too
+// dear.  The reach is measured once, when the face is rasterised, and kept as
+// a fraction of the width so that it survives a resize the raster has not yet
+// caught up with.
+double ClockWindow::spinRadius() const
+{
+    return m_spinReach * pixelSize().width();
+}
+
 // Only the clock takes clicks.  The window has to be a rectangle and a clock is
 // not, so without this its empty corners would swallow clicks meant for the
 // window or the desktop behind them -- something that is not there to look at
@@ -293,6 +306,13 @@ void ClockWindow::applyHitMask()
         painter.setBrush(Qt::white);
         const double r = reachRadius() + 1.0;
         painter.drawEllipse(centerPixels(), r, r);
+        // A turning face passes through every angle, so anywhere it can reach
+        // has to stay clickable rather than flickering in and out of the mask
+        // as the artwork swings by.
+        if (spinning()) {
+            const double sr = spinRadius() + 1.0;
+            painter.drawEllipse(centerPixels(), sr, sr);
+        }
     }
 
     // Any alpha at all counts.  The artwork fades to nothing at its edge, so a
@@ -412,6 +432,9 @@ void ClockWindow::rebuildRaster()
                       static_cast<double>(bounds.top()) / ph,
                       static_cast<double>(bounds.width()) / pw,
                       static_cast<double>(bounds.height()) / ph);
+    m_spinReach = farthestCovered(art, QPointF(m_cfg.centerFraction().x() * pw,
+                                               m_cfg.centerFraction().y() * ph))
+                  / pw;
 
     // In "original" mode the artwork is its own colour scheme; leave it be.
     m_raster = m_cfg.faceRecolor
@@ -1417,9 +1440,25 @@ void ClockWindow::paintEvent(QPaintEvent *)
     // The face is rasterised at the widget's pixel size, so it normally lands
     // 1:1.  Mid-resize the raster may still be the previous size, so it is
     // stretched to fit until it catches up.
+    //
+    // Only the artwork turns.  The hands and the marks are how the clock is
+    // read, and a clock that is spinning is still meant to be telling the
+    // time, so they are drawn afterwards on an untouched painter.  The turn is
+    // about the hands' pivot rather than the middle of the window, because the
+    // pivot is what the face was drawn around; turning a face with an
+    // off-centre pivot about the window would make it wobble.
     if (!m_raster.isNull()) {
+        const double angle = advanceSpin();
+        const QPointF pivot = centerPixels();
+        painter.save();
+        if (angle != 0.0) {
+            painter.translate(pivot);
+            painter.rotate(angle);
+            painter.translate(-pivot);
+        }
         painter.drawImage(QRectF(0, 0, width(), height()), m_raster,
                           QRectF(m_raster.rect()));
+        painter.restore();
     }
 
     const QPointF center = centerPixels();
@@ -1572,11 +1611,36 @@ void ClockWindow::applyAlwaysOnTop()
     }
 }
 
+// The face turns at a percentage of one full turn a second, so 100 is a turn
+// a second and 50 is a turn every two.  The angle is integrated from real
+// elapsed time rather than counted in frames: a dropped frame then costs a
+// moment of smoothness instead of putting the face permanently behind.
+double ClockWindow::advanceSpin()
+{
+    if (!spinning()) {
+        // Wound back to square, so that turning the spin on again starts the
+        // face the way it was drawn rather than wherever it was left.
+        m_spinAngle = 0.0;
+        m_spinClock.invalidate();
+        return 0.0;
+    }
+    if (!m_spinClock.isValid()) {
+        m_spinClock.start();
+        return m_spinAngle;
+    }
+    const double seconds = m_spinClock.restart() / 1000.0;
+    m_spinAngle = std::fmod(m_spinAngle + seconds * 360.0 * m_cfg.faceSpin / 100.0,
+                            360.0);
+    return m_spinAngle;
+}
+
 // A sweeping minute hand has to be redrawn continuously; a stepping one only
-// needs to be checked often enough to land on the new second promptly.
+// needs to be checked often enough to land on the new second promptly.  A
+// turning face has to be redrawn continuously whatever the hands are doing.
 void ClockWindow::applyTickRate()
 {
-    const int interval = m_cfg.smoothSweep ? kSmoothIntervalMs : kSteppedIntervalMs;
+    const int interval = (m_cfg.smoothSweep || spinning()) ? kSmoothIntervalMs
+                                                           : kSteppedIntervalMs;
     if (m_tick->interval() == interval)
         return;
     m_tick->setInterval(interval);
@@ -1789,7 +1853,8 @@ void ClockWindow::applySettings(const Config &values)
                               || values.faceRecolor != m_cfg.faceRecolor;
     const bool changedSize = values.size != m_cfg.size;
     const bool changedOnTop = values.alwaysOnTop != m_cfg.alwaysOnTop;
-    const bool changedSmooth = values.smoothSweep != m_cfg.smoothSweep;
+    const bool changedSmooth = values.smoothSweep != m_cfg.smoothSweep
+                               || (values.faceSpin > 0) != (m_cfg.faceSpin > 0);
     const bool changedRegen = values.faceRegen != m_cfg.faceRegen
                               || values.faceRegenMinutes != m_cfg.faceRegenMinutes;
 

@@ -342,6 +342,12 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     chooserGrid->addLayout(regenRow, crow, 1);
     ++crow;
 
+    // Spin closes the page.  It is the only thing here that is about what the
+    // face does rather than what it looks like, so it sits below the look of
+    // it rather than interrupting it.
+    m_faceSpin = addSlider(chooserGrid, crow++, QStringLiteral("Spin (%)"), cfg.faceSpin,
+                           kSpinMin, kSpinMax, false);
+
     chooserGrid->setColumnStretch(1, 1);
     chooserGrid->setRowStretch(crow, 1);
 
@@ -590,7 +596,7 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     // ------------------------------------------------------------- wiring up
     for (QSlider *slider : {m_size, m_handScale, m_markScale, m_markPosition,
                             m_minuteMarkScale, m_faceOpacity, m_wireOpacity,
-                            m_handOpacity, m_markOpacity}) {
+                            m_handOpacity, m_markOpacity, m_faceSpin}) {
         connect(slider, &QSlider::valueChanged, this, [this] { onChanged(); });
     }
     for (ColorButton *button : {m_second, m_hour, m_minute, m_face, m_wire, m_hourMark,
@@ -926,6 +932,7 @@ void SettingsDialog::applyValues(const Config &values, bool full)
         m_size->setValue(values.size);
         m_smoothSweep->setChecked(values.smoothSweep);
         m_reverseTime->setChecked(values.reverseTime);
+        m_faceSpin->setValue(values.faceSpin);
     }
 
     // A preset is a change of looks, so it leaves the clock's size alone; it
@@ -1139,6 +1146,7 @@ Config SettingsDialog::values() const
 {
     Config out = m_clock->cfg();  // size/stacking/placement stay the clock's
     out.size = m_size->value();
+    out.faceSpin = m_faceSpin->value();
     out.handScale = m_handScale->value();
     out.markScale = m_markScale->value();
     out.markPosition = m_markPosition->value();

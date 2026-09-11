@@ -57,6 +57,12 @@ inline constexpr int kMarkScaleMin = 0, kMarkScaleMax = 200;  // 0 hides the ind
 // can always be reached by right clicking where the clock is.
 inline constexpr int kOpacityMin = 0, kOpacityMax = 100;
 
+// How fast the face turns, as a percentage of one full turn a second.  Zero
+// is what it has always done, and is the floor rather than a negative range
+// because the direction is not the interesting part: a face that turns the
+// other way is the same face, seen from behind.
+inline constexpr int kSpinMin = 0, kSpinMax = 100;
+
 // Where the clock sat, and how big it was, on one particular monitor.
 //
 // The position is stored relative to that monitor's available area rather than
@@ -90,6 +96,11 @@ struct Config
     bool minuteSameAsHour = false;
     bool smoothSweep = false;                              // sweep the hands instead of stepping them
     bool reverseTime = false;                              // run the hands anticlockwise
+    // Turn the face artwork about the hands' pivot, as a percentage of one full
+    // turn a second.  0 leaves it still.  The hands and the marks do not turn
+    // with it: they are how the clock is read, and a clock that is spinning is
+    // still meant to be telling the time.
+    int faceSpin = 0;
     // Recolour maps the artwork's brightness onto the wire/face colours, which
     // only makes sense for line art. A full-colour drawing has to be left alone.
     bool faceRecolor = true;

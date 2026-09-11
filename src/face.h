@@ -4,6 +4,7 @@
 
 #include <QByteArray>
 #include <QImage>
+#include <QPointF>
 #include <QRect>
 #include <QString>
 
@@ -60,3 +61,5 @@ QImage recolor(const QImage &art, const QString &wireHex, const QString &faceHex
 
 // Bounding box (inclusive) of the artwork's non-transparent pixels.
 QRect contentBounds(const QImage &art);
+// Radius of the disc an image sweeps when turned about the given pivot.
+double farthestCovered(const QImage &art, const QPointF &pivot);

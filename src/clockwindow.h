@@ -4,6 +4,7 @@
 
 #include "config.h"
 
+#include <QElapsedTimer>
 #include <QImage>
 #include <QPoint>
 #include <QPointF>
@@ -86,6 +87,15 @@ public:
     // until the spinning stops.
     void startZoom();
     void stopZoom();
+
+    // How far round the face has turned by now, in degrees, advancing it by
+    // however long it has been since this was last asked.  Integrating real
+    // elapsed time rather than counting frames keeps the speed honest when a
+    // frame is dropped, and is what makes the turn smooth in the same way a
+    // sweeping second hand is.
+    double advanceSpin();
+    // Whether the face is turning at all.
+    bool spinning() const { return m_cfg.faceSpin > 0; }
 
     QPointF centerPixels() const;
     double handRadius() const;
@@ -179,6 +189,7 @@ private:
 
     void rebuildRaster();
     double reachRadius() const;  // how far the hands and indices go from the pivot
+    double spinRadius() const;   // how far the face sweeps from the pivot when turning
     void applyHitMask();         // let clicks off the clock through to what is behind
     void scheduleRebuild();
     void queueSave();
@@ -207,7 +218,9 @@ private:
     QImage m_coverage;                  // where the artwork is, before the user's opacity
     QImage m_hitFill;                   // the hit shape at an invisible alpha; see paintEvent
     QRectF m_bounds{0, 0, 1, 1};        // content bbox of the raster, as fractions
-
+    // Farthest the artwork reaches from the pivot, as a fraction of the width;
+    // the radius of the disc it sweeps when it turns.
+    double m_spinReach = 0.5;
     SettingsDialog *m_settings = nullptr;
     bool m_picking = false;
     // Set by hideClock() so closeEvent can tell the user putting this clock
@@ -246,11 +259,19 @@ private:
     // a stream of small deltas rather than whole notches, so the remainder is
     // carried between events instead of being rounded away.
     int m_wheelResidue = 0;
-    // Whether the pointer is held for the duration of a spin; see startZoom.
+    // Whether the pointer is held for the duration of a spin of the wheel;
+    // see startZoom.
     bool m_zooming = false;
     QTimer *m_zoomTimer = nullptr;
     // Where the pointer was when the spin began.  It does not move while a
     // clock resizes under it, so travelling away from here is the user leaving
     // rather than anything the resize did.
     QPoint m_zoomAnchor;
+
+    // How far round the face has turned, and when that was last worked out.
+    // The angle is carried rather than derived from the time of day so that
+    // changing the speed picks up from where the face is, instead of jumping
+    // to wherever a faster clock would have got to by now.
+    double m_spinAngle = 0.0;
+    QElapsedTimer m_spinClock;
 };

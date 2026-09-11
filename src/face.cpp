@@ -305,3 +305,41 @@ QRect contentBounds(const QImage &art)
     return QRect(QPoint(x0, y0), QPoint(x1, y1));
 }
 
+// The distance from a pivot to the farthest pixel the artwork actually paints.
+// Turned about that pivot, the artwork sweeps a disc of exactly this radius,
+// so this is the shape a spinning face presents to the pointer.  The content
+// box will not do here: half the diagonal of a box is a good deal wider than a
+// round face inside it, and a clock that took clicks in its empty corners
+// would be no better than an undecorated rectangle.
+double farthestCovered(const QImage &art, const QPointF &pivot)
+{
+    QImage src = art;
+    if (src.format() != QImage::Format_ARGB32)
+        src = src.convertToFormat(QImage::Format_ARGB32);
+
+    const int w = src.width();
+    const int h = src.height();
+    double worst = 0.0;
+    for (int y = 0; y < h; ++y) {
+        const QRgb *in = reinterpret_cast<const QRgb *>(src.constScanLine(y));
+        // Only the first and last painted pixel on a row can be the farthest
+        // from the pivot, once the row is fixed: distance grows away from the
+        // pivot's column in both directions.  That keeps this to two probes a
+        // row instead of a full scan of the image.
+        int x0 = -1, x1 = -1;
+        for (int x = 0; x < w; ++x) {
+            if (qAlpha(in[x]) > 32) {
+                if (x0 < 0)
+                    x0 = x;
+                x1 = x;
+            }
+        }
+        if (x0 < 0)
+            continue;
+        const double dy = y - pivot.y();
+        worst = std::max({worst, std::hypot(x0 - pivot.x(), dy),
+                          std::hypot(x1 - pivot.x(), dy)});
+    }
+    return worst;
+}
+
