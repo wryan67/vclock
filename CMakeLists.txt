@@ -10,8 +10,8 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
 endif()
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Svg)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Svg)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Svg Network)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Svg Network)
 
 add_executable(vclock WIN32 MACOSX_BUNDLE
   src/main.cpp
@@ -23,6 +23,8 @@ add_executable(vclock WIN32 MACOSX_BUNDLE
   src/icons.cpp
   src/registry.cpp
   src/autostart.cpp
+  src/jumplist.cpp
+  src/singleinstance.cpp
   src/clockmanager.cpp
   src/manageclocksdialog.cpp
   src/settingsdialog.cpp
@@ -38,6 +40,8 @@ add_executable(vclock WIN32 MACOSX_BUNDLE
   src/icons.h
   src/registry.h
   src/autostart.h
+  src/jumplist.h
+  src/singleinstance.h
   src/clockmanager.h
   src/manageclocksdialog.h
   src/settingsdialog.h
@@ -49,6 +53,7 @@ add_executable(vclock WIN32 MACOSX_BUNDLE
 target_link_libraries(vclock PRIVATE
   Qt${QT_VERSION_MAJOR}::Widgets
   Qt${QT_VERSION_MAJOR}::Svg
+  Qt${QT_VERSION_MAJOR}::Network
 )
 
 # On X11 every window a process opens shares one window group, and window
@@ -74,6 +79,11 @@ if(WIN32)
   # a .rc would be passed to the linker as an unknown file.
   enable_language(RC)
   target_sources(vclock PRIVATE distro/windows/vclock.rc)
+  # The taskbar menu is COM: the shell link and destination list objects live
+  # in ole32 and shell32, and the property that carries an entry's text is
+  # read and written through propsys.  shlwapi is there for SHStrDupW, which
+  # the inline that packs a string into a PROPVARIANT calls.
+  target_link_libraries(vclock PRIVATE ole32 shell32 propsys shlwapi)
 endif()
 
 set_target_properties(vclock PROPERTIES

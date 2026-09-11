@@ -104,6 +104,12 @@ would be worse than leaving it.
 * **Windows** — Qt from the Qt installer with MSVC or MinGW. The executable is
   built with `WIN32`, so it does not open a console window.
 
+Qt Network is needed as well as Widgets and Svg, for the local socket that
+hands a second launch to the copy already running. Nothing extra has to be
+installed for it: it is part of Qt Base everywhere in the list above, so it
+arrives with Widgets, which is why `--check-deps` still asks about only those
+two.
+
 ## Packaging
 
 `./build.sh --distro` builds installable packages rather than a binary in the
@@ -1279,7 +1285,7 @@ read as a face faded to 0, which is what that tick did.
 
 ### Command line
 
-    vclock [-c NAME]... [-h]
+    vclock [-c NAME]... [-d | --manage] [-h]
 
 `-c`, `--config NAME` reads and writes `NAME` instead of `default.cfg`. A bare
 name means a file in the config directory, so `-c world` is `world.cfg`;
@@ -1299,6 +1305,64 @@ over the other.
 
 A clock named with `-c` is showing for that run only: it does not change which
 clocks come back the next time vclock is started on its own.
+
+#### Started by hand, and started at login
+
+These are not the same occasion and no longer behave the same way.
+
+Starting vclock by hand — from a terminal, from the applications menu, from a
+pinned taskbar button — puts the clocks up **and opens Manage clocks with
+them**. That is the default. Somebody who has just started a program is asking
+to see it, and a clock is easy to lose: it has no frame, no taskbar entry and
+no title bar, so a program that showed nothing but clocks could be running
+perfectly and look like it had failed to start. The list is also the only way
+to reach a clock whose Show box is unticked, which is otherwise a program with
+no interface at all.
+
+Starting at login is the opposite occasion. Nothing has been asked for, the
+desktop is still assembling itself, and a window demanding to be dealt with is
+the last thing wanted. `-d`, `--daemon` puts the clocks up and stops there,
+which is how vclock behaved on every start until now, and it is what the
+autostart entry the program writes for itself asks for.
+
+`--manage` says the default out loud. It is there because the Windows taskbar
+menu has to name what it wants rather than rely on a default, and because
+`--daemon` reads better against something than against nothing. Giving both is
+refused rather than resolved: either order this picked would be as good an
+argument for the other.
+
+The two go with `-c` as they do with anything else, so `vclock -c desk
+--daemon` puts up one named clock and no window.
+
+#### One copy at a time
+
+Starting vclock while vclock is already running no longer starts a second copy.
+The second launch hands over what it was asked for and stops, and the running
+program does it.
+
+This became necessary the moment the program could be pinned. A pinned taskbar
+button is not a way to start a program, it is a way to get back to one, and a
+click on it that started a second copy would give two sets of clocks sharing
+one config directory, each saving over the other's files. Forwarding turns the
+same click into what it looks like: plain `vclock` brings up Manage clocks on
+the copy already running, `--daemon` puts the clocks that are marked to show
+back on screen, and `-c world` opens that clock in the running program rather
+than beside it.
+
+Instances are told apart by their config directory, not by the program. Two
+that read different configs are two different programs and are left alone to
+run side by side — which is also what makes it safe to try a build with
+`XDG_CONFIG_HOME` pointed somewhere else while the real one is up.
+
+The instance that runs is the one holding a lock file; a local socket beside it
+carries the messages. The lock has to be a lock: `QLocalServer` cannot be used
+to decide, because on Unix it unlinks whatever it finds at the name and binds a
+fresh socket there. Listening therefore always succeeds, so two instances using
+that as their test would both believe they were the only one, and the second
+would take the name away from the first and leave it running and unreachable. A
+lock file says who holds it and names the process holding it, so an instance
+killed outright leaves a lock the next start can see through rather than one
+that locks everybody out.
 
 ## Managing clocks
 
@@ -1437,6 +1501,19 @@ There is one setting for the program, not one per clock, because what comes back
 at login is whatever was showing when the session ended — the same rule Show
 already follows.
 
+What the entry starts is `vclock --daemon`: the clocks, and no window. A login
+is not an occasion to ask for attention, and it is the whole difference between
+being started at login and being started by hand, which opens Manage clocks
+along with the clocks.
+
+The entry is also rewritten at startup whenever what it says differs from what
+is true, and left alone otherwise. It has two things in it that go stale — the
+path to the program, which an upgrade can move, and the arguments, which an
+entry written by an older vclock does not have — and an entry nobody corrects
+would go on opening a window at every login until the box was unticked and
+ticked again. Writing only on a difference is what keeps that from becoming a
+file touched at every start.
+
 The entry points at the running program's own path, resolved through any symlink
 used to start it, so it names the binary that is actually running. Running from
 a build directory this means the entry follows that directory, and a build
@@ -1458,6 +1535,45 @@ problem and no uninstaller to solve it — dragging the app to the Trash leaves
 the agent behind — so the disk image carries `uninstall.sh`, which removes it.
 
 `-h`, `--help` prints the options and exits.
+
+### The taskbar button on Windows
+
+vclock can be pinned to the taskbar or the Start menu, and right-clicking what
+you pinned offers **Manage clocks** and **Show my clocks** above the usual
+Unpin.
+
+They are there because the program's own menu lives on the clock face, and a
+clock face is not always available to click. Every clock can be hidden, moved
+under another window, or made nearly transparent, and none of them appears in
+the taskbar or the window switcher — a frameless tool window is deliberately in
+neither. The pinned button is then the only thing on screen still pointing at
+the program, so the two things you would want from it belong on it: the list of
+clocks, and the clocks themselves back where they can be seen.
+
+Both are ordinary launches — `vclock --manage` and `vclock --daemon` — and both
+are forwarded to the copy already running, which is what makes them act on the
+program you can see rather than starting another one beside it.
+
+Windows calls this a Jump List, and attaches one to a taskbar button by
+AppUserModelID. vclock deliberately does not set an explicit one. A program
+that keeps quiet is given an ID worked out from its executable path, and a
+shortcut pointing at that executable is given the same ID worked out the same
+way, so the pinned button is already this program's button and the list lands
+on it. Setting an explicit ID would break exactly that: the shortcut would have
+to carry the ID too, as a property written inside the `.lnk`, and NSIS has no
+way to write one.
+
+Qt 5 had `QWinJumpList` for this. Qt 6 dropped QtWinExtras, so `src/jumplist.cpp`
+is the COM that class used to wrap — a destination list, a collection of shell
+links, and a title property on each. Everywhere other than Windows it does
+nothing, so nothing that calls it has to ask what platform it is on.
+
+Linux has the same menu under a different name. Right-clicking vclock in a dock
+or launcher offers the same two entries, which come from `Actions=` in
+`distro/vclock.desktop` rather than from any code — the desktop reads them out
+of the installed entry, so they are there whether vclock is running or not. The
+reason for them is the reason for the Windows ones, and a package install is all
+it takes to get them.
 
 ### Monitors
 
@@ -1515,6 +1631,8 @@ A few details worth knowing:
 | `src/colorpicker.*` | the colour picker: wheel, S/B sliders, hex and RGB fields |
 | `src/settingsdialog.*` | the Settings window |
 | `src/autostart.*` | writing and removing the login startup entry |
+| `src/singleinstance.*` | handing a second launch to the copy already running |
+| `src/jumplist.*` | the right-click menu on the Windows taskbar button |
 | `src/clockwindow.*` | the translucent clock window itself |
 | `src/timetip.*` | the date and time bubble shown on hover |
 | `src/windowgroup.*` | keeping each clock's stacking its own, on X11 |

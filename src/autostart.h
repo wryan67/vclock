@@ -28,6 +28,14 @@ bool enabled();
 // removed, in which case reason() says why.
 bool setEnabled(bool on);
 
+// Bring an existing entry up to date, quietly, and do nothing when starting at
+// login is off.  The entry names both the binary and the arguments to start it
+// with, and both go stale: an upgrade can move the program, and this version
+// wants --daemon where an older one wrote no arguments at all.  Called at every
+// startup, and writes only when what it would say differs from what is there,
+// so the usual run touches nothing.
+void refresh();
+
 // Why the last setEnabled() failed, for showing to the user.
 QString reason();
 

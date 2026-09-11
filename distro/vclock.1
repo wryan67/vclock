@@ -16,6 +16,12 @@ hold
 .B Ctrl
 and turn the mouse wheel to resize it, and click the right mouse button for a
 menu with Settings, the clock list, help and About on it.
+.PP
+Starting
+.B vclock
+while it is already running does not start a second copy: the second launch
+hands over what it was asked for and stops, and the copy already running does
+it.  Instances are told apart by their configuration directory.
 .SH OPTIONS
 .TP
 .BR \-c ", " \-\-config " " \fINAME\fR
@@ -26,6 +32,16 @@ means \fIworld.cfg\fR; anything with a
 .B /
 in it is a path of your own.  Repeat the option to run several clocks at once,
 one for each configuration.
+.TP
+.BR \-d ", " \-\-daemon
+Put the clocks up and nothing else.  This is what starting at login does, where
+a window asking to be dealt with is the last thing wanted.
+.TP
+.B \-\-manage
+Put the clocks up and open the clock list with them.  This is the default, so
+the option is only needed to say so explicitly.  Giving it together with
+.B \-\-daemon
+is an error.
 .TP
 .BR \-h ", " \-\-help
 Show a summary of the options and exit.
@@ -44,6 +60,12 @@ Run the default clock:
 .TP
 Run two named clocks at once:
 .B vclock \-c desk \-c wall
+.TP
+Put the clocks up without opening the clock list:
+.B vclock \-\-daemon
+.TP
+Open the clock list on the copy already running:
+.B vclock \-\-manage
 .SH SEE ALSO
 Full documentation at:
 .UR https://github.com/wryan/vclock

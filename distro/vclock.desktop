@@ -11,3 +11,18 @@ StartupNotify=false
 StartupWMClass=vclock
 Categories=Utility;Clock;
 Keywords=clock;time;analog;desktop;
+
+# Right-clicking the icon in a dock or launcher offers these, which is the same
+# menu the Windows build puts on its taskbar button and for the same reason: a
+# clock has no frame and no taskbar entry of its own, so when one is hidden or
+# buried the launcher icon is the only thing left pointing at the program.
+# Both are forwarded to the copy already running.
+Actions=Manage;Show;
+
+[Desktop Action Manage]
+Name=Manage clocks
+Exec=vclock --manage
+
+[Desktop Action Show]
+Name=Show my clocks
+Exec=vclock --daemon

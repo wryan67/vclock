@@ -9,7 +9,6 @@
 #include <QSaveFile>
 #include <QStandardPaths>
 #include <QString>
-#include <QTextStream>
 #include <QtGlobal>
 
 #if defined(Q_OS_WIN)
@@ -26,6 +25,43 @@ QString g_reason;
 QString programPath()
 {
     return QCoreApplication::applicationFilePath();
+}
+
+// The arguments the entry starts the program with.  A login is not somewhere
+// to open a window and ask for attention, so the entry asks for the clocks and
+// nothing else -- which is the whole difference between being started at login
+// and being started by hand.
+const char *kDaemonArgument = "--daemon";
+
+// Write text to a file, whole or not at all, and only when it would change
+// anything.  refresh() runs at every startup; rewriting an identical file each
+// time would churn its timestamp for nothing.
+bool writeIfDifferent(const QString &path, const QString &text)
+{
+    QFile existing(path);
+    if (existing.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        const QString had = QString::fromUtf8(existing.readAll());
+        existing.close();
+        if (had == text)
+            return true;
+    }
+
+    if (!QDir().mkpath(QFileInfo(path).absolutePath())) {
+        g_reason =
+            QStringLiteral("could not create %1").arg(QFileInfo(path).absolutePath());
+        return false;
+    }
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        g_reason = QStringLiteral("could not write %1").arg(path);
+        return false;
+    }
+    file.write(text.toUtf8());
+    if (!file.commit()) {
+        g_reason = QStringLiteral("could not write %1").arg(path);
+        return false;
+    }
+    return true;
 }
 
 }  // namespace
@@ -52,7 +88,8 @@ const char *kValueName = "vclock";
 QString command()
 {
     return QLatin1Char('"') + QDir::toNativeSeparators(programPath()) +
-           QLatin1Char('"');
+           QLatin1Char('"') + QLatin1Char(' ') +
+           QLatin1String(kDaemonArgument);
 }
 
 }  // namespace
@@ -87,6 +124,18 @@ bool setEnabled(bool on)
         return false;
     }
     return true;
+}
+
+void refresh()
+{
+    QSettings run(QString::fromLatin1(kRunKey), QSettings::NativeFormat);
+    const QString name = QString::fromLatin1(kValueName);
+    if (!run.contains(name))
+        return;
+    if (run.value(name).toString() == command())
+        return;
+    run.setValue(name, command());
+    run.sync();
 }
 
 }  // namespace autostart
@@ -124,6 +173,38 @@ QString xmlEscaped(const QString &text)
     return out;
 }
 
+QString plistText()
+{
+    return QStringLiteral(
+               "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+               "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\""
+               " \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n"
+               "<plist version=\"1.0\">\n"
+               "<dict>\n"
+               "\t<key>Label</key>\n"
+               "\t<string>%1</string>\n"
+               "\t<key>ProgramArguments</key>\n"
+               "\t<array>\n"
+               "\t\t<string>%2</string>\n"
+               "\t\t<string>%3</string>\n"
+               "\t</array>\n"
+               "\t<key>RunAtLoad</key>\n"
+               "\t<true/>\n"
+               // Otherwise launchd restarts it every time it exits, so quitting
+               // the program would bring it straight back.
+               "\t<key>KeepAlive</key>\n"
+               "\t<false/>\n"
+               // Only in a graphical login session.  Without this it would also
+               // be started for ssh and cron sessions, where there is no display
+               // to draw a clock on.
+               "\t<key>LimitLoadToSessionType</key>\n"
+               "\t<string>Aqua</string>\n"
+               "</dict>\n"
+               "</plist>\n")
+        .arg(QString::fromLatin1(kLabel), xmlEscaped(programPath()),
+             QLatin1String(kDaemonArgument));
+}
+
 }  // namespace
 
 namespace autostart {
@@ -150,48 +231,13 @@ bool setEnabled(bool on)
         return true;
     }
 
-    if (!QDir().mkpath(QFileInfo(path).absolutePath())) {
-        g_reason =
-            QStringLiteral("could not create %1").arg(QFileInfo(path).absolutePath());
-        return false;
-    }
+    return writeIfDifferent(path, plistText());
+}
 
-    QSaveFile file(path);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        g_reason = QStringLiteral("could not write %1").arg(path);
-        return false;
-    }
-    QTextStream out(&file);
-    out << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-        << "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\""
-        << " \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n"
-        << "<plist version=\"1.0\">\n"
-        << "<dict>\n"
-        << "\t<key>Label</key>\n"
-        << "\t<string>" << QString::fromLatin1(kLabel) << "</string>\n"
-        << "\t<key>ProgramArguments</key>\n"
-        << "\t<array>\n"
-        << "\t\t<string>" << xmlEscaped(programPath()) << "</string>\n"
-        << "\t</array>\n"
-        << "\t<key>RunAtLoad</key>\n"
-        << "\t<true/>\n"
-        // Otherwise launchd restarts it every time it exits, so quitting the
-        // program would bring it straight back.
-        << "\t<key>KeepAlive</key>\n"
-        << "\t<false/>\n"
-        // Only in a graphical login session.  Without this it would also be
-        // started for ssh and cron sessions, where there is no display to draw
-        // a clock on.
-        << "\t<key>LimitLoadToSessionType</key>\n"
-        << "\t<string>Aqua</string>\n"
-        << "</dict>\n"
-        << "</plist>\n";
-    out.flush();
-    if (!file.commit()) {
-        g_reason = QStringLiteral("could not write %1").arg(path);
-        return false;
-    }
-    return true;
+void refresh()
+{
+    if (enabled())
+        writeIfDifferent(entryPath(), plistText());
 }
 
 }  // namespace autostart
@@ -257,12 +303,43 @@ bool writeDrawnIcon()
 QString execField()
 {
     const QString path = programPath();
+    const QString args = QLatin1Char(' ') + QLatin1String(kDaemonArgument);
     if (!path.contains(QLatin1Char(' ')))
-        return path;
+        return path + args;
     QString quoted = path;
     quoted.replace(QLatin1String("\\"), QLatin1String("\\\\"));
     quoted.replace(QLatin1String("\""), QLatin1String("\\\""));
-    return QLatin1Char('"') + quoted + QLatin1Char('"');
+    return QLatin1Char('"') + quoted + QLatin1Char('"') + args;
+}
+
+// The entry itself.  Null when the icon it needs could not be produced, which
+// is the one part of this that can fail before anything is written.
+QString desktopEntry()
+{
+    QString icon = QStringLiteral("vclock");
+    if (!themeIconInstalled()) {
+        if (!writeDrawnIcon())
+            return QString();
+        icon = drawnIconPath();
+    }
+
+    return QStringLiteral("[Desktop Entry]\n"
+                          "Type=Application\n"
+                          "Version=1.0\n"
+                          "Name=vclock\n"
+                          "Comment=Transparent analog desktop clock\n"
+                          "Exec=%1\n"
+                          "Icon=%2\n"
+                          "Terminal=false\n"
+                          "StartupNotify=false\n"
+                          "StartupWMClass=vclock\n"
+                          // Written by the program, so it is on the moment the
+                          // file exists.  Some desktops read only this, others
+                          // only the file's presence; saying both keeps them in
+                          // agreement.
+                          "Hidden=false\n"
+                          "X-GNOME-Autostart-enabled=true\n")
+        .arg(execField(), icon);
 }
 
 }  // namespace
@@ -291,48 +368,19 @@ bool setEnabled(bool on)
         return true;
     }
 
-    if (!QDir().mkpath(QFileInfo(path).absolutePath())) {
-        g_reason =
-            QStringLiteral("could not create %1").arg(QFileInfo(path).absolutePath());
+    const QString text = desktopEntry();
+    if (text.isNull())
         return false;
-    }
+    return writeIfDifferent(path, text);
+}
 
-    QString icon = QStringLiteral("vclock");
-    if (!themeIconInstalled()) {
-        if (!writeDrawnIcon())
-            return false;
-        icon = drawnIconPath();
-    }
-
-    // Written whole or not at all: a half-written entry is one the desktop
-    // would try to run.
-    QSaveFile file(path);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        g_reason = QStringLiteral("could not write %1").arg(path);
-        return false;
-    }
-    QTextStream out(&file);
-    out << "[Desktop Entry]\n"
-        << "Type=Application\n"
-        << "Version=1.0\n"
-        << "Name=vclock\n"
-        << "Comment=A transparent analog desktop clock\n"
-        << "Exec=" << execField() << "\n"
-        << "Icon=" << icon << "\n"
-        << "Terminal=false\n"
-        << "StartupNotify=false\n"
-        << "StartupWMClass=vclock\n"
-        // Written by the program, so it is on the moment the file exists.  Some
-        // desktops read only this, others only the file's presence; saying both
-        // keeps them in agreement.
-        << "Hidden=false\n"
-        << "X-GNOME-Autostart-enabled=true\n";
-    out.flush();
-    if (!file.commit()) {
-        g_reason = QStringLiteral("could not write %1").arg(path);
-        return false;
-    }
-    return true;
+void refresh()
+{
+    if (!enabled())
+        return;
+    const QString text = desktopEntry();
+    if (!text.isNull())
+        writeIfDifferent(entryPath(), text);
 }
 
 }  // namespace autostart
@@ -354,6 +402,8 @@ bool setEnabled(bool)
     g_reason = QStringLiteral("this platform has no startup mechanism vclock knows");
     return false;
 }
+
+void refresh() {}
 
 }  // namespace autostart
 

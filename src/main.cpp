@@ -2,8 +2,12 @@
 #include "icons.h"
 #include "clockwindow.h"
 #include "config.h"
+#include "autostart.h"
 #include "face.h"
+#include "jumplist.h"
+#include "manageclocksdialog.h"
 #include "render.h"
+#include "singleinstance.h"
 
 #include <QApplication>
 #include <QCommandLineOption>
@@ -11,6 +15,8 @@
 #include <QIcon>
 #include <QPixmap>
 #include <QSet>
+#include <QStringList>
+#include <QTextStream>
 #include <QTimer>
 #include <QVector>
 
@@ -22,6 +28,11 @@
 namespace {
 
 std::atomic_bool g_interrupted{false};
+
+// What a launch asks for, and the first word of the message a later launch
+// sends the running one.
+const char *kManage = "manage";
+const char *kDaemon = "daemon";
 
 extern "C" void onInterrupt(int)
 {
@@ -64,7 +75,33 @@ int main(int argc, char *argv[])
                        "several clocks at once, one per config."),
         QStringLiteral("name"));
     parser.addOption(configOption);
+    QCommandLineOption daemonOption(
+        {QStringLiteral("d"), QStringLiteral("daemon")},
+        QStringLiteral("Put the clocks up and nothing else. This is what starting at "
+                       "login does, where a window asking to be dealt with is the last "
+                       "thing wanted."));
+    parser.addOption(daemonOption);
+    QCommandLineOption manageOption(
+        QStringLiteral("manage"),
+        QStringLiteral("Put the clocks up and open Manage clocks with them. The default, "
+                       "so this is only needed to say so explicitly -- the Windows taskbar "
+                       "menu uses it."));
+    parser.addOption(manageOption);
     parser.process(app);
+
+    // Saying both asks for two different things. Refused rather than resolved:
+    // any order this picked would be as good an argument for the other.
+    if (parser.isSet(daemonOption) && parser.isSet(manageOption)) {
+        QTextStream(stderr)
+            << "vclock: --daemon and --manage ask for different things; "
+               "give one or neither\n";
+        return 2;
+    }
+    // Started by hand, the program should show what it can do: the clocks, and
+    // the list they are kept in.  Started at login it should show the clocks
+    // and get out of the way, which is what --daemon is for, and what the
+    // autostart entry the program writes for itself asks for.
+    const bool manage = !parser.isSet(daemonOption);
 
     // Two clocks sharing one file would each save over the other, so a repeated
     // config is taken as having been meant once.
@@ -78,6 +115,27 @@ int main(int argc, char *argv[])
         }
     }
 
+    // A second launch is nearly always someone reaching for a program that is
+    // already running -- a pinned taskbar button, or Manage clocks off its
+    // menu.  Hand the request over and stop, rather than starting a second set
+    // of clocks that would save over the first set's configs.
+    //
+    // Keyed on the config directory, because two instances reading different
+    // configs are two different programs and folding them together would be
+    // wrong.
+    SingleInstance instance(SingleInstance::keyForConfigDir(configDir()));
+    if (!instance.isPrimary()) {
+        QStringList request;
+        request << QString::fromLatin1(manage ? kManage : kDaemon);
+        for (const QString &path : paths)
+            request << path;
+        // Delivered means done.  If it could not be delivered the instance we
+        // found has stopped in the meantime, and starting normally is better
+        // than reporting a race the user cannot act on.
+        if (instance.send(request))
+            return 0;
+    }
+
     ClockManager &manager = ClockManager::instance();
     // Naming configs on the command line says exactly which clocks to run;
     // otherwise the ones marked to start in the manage dialog come up.
@@ -85,6 +143,32 @@ int main(int argc, char *argv[])
         manager.openVisible();
     else
         manager.openPaths(paths);
+    if (manage)
+        ManageClocksDialog::showDialog(nullptr);
+
+    // The entry that starts the program at login names both the binary and how
+    // to start it, and both can go stale -- an upgrade that moved the program,
+    // or this version, which wants --daemon on it where the last one had no
+    // arguments at all.  Rewritten from what is true now, and only when it
+    // differs, so a login start does not begin by opening a window.
+    autostart::refresh();
+    jumplist::install();
+
+    QObject::connect(&instance, &SingleInstance::received, &app,
+                     [&manager](const QStringList &request) {
+        if (request.isEmpty())
+            return;
+        const QStringList wanted = request.mid(1);
+        if (wanted.isEmpty()) {
+            // No configs named, so the ask is "put my clocks where I can see
+            // them": exactly the ones marked to show, raised.
+            manager.openVisible();
+        } else {
+            manager.openPaths(QVector<QString>(wanted.begin(), wanted.end()));
+        }
+        if (request.first() == QLatin1String(kManage))
+            ManageClocksDialog::showDialog(nullptr);
+    });
 
     // Ctrl+C in the launching terminal shuts down the same way the menu does,
     // so the config still gets flushed.  Polling a flag keeps the handler
