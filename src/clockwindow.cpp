@@ -68,6 +68,32 @@ constexpr int kSmoothIntervalFallbackMs = 17;  // ~60 fps
 // part that would show the coarser sampling.
 constexpr double kBlurStepDegrees = 6.0;
 
+// How much strongly contrasted edge a face may carry before the argument above
+// stops applying to it, as a fraction of the face as it will actually be
+// painted (see edgeDensity).
+//
+// Dropping the filter assumes the coarser sampling only puts edges out by
+// something under a pixel, which the motion then buries.  That holds for soft
+// or gently shaded artwork.  It fails where light meets dark across a single
+// pixel: there the sampling does not shift the boundary but breaks it up, the
+// boundary gaining and losing whole pixels as it turns, and that is a texture
+// rather than a position, so no amount of speed carries it out of sight.
+//
+// The cut is drawn from the faces in use here, each measured at the size and
+// opacity it is actually shown at.  The spiral, whose ragged banding prompted
+// this, reads between 0.012 and 0.134 depending on size; the plainer faces read
+// 0.005 and below, and the three shown at a quarter opacity read exactly
+// nothing, there being no strong edge left anywhere in them once they are that
+// faint.  The gap between those groups is wide and this sits in the middle of
+// it.
+//
+// Note that the reading falls as a face is enlarged, as it should: the same
+// spiral drawn at seven hundred pixels has bands so broad that only a small
+// part of it is boundary at all.  So this is not a judgement about particular
+// artwork but about how much of the picture is hard edge, and the same face can
+// fall either side of it at different sizes and opacities.
+constexpr double kBlurDetailMax = 0.010;
+
 // What the ring of pre-turned faces may occupy, and the most steps it may be
 // cut into.
 //
@@ -363,9 +389,16 @@ double ClockWindow::spinStepDegrees() const
 // frame is a full turn a second at sixty frames: by then no part of the face
 // beyond the very hub lands anywhere near where it was a frame ago, and the
 // eye is given a smear rather than a picture to examine.
+//
+// Speed alone is not enough, though.  Motion hides an edge that has moved a
+// fraction of a pixel; it does not hide detail that the coarse sampling has
+// pulled apart, because that is a texture and not a position.  A finely drawn
+// face therefore keeps its filter however fast it is going.
 bool ClockWindow::spinBlurred() const
 {
     if (!spinning())
+        return false;
+    if (m_faceDetail > kBlurDetailMax)
         return false;
     return spinStepDegrees() > kBlurStepDegrees;
 }
@@ -692,13 +725,19 @@ void ClockWindow::rebuildRaster()
     m_spinReach = farthestCovered(art, QPointF(m_cfg.centerFraction().x() * pw,
                                                m_cfg.centerFraction().y() * ph))
                   / pw;
-
     // In "original" mode the artwork is its own colour scheme; leave it be.
     m_raster = m_cfg.faceRecolor
                    ? recolor(art, m_cfg.wireColor, m_cfg.faceColor, m_cfg.faceOpacity,
                              m_cfg.wireOpacity)
                    : art;
     m_raster.setDevicePixelRatio(dpr);
+    // Measured on the raster rather than on the artwork, because the raster is
+    // the image that actually gets resampled: it carries the user's size and
+    // opacity, and both bear directly on whether coarse sampling will show.  A
+    // face enlarged has proportionally less hard edge in it to break up, and
+    // one faded towards nothing has too little contrast for the breaking up to
+    // be seen at all.
+    m_faceDetail = edgeDensity(m_raster);
     // Every frame in the ring is a picture of the face that has just been
     // replaced.
     discardSpinFrames();

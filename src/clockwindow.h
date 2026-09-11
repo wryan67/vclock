@@ -250,6 +250,9 @@ private:
     // Farthest the artwork reaches from the pivot, as a fraction of the width;
     // the radius of the disc it sweeps when it turns.
     double m_spinReach = 0.5;
+    // How much of the face is strongly contrasted edge; see edgeDensity.
+    // Decides whether a fast turn may be resampled coarsely.
+    double m_faceDetail = 0.0;
 
     // Faces already drawn turned, one per step of a coarse ring of angles, so
     // that a turning clock can blit a frame it prepared earlier instead of

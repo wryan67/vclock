@@ -1018,6 +1018,32 @@ is the still part that would show the coarser sampling. It applies to the
 artwork alone -- the hands and the marks are drawn afresh at whatever angle they
 are on, never resampled, and stay crisp at any speed.
 
+Speed is not sufficient on its own, though, and a face made largely of hard
+edges keeps its filter however fast it goes. The argument for dropping it is
+that the coarse sampling only puts an edge out by some fraction of a pixel,
+which the motion then buries, and that is sound for soft or gently shaded
+artwork. It fails where light meets dark across a single pixel. There the
+sampling does not shift the boundary so much as break it up: the boundary gains
+and loses whole pixels as it turns, and raggedness is a texture rather than a
+position, so no amount of speed carries it out of sight. The spiral face shows
+this plainly -- at speed and unfiltered its bands acquire a stippled, chewed
+edge that is perfectly legible while it spins.
+
+So each face is measured, once, when it is rasterised: what fraction of it is
+boundary across which the brightness jumps by a quarter of the full range or
+more. It is measured on the face as it will actually be painted, at the user's
+size and opacity, because both bear on the answer. Enlarging a face leaves
+proportionally less of it boundary at all -- the same spiral drawn at seven
+hundred pixels has bands far too broad to count -- and fading one lowers the
+contrast across every boundary in it, a boundary too faint to see being also too
+faint to see go ragged. This is therefore not a judgement about particular
+artwork: the same face falls on either side of the line at different sizes and
+opacities. In practice the spiral reads well above it at every size worth using
+and keeps its filter, while the falcon, shown at a quarter opacity, reads
+exactly nothing at any size and keeps the saving. The cost of the exception is
+small in any case, since a face fine enough to need the filter is usually small
+enough for the ring below to be serving its frames anyway.
+
 A fast turn is also served from a ring of faces drawn in advance, one for each
 step of a coarse set of angles, so that a frame is a plain copy rather than a
 resampling of every pixel. The steps are cut four times finer than the distance

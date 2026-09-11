@@ -63,3 +63,8 @@ QImage recolor(const QImage &art, const QString &wireHex, const QString &faceHex
 QRect contentBounds(const QImage &art);
 // Radius of the disc an image sweeps when turned about the given pivot.
 double farthestCovered(const QImage &art, const QPointF &pivot);
+// How much hard, high-contrast edge the artwork is made of, nothing up to one.
+// A face of broad flat regions scores near nothing; one of alternating bands or
+// fine strokes scores high.  See the definition for why a turning face needs to
+// know.
+double edgeDensity(const QImage &art);

@@ -343,3 +343,61 @@ double farthestCovered(const QImage &art, const QPointF &pivot)
     return worst;
 }
 
+// How much of the image is strongly contrasted edge, from nothing at all up to
+// one.
+//
+// This is what decides whether a turning face can be resampled coarsely.  The
+// argument for dropping the smooth filter is that fast motion smears a frame
+// into the next, and that holds for a face made of broad, gently shaded
+// regions: its edges move much further in a frame than the fraction of a pixel
+// the coarser sampling puts them out by.  It does not hold where light meets
+// dark across a single pixel.  Sampling that without a filter does not merely
+// shift the boundary, it breaks it up -- the boundary gains and loses whole
+// pixels as it turns, and raggedness is a texture rather than a position, so it
+// sits there being looked at however fast the face is going.
+//
+// Measured as the fraction of neighbouring pixel pairs that differ in
+// brightness by more than kStrongStep.  A mean difference will not do: it
+// cannot tell a face carrying a great deal of faint detail from one carrying a
+// little fierce detail, and it is only the fierce detail that breaks up
+// visibly.  Brightness is taken premultiplied, so that a face the user has
+// faded towards nothing is correctly read as having no strong edges left --
+// fading lowers the contrast across every boundary in it, and a boundary too
+// faint to see is too faint to see go ragged.
+double edgeDensity(const QImage &art)
+{
+    QImage src = art;
+    if (src.format() != QImage::Format_ARGB32_Premultiplied)
+        src = src.convertToFormat(QImage::Format_ARGB32_Premultiplied);
+
+    const int w = src.width();
+    const int h = src.height();
+    if (w < 2 || h < 2)
+        return 0.0;
+
+    // A step of a quarter of the full range.  Below this a boundary is soft
+    // enough that losing or gaining a pixel of it is not something the eye
+    // picks out of a moving picture.
+    constexpr double kStrongStep = 64.0;
+
+    auto luma = [](QRgb p) {
+        return 0.299 * qRed(p) + 0.587 * qGreen(p) + 0.114 * qBlue(p);
+    };
+
+    qint64 strong = 0;
+    qint64 count = 0;
+    for (int y = 0; y + 1 < h; ++y) {
+        const QRgb *row = reinterpret_cast<const QRgb *>(src.constScanLine(y));
+        const QRgb *below = reinterpret_cast<const QRgb *>(src.constScanLine(y + 1));
+        for (int x = 0; x + 1 < w; ++x) {
+            const double here = luma(row[x]);
+            if (std::abs(luma(row[x + 1]) - here) > kStrongStep)
+                ++strong;
+            if (std::abs(luma(below[x]) - here) > kStrongStep)
+                ++strong;
+            count += 2;
+        }
+    }
+    return count > 0 ? double(strong) / double(count) : 0.0;
+}
+
