@@ -94,8 +94,8 @@ public:
     // frame is dropped, and is what makes the turn smooth in the same way a
     // sweeping second hand is.
     double advanceSpin();
-    // Whether the face is turning at all.
-    bool spinning() const { return m_cfg.faceSpin > 0; }
+    // Whether the face is turning at all, either way round.
+    bool spinning() const { return m_cfg.faceSpin != 0; }
 
     QPointF centerPixels() const;
     double handRadius() const;

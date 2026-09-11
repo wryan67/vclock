@@ -904,10 +904,18 @@ to choose its colours is no help to anybody.
 ### Spin
 
 At the foot of the Face tab is **Spin**, a percentage of one full turn a
-second. Zero leaves the face still, which is what it has always done; a hundred
-carries it right round once a second, and everything in between is
-proportional. It is the last row on the page because it is the only thing there
-about what the face does rather than what it looks like.
+second. The scale runs from minus a hundred to plus a hundred, with zero in the
+middle: zero leaves the face still, which is what it has always done, and a
+hundred either way carries it right round once a second. Everything in between
+is proportional. It is the last row on the page because it is the only thing
+there about what the face does rather than what it looks like.
+
+The sign is the direction. Positive turns the face the way the hands go and
+negative turns it against them, because once a face is moving at all neither way
+round is the more natural one -- a dial meant to unwind is as reasonable a thing
+to want as a dial meant to wind up. Zero is marked on the scale as well as being
+its midpoint, since it is the default rather than an end of the range and would
+otherwise be the one value on the slider with nothing to aim at.
 
 Only the artwork turns. The hands stay where they were and the marks stay where
 they were, because they are how the clock is read, and a clock that is spinning

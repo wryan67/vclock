@@ -784,6 +784,15 @@ QSlider *SettingsDialog::addSlider(QGridLayout *grid, int row, const QString &ca
         marks->addWidget(smallLabel(QStringLiteral("100")));
         marks->addStretch(1);
     }
+    // A range that runs either side of zero gets zero marked, because zero is
+    // the default there rather than an end of the scale and would otherwise be
+    // the one value on the slider with nothing to aim at.  The stretches put
+    // the label at the middle, which is where zero is on a range as wide one
+    // way as the other -- the only shape this range takes.
+    if (low < 0 && high == -low) {
+        marks->addWidget(smallLabel(QStringLiteral("0")));
+        marks->addStretch(1);
+    }
     marks->addWidget(smallLabel(QString::number(high)));
 
     auto *column = new QVBoxLayout;

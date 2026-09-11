@@ -1612,9 +1612,12 @@ void ClockWindow::applyAlwaysOnTop()
 }
 
 // The face turns at a percentage of one full turn a second, so 100 is a turn
-// a second and 50 is a turn every two.  The angle is integrated from real
-// elapsed time rather than counted in frames: a dropped frame then costs a
-// moment of smoothness instead of putting the face permanently behind.
+// a second and 50 is a turn every two.  The sign is the direction: positive
+// goes the way the hands go, negative against them, and the arithmetic below
+// needs nothing said about it -- a negative rate simply accumulates a negative
+// angle, which is what turning the other way is.  The angle is integrated from
+// real elapsed time rather than counted in frames: a dropped frame then costs
+// a moment of smoothness instead of putting the face permanently behind.
 double ClockWindow::advanceSpin()
 {
     if (!spinning()) {
@@ -1854,7 +1857,7 @@ void ClockWindow::applySettings(const Config &values)
     const bool changedSize = values.size != m_cfg.size;
     const bool changedOnTop = values.alwaysOnTop != m_cfg.alwaysOnTop;
     const bool changedSmooth = values.smoothSweep != m_cfg.smoothSweep
-                               || (values.faceSpin > 0) != (m_cfg.faceSpin > 0);
+                               || (values.faceSpin != 0) != (m_cfg.faceSpin != 0);
     const bool changedRegen = values.faceRegen != m_cfg.faceRegen
                               || values.faceRegenMinutes != m_cfg.faceRegenMinutes;
 
