@@ -113,12 +113,26 @@ QSpinBox *makeReadout(int low, int high)
     // keyboard.  Holding one down repeats, which is the quickest way across a
     // long range without letting go of exactness.
     box->setButtonSymbols(QAbstractSpinBox::UpDownArrows);
-    // Room for the digits and for the arrows beside them, so a four-digit
-    // value is never squeezed by the buttons that were added next to it.
-    const int width = box->fontMetrics().horizontalAdvance(
-                          QString(kReadoutDigits, QLatin1Char('0')))
-                      + 14 + box->style()->pixelMetric(QStyle::PM_SpinBoxSliderHeight, nullptr, box);
-    box->setFixedWidth(width);
+    // Every readout is fixed to the same width, so that the column of them lines
+    // up down the page whatever range each one happens to carry.  The width is
+    // the one the box asks for when its range is the widest number any of them
+    // shows, which is the style's own arithmetic over the digits, the frame and
+    // the arrows rather than a guess at it.
+    //
+    // It was guessed at here once, as the digits plus fourteen pixels plus
+    // PM_SpinBoxSliderHeight, and that was wrong twice over.  The metric is not
+    // the width of anything -- it measures two pixels on the styles to hand --
+    // and a style is free to set its arrows side by side rather than stacked,
+    // which needs roughly twice the room.  Windows 11 does exactly that, and
+    // the clock size came out clipped to its first digit; the same box was
+    // already four pixels short of its digits here without anyone noticing,
+    // because nothing on the page had reached four digits yet.
+    int widest = 9;
+    for (int digit = 1; digit < kReadoutDigits; ++digit)
+        widest = widest * 10 + 9;
+    box->setRange(0, widest);
+    box->setFixedWidth(box->sizeHint().width());
+    box->setRange(low, high);
     return box;
 }
 

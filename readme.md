@@ -1152,6 +1152,16 @@ caret through the digits, since the box is showing a quantity and not a word.
 Typing wins over both -- a number part-way through being entered is taken as
 read the moment an arrow is pressed, so the step lands on what you typed.
 
+The boxes are all one width, so that the column of them lines up down the page
+whatever range each slider carries, and that width is the one the box itself
+asks for when told to hold the longest number any of them shows. It used to be
+worked out here instead, from the digits plus a fixed margin plus a style metric
+that turned out to measure nothing relevant, and that came apart on Windows 11:
+its value boxes set their arrows side by side rather than stacked, which needs
+about twice the room, and a four-figure clock size was clipped to its first
+digit. Asking the style is the only way to get an answer that holds on a style
+this program has never seen.
+
 Opacity fades the four parts of the clock separately, each from solid down to
 gone:
 
