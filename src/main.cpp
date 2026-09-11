@@ -136,6 +136,28 @@ int main(int argc, char *argv[])
             return 0;
     }
 
+    // Wired up before the clocks are built rather than after.  The socket
+    // starts listening in the constructor above, and building the clocks means
+    // rasterising SVGs, which is long enough for a second launch to arrive in
+    // the middle of it; a request that turned up with nothing connected would
+    // be thrown away.
+    QObject::connect(&instance, &SingleInstance::received, &app,
+                     [](const QStringList &request) {
+        if (request.isEmpty())
+            return;
+        const QStringList wanted = request.mid(1);
+        if (wanted.isEmpty()) {
+            // No configs named, so the ask is "put my clocks where I can see
+            // them": exactly the ones marked to show, raised.
+            ClockManager::instance().openVisible();
+        } else {
+            ClockManager::instance().openPaths(
+                QVector<QString>(wanted.begin(), wanted.end()));
+        }
+        if (request.first() == QLatin1String(kManage))
+            ManageClocksDialog::showDialog(nullptr);
+    });
+
     ClockManager &manager = ClockManager::instance();
     // Naming configs on the command line says exactly which clocks to run;
     // otherwise the ones marked to start in the manage dialog come up.
@@ -153,22 +175,6 @@ int main(int argc, char *argv[])
     // differs, so a login start does not begin by opening a window.
     autostart::refresh();
     jumplist::install();
-
-    QObject::connect(&instance, &SingleInstance::received, &app,
-                     [&manager](const QStringList &request) {
-        if (request.isEmpty())
-            return;
-        const QStringList wanted = request.mid(1);
-        if (wanted.isEmpty()) {
-            // No configs named, so the ask is "put my clocks where I can see
-            // them": exactly the ones marked to show, raised.
-            manager.openVisible();
-        } else {
-            manager.openPaths(QVector<QString>(wanted.begin(), wanted.end()));
-        }
-        if (request.first() == QLatin1String(kManage))
-            ManageClocksDialog::showDialog(nullptr);
-    });
 
     // Ctrl+C in the launching terminal shuts down the same way the menu does,
     // so the config still gets flushed.  Polling a flag keeps the handler
