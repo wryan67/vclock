@@ -903,9 +903,10 @@ to choose its colours is no help to anybody.
 
 ### The Settings window
 
-The controls sit on four tabs -- **Face**, **Marks**, **Hands**, **Opacity**.
-The first three are the parts of the clock, in the order they are drawn: the
-face behind, its marks on top of that, the hands over both. Each carries
+The controls sit on four tabs -- **Face**, **Hands**, **Marks**, **Opacity**.
+The first three are the parts of the clock, in the order you reach for them:
+the face, then the hands that are the point of a clock, then the marks they are
+read against. Each carries
 everything about its own part, sizes included: someone adjusting the hour marks
 wants their colour, their size and their position within reach, not the colour
 on one page and the size on another. **Opacity** is the one page left that cuts

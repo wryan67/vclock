@@ -524,11 +524,12 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     marksGrid->setRowStretch(mrow, 1);
 
     // The tab order, in one place.  The three parts of the clock first, in the
-    // order they are drawn -- face behind, then its marks, then the hands over
-    // both -- and after them the page that cuts across all three.
+    // order you reach for them -- the face, then the hands that are the point
+    // of a clock, then the marks they are read against -- and after them the
+    // page that cuts across all three.
     tabs->addTab(chooserBox, QStringLiteral("Face"));
-    tabs->addTab(marksBox, QStringLiteral("Marks"));
     tabs->addTab(handsBox, QStringLiteral("Hands"));
+    tabs->addTab(marksBox, QStringLiteral("Marks"));
     tabs->addTab(opacityBox, QStringLiteral("Opacity"));
 
     // --------------------------------------------------------------- buttons
