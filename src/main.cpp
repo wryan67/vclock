@@ -12,6 +12,7 @@
 #include <QApplication>
 #include <QCommandLineOption>
 #include <QCommandLineParser>
+#include <QGuiApplication>
 #include <QIcon>
 #include <QPixmap>
 #include <QSet>
@@ -54,6 +55,13 @@ int main(int argc, char *argv[])
     installGlyphStyle();
     installAccentColour();
     app.setOrganizationName(QStringLiteral("vclock"));
+    // Names the launcher this program belongs to, so a pinned icon in a dock
+    // and the program it started are treated as the same thing.  The same
+    // reasoning as the Windows AppUserModelID, and needed for the same reason:
+    // without it the desktop matches windows to launchers by guesswork, and a
+    // program whose only windows are frameless clocks gives it nothing to
+    // guess from.  Ignored on platforms that have no such notion.
+    QGuiApplication::setDesktopFileName(QStringLiteral("vclock"));
     app.setWindowIcon(QIcon(QPixmap::fromImage(appIconImage(256))));
     // The clock closes itself (flushing its config first), and its dialogs must
     // not be able to end the program by being the last window shut.

@@ -1575,6 +1575,25 @@ of the installed entry, so they are there whether vclock is running or not. The
 reason for them is the reason for the Windows ones, and a package install is all
 it takes to get them.
 
+A launcher written by hand is the one way to miss them. An entry someone wrote
+themselves before these existed still starts the program perfectly well, and
+nothing about it looks wrong, so there is no sign that the right-click menu is
+missing anything — but `Actions=` is not in it, and a pinned icon can only offer
+what its entry says. The same goes for a checkout run in place rather than
+installed. `./build.sh --install` puts the entry and the icon where the desktop
+looks for them; a file in `~/.local/share/applications` overrides one installed
+system-wide, so an old hand-written copy there has to be replaced rather than
+left beside the new one.
+
+Which menu you get is the desktop's decision, not vclock's, and left-clicking a
+pinned icon is its decision too: docks differ over whether a click starts a
+program or goes to the one already running. The right-click entries are the part
+that does not vary, because they name what they want outright instead of leaving
+it to be worked out. `QGuiApplication::setDesktopFileName()` tells the desktop
+which entry the program belongs to, which is the Linux end of the same question
+the AppUserModelID answers on Windows; Wayland matches windows to launchers that
+way, while X11 still goes by `WM_CLASS`.
+
 ### Monitors
 
 A clock that has never been sized -- a new one, or one whose settings have just
