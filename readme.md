@@ -929,9 +929,8 @@ is still meant to be telling the time. Faces that carry their own numerals turn
 those with them, which is the honest answer: the numerals are part of the
 picture, not part of the mechanism.
 
-It turns about the hands' pivot rather than the middle of the window, since the
-pivot is what the face was drawn around. Turning a face with an off-centre pivot
-about the window instead would make it wobble rather than spin.
+It turns about the hands' pivot, since the pivot is what the face was drawn
+around; turning it about anything else would make it wobble rather than spin.
 
 The angle comes from real elapsed time rather than a count of frames, so a
 dropped frame costs a moment of smoothness instead of leaving the face
@@ -948,14 +947,35 @@ says what the clock looks like, not whether it is moving, and a face that stoppe
 turning every time a preset was tried would be a setting you could not hold still
 long enough to judge.
 
-The window does not grow to hold the turn, so artwork drawn out to the corners
-of its own square will clip as it swings past the edges. Round faces -- which is
-nearly all of them -- never notice.
+A spinning clock is drawn in the middle of its window and shrunk to fit. What a
+turning face occupies is a disc about its pivot, and a disc is only as big as
+the window will hold when it sits in the middle -- a pivot placed low, as a face
+whose hands sit below its middle wants, would otherwise throw most of that disc
+out through the bottom edge.
 
-What the clock takes clicks on changes while it is spinning. A turning face
-passes through every angle, so the shape it can occupy is a disc: the radius is
-measured once, when the face is rasterised, out to the farthest pixel the
-artwork actually paints. It has to be the real reach and not the corner of the
+Shrinking it is the only thing that can work. The window cannot grow to hold the
+turn, because the face is rendered to fill whatever window it is given: a bigger
+window means a bigger face, and the overhang comes back exactly as it was. So
+the clock is drawn smaller inside the window it already has, which leaves the
+footprint, the placement and the size setting all untouched. How much smaller
+depends entirely on the face. One drawn as a circle about its own pivot -- which
+is most of them -- does not shrink at all, because the disc it sweeps is the
+circle it already was. One that reaches much further one way than the other, or
+whose pivot is well off its middle, loses the difference.
+
+The hands and the marks shrink with the face rather than staying the size they
+were. The clock is being drawn smaller, not taken apart, and a full-sized set of
+hands over a shrunken dial would be neither.
+
+Picking the pivot holds the face still, however fast it was turning. That job is
+placing a point on the artwork, and it cannot be done while the artwork is
+moving and standing somewhere other than where it really sits.
+
+What the clock takes clicks on changes while it is spinning: the disc it sweeps,
+and nothing else. The artwork's own outline is no use there twice over -- it is
+no longer where the face is, and it would flicker in and out of the mask as the
+drawing swung past it. The radius is measured once, when the face is rasterised,
+out to the farthest pixel the artwork actually paints. It has to be the real reach and not the corner of the
 artwork's bounding box, because half the diagonal of a box is a good deal wider
 than a round face sitting inside it, and a clock that took clicks in its empty
 corners would be no better than a plain rectangle. Recomputing the true outline

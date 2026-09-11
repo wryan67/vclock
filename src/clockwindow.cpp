@@ -249,14 +249,19 @@ void ClockWindow::applySize()
 // Re-rasterise the face at the current widget size and apply colours.
 // Everything the clock draws over the face turns about the pivot; this is how
 // far out any of it reaches.
-double ClockWindow::reachRadius() const
+double ClockWindow::reachRadiusRaw() const
 {
     const QSize size = pixelSize();
     const QPointF center = centerPixels();
-    const double radius = handRadius();
+    const double radius = handRadiusRaw();
     return std::max(radius * kSecondLen,
                     markReach(m_cfg, center.x(), center.y(), radius, size.width(),
                               size.height()));
+}
+
+double ClockWindow::reachRadius() const
+{
+    return reachRadiusRaw() * drawScale();
 }
 
 // How far the artwork reaches from the pivot.  A turning face sweeps every
@@ -268,7 +273,45 @@ double ClockWindow::reachRadius() const
 // caught up with.
 double ClockWindow::spinRadius() const
 {
-    return m_spinReach * pixelSize().width();
+    return m_spinReach * pixelSize().width() * drawScale();
+}
+
+// Where the drawing is centred.  Standing still that is the pivot the user
+// placed, which is the whole point of being able to place it.  Turning, it is
+// the middle of the window: what a spinning clock occupies is a disc about the
+// pivot, and the biggest disc a window will hold is the one in the middle of
+// it.  A pivot set low, as a face whose hands sit below its middle needs,
+// would otherwise throw most of that disc out through the bottom edge.
+QPointF ClockWindow::drawCenter() const
+{
+    if (!spinning())
+        return centerPixels();
+    const QSize size = pixelSize();
+    return QPointF(size.width() / 2.0, size.height() / 2.0);
+}
+
+// How much the drawing is shrunk to fit.  The window cannot grow to hold the
+// turn: the face is rendered to fill it, so a bigger window means a bigger
+// face and the overhang comes back exactly as it was.  Drawing the clock
+// smaller within the window it already has is the only thing that works, and
+// it leaves the footprint, the placement and the size setting all untouched.
+//
+// The hands and the marks shrink with the face rather than staying put, since
+// the alternative is a full-sized set of hands over a shrunken dial -- the
+// clock is drawn smaller, not taken apart.
+double ClockWindow::drawScale() const
+{
+    if (!spinning())
+        return 1.0;
+    const QSize size = pixelSize();
+    // A pixel short of the true half-width, so the outermost of the artwork has
+    // somewhere to fade out into.  Fitting exactly would put the antialiased
+    // edge on the boundary itself, where half of it is outside the window.
+    const double room = std::min(size.width(), size.height()) / 2.0 - 1.0;
+    const double want = std::max(m_spinReach * size.width(), reachRadiusRaw());
+    if (want <= room || want <= 0.0 || room <= 0.0)
+        return 1.0;
+    return room / want;
 }
 
 // Only the clock takes clicks.  The window has to be a rectangle and a clock is
@@ -291,12 +334,19 @@ void ClockWindow::applyHitMask()
     stencil.fill(Qt::transparent);
     {
         QPainter painter(&stencil);
-        // Laid down nine times, shifted a pixel each way, so the mask ends up a
-        // pixel proud of the artwork all round.  A mask even slightly inside it
-        // would shave the antialiased edge off the clock.
-        for (int dx = -1; dx <= 1; ++dx) {
-            for (int dy = -1; dy <= 1; ++dy)
-                painter.drawImage(QRect(QPoint(dx, dy), widget), m_coverage);
+        // A turning face passes through every angle, so what it occupies is a
+        // disc about the point it is drawn around, and nothing else.  The
+        // artwork's own outline is no use here twice over: it is not where the
+        // face is any more, and it would flicker in and out of the mask as the
+        // drawing swung past it.
+        if (!spinning()) {
+            // Laid down nine times, shifted a pixel each way, so the mask ends
+            // up a pixel proud of the artwork all round.  A mask even slightly
+            // inside it would shave the antialiased edge off the clock.
+            for (int dx = -1; dx <= 1; ++dx) {
+                for (int dy = -1; dy <= 1; ++dy)
+                    painter.drawImage(QRect(QPoint(dx, dy), widget), m_coverage);
+            }
         }
         // The hands and the indices go on top of the face, and an off-centre
         // pivot or a high index position can carry them past its edge, so the
@@ -304,15 +354,8 @@ void ClockWindow::applyHitMask()
         painter.setRenderHint(QPainter::Antialiasing, false);
         painter.setPen(Qt::NoPen);
         painter.setBrush(Qt::white);
-        const double r = reachRadius() + 1.0;
-        painter.drawEllipse(centerPixels(), r, r);
-        // A turning face passes through every angle, so anywhere it can reach
-        // has to stay clickable rather than flickering in and out of the mask
-        // as the artwork swings by.
-        if (spinning()) {
-            const double sr = spinRadius() + 1.0;
-            painter.drawEllipse(centerPixels(), sr, sr);
-        }
+        const double r = std::max(reachRadius(), spinning() ? spinRadius() : 0.0) + 1.0;
+        painter.drawEllipse(drawCenter(), r, r);
     }
 
     // Any alpha at all counts.  The artwork fades to nothing at its edge, so a
@@ -531,7 +574,7 @@ QPointF ClockWindow::centerPixels() const
 }
 
 // Largest radius that keeps the hands inside the artwork's content.
-double ClockWindow::handRadius() const
+double ClockWindow::handRadiusRaw() const
 {
     const QSize size = pixelSize();
     const QPointF center = centerPixels();
@@ -546,6 +589,11 @@ double ClockWindow::handRadius() const
                           size.height() - center.y()});
     }
     return std::max(1.0, reach * kHandSpan);
+}
+
+double ClockWindow::handRadius() const
+{
+    return handRadiusRaw() * drawScale();
 }
 
 QString ClockWindow::faceLabel() const
@@ -1331,6 +1379,10 @@ void ClockWindow::startPicking()
     m_centerBeforePick = m_cfg.center;
     m_hadCenterBeforePick = true;
     setCursor(Qt::CrossCursor);
+    // A face that was turning stops here, so the mask and the tick rate both
+    // want revisiting.
+    applyTickRate();
+    applyHitMask();
 
     // Take the keyboard so the arrow keys drive the pivot. The click that
     // starts a pick lands on the Settings dialog, which would otherwise keep
@@ -1373,6 +1425,8 @@ void ClockWindow::stopPicking()
     m_picking = false;
     m_draggingCenter = false;
     unsetCursor();
+    applyTickRate();
+    applyHitMask();
     // Hand the keyboard back so the dialog is immediately usable again.
     if (m_settings) {
         m_settings->raise();
@@ -1443,26 +1497,30 @@ void ClockWindow::paintEvent(QPaintEvent *)
     //
     // Only the artwork turns.  The hands and the marks are how the clock is
     // read, and a clock that is spinning is still meant to be telling the
-    // time, so they are drawn afterwards on an untouched painter.  The turn is
-    // about the hands' pivot rather than the middle of the window, because the
-    // pivot is what the face was drawn around; turning a face with an
-    // off-centre pivot about the window would make it wobble.
+    // time, so they are drawn afterwards on an untouched painter.
+    //
+    // Turning, the whole drawing moves to the middle of the window and shrinks
+    // to fit the disc it sweeps -- see drawCenter and drawScale.  Standing
+    // still both come to nothing and the face lands exactly where it always
+    // did.
+    const QPointF center = drawCenter();
+    const double radius = handRadius();
     if (!m_raster.isNull()) {
         const double angle = advanceSpin();
+        const double scale = drawScale();
         const QPointF pivot = centerPixels();
         painter.save();
-        if (angle != 0.0) {
-            painter.translate(pivot);
+        painter.translate(center);
+        if (angle != 0.0)
             painter.rotate(angle);
-            painter.translate(-pivot);
-        }
+        if (scale != 1.0)
+            painter.scale(scale, scale);
+        painter.translate(-pivot);
         painter.drawImage(QRectF(0, 0, width(), height()), m_raster,
                           QRectF(m_raster.rect()));
         painter.restore();
     }
 
-    const QPointF center = centerPixels();
-    const double radius = handRadius();
     drawMarks(painter, m_cfg, center.x(), center.y(), radius, width(), height());
 
     const QTime now = QTime::currentTime();

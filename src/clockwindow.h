@@ -94,11 +94,15 @@ public:
     // frame is dropped, and is what makes the turn smooth in the same way a
     // sweeping second hand is.
     double advanceSpin();
-    // Whether the face is turning at all, either way round.
-    bool spinning() const { return m_cfg.faceSpin != 0; }
+    // Whether the face is turning at all, either way round.  Picking the pivot
+    // holds it still: that job is placing a point on the artwork, which cannot
+    // be done while the artwork is moving and standing somewhere other than
+    // where it really sits.
+    bool spinning() const { return m_cfg.faceSpin != 0 && !m_picking; }
 
     QPointF centerPixels() const;
-    double handRadius() const;
+    double handRadius() const;      // as drawn, after any spin-fit shrink
+    double handRadiusRaw() const;   // before it
     QString faceLabel() const;
 
     // Let the user drag on the face to place the hands' pivot.
@@ -188,8 +192,13 @@ private:
     void centerOnCursor();
 
     void rebuildRaster();
-    double reachRadius() const;  // how far the hands and indices go from the pivot
-    double spinRadius() const;   // how far the face sweeps from the pivot when turning
+    double reachRadius() const;     // how far the hands and indices go from the pivot
+    double reachRadiusRaw() const;  // the same, before any spin-fit shrink
+    double spinRadius() const;      // how far the face sweeps from the pivot when turning
+    // Where the drawing is centred and how much it is shrunk to fit.  Both
+    // come to nothing unless the face is turning; see their definitions.
+    QPointF drawCenter() const;
+    double drawScale() const;
     void applyHitMask();         // let clicks off the clock through to what is behind
     void scheduleRebuild();
     void queueSave();
