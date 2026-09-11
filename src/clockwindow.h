@@ -281,6 +281,12 @@ private:
     // The angle is carried rather than derived from the time of day so that
     // changing the speed picks up from where the face is, instead of jumping
     // to wherever a faster clock would have got to by now.
+    //
+    // The timer runs on and the reading it gave last time is kept, rather than
+    // the timer being restarted each frame.  Restarting throws away whatever
+    // had elapsed since the moment it was read, and at sixty frames a second
+    // those slivers add up to a face that turns measurably slow.
     double m_spinAngle = 0.0;
     QElapsedTimer m_spinClock;
+    qint64 m_spinLastNs = 0;
 };

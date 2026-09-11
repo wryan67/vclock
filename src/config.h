@@ -57,15 +57,21 @@ inline constexpr int kMarkScaleMin = 0, kMarkScaleMax = 200;  // 0 hides the ind
 // can always be reached by right clicking where the clock is.
 inline constexpr int kOpacityMin = 0, kOpacityMax = 100;
 
-// How fast the face turns, as a percentage of one full turn a second, so the
-// ends of the range are two turns a second either way.  Zero is what it has
-// always done, and the range runs either side of it: a face can turn the way
-// the hands do or against them, and neither is more natural than the other
-// once the face is moving at all.  The unit stays a percentage of a turn a
-// second rather than being rescaled so that the top is called a hundred --
-// the number on the slider then means the same thing it always did, and a
-// face set to 50 keeps turning at the speed it was turning at.
-inline constexpr int kSpinMin = -200, kSpinMax = 200;
+// How fast the face turns, as a percentage of the fastest it will go, which is
+// five full turns a second.  Zero is what it has always done, and the range
+// runs either side of it: a face can turn the way the hands do or against
+// them, and neither is more natural than the other once the face is moving at
+// all.
+//
+// The percentage is of the top speed rather than of one turn a second, so that
+// the ends of the slider are the ends of the scale and the numbers in between
+// are the fraction of it you asked for.  Five turns a second is past the point
+// where a face reads as a picture at all, which is the point: the top of a
+// speed control should be faster than anyone sensibly wants.
+inline constexpr int kSpinMin = -100, kSpinMax = 100;
+
+// Turns a second at the top of that range.
+inline constexpr double kSpinMaxTurns = 5.0;
 
 // Where the clock sat, and how big it was, on one particular monitor.
 //

@@ -1687,10 +1687,14 @@ double ClockWindow::advanceSpin()
     }
     if (!m_spinClock.isValid()) {
         m_spinClock.start();
+        m_spinLastNs = 0;
         return m_spinAngle;
     }
-    const double seconds = m_spinClock.restart() / 1000.0;
-    m_spinAngle = std::fmod(m_spinAngle + seconds * 360.0 * m_cfg.faceSpin / 100.0,
+    const qint64 now = m_spinClock.nsecsElapsed();
+    const double seconds = (now - m_spinLastNs) / 1000000000.0;
+    m_spinLastNs = now;
+    const double turnsPerSecond = kSpinMaxTurns * m_cfg.faceSpin / 100.0;
+    m_spinAngle = std::fmod(m_spinAngle + seconds * 360.0 * turnsPerSecond,
                             360.0);
     return m_spinAngle;
 }

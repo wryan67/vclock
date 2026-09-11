@@ -903,18 +903,23 @@ to choose its colours is no help to anybody.
 
 ### Spin
 
-At the foot of the Face tab is **Spin**, a percentage of one full turn a
-second. The scale runs from minus two hundred to plus two hundred, with zero in
-the middle: zero leaves the face still, which is what it has always done, and
-either end carries it round twice a second. Everything in between is
-proportional. It is the last row on the page because it is the only thing
-there about what the face does rather than what it looks like.
+At the foot of the Face tab is **Spin**. The scale runs from minus a hundred to
+plus a hundred with zero in the middle: zero leaves the face still, which is
+what it has always done, and either end carries it round five times a second.
+Everything in between is proportional. It is the last row on the page because
+it is the only thing there about what the face does rather than what it looks
+like.
 
-The unit stays a percentage of a turn a second rather than being rescaled so
-that the top of the scale is called a hundred. A number on the slider then
-means the same thing it has always meant, and a face already set to 50 goes on
-turning at the speed it was turning at rather than quietly doubling because the
-range around it grew.
+The number is a percentage of the top speed rather than of a turn a second, so
+that the ends of the slider are the ends of the scale and every number in
+between is the fraction of it you asked for. A control whose travel stops short
+of its own limit is a control with wasted travel.
+
+Five turns a second is well past the point where a face still reads as a
+picture, which is rather the point: the top of a speed control ought to be
+faster than anyone sensibly wants, so that what you do want is somewhere inside
+it. The useful settings are low -- single figures give a slow drift, and twenty
+is already brisk.
 
 The sign is the direction. Positive turns the face the way the hands go and
 negative turns it against them, because once a face is moving at all neither way
@@ -935,7 +940,11 @@ around; turning it about anything else would make it wobble rather than spin.
 The angle comes from real elapsed time rather than a count of frames, so a
 dropped frame costs a moment of smoothness instead of leaving the face
 permanently behind -- the same reasoning that makes the sweeping second hand
-take the exact angle for the instant rather than stepping. A spinning face
+take the exact angle for the instant rather than stepping. The elapsed time is
+read to the nanosecond and the clock behind it is left running, rather than
+being restarted each frame: restarting throws away however much had elapsed
+between the reading and the restart, and at sixty frames a second those slivers
+compound into a face that turns several per cent slow. A spinning face
 repaints at sixty frames a second whether or not **Smooth sweep** is on, because
 something on the clock is always moving now.
 
