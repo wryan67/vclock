@@ -17,6 +17,7 @@ class QGridLayout;
 class QLabel;
 class QLineEdit;
 class QScrollArea;
+class QRadioButton;
 class QSlider;
 class QToolButton;
 
@@ -91,7 +92,9 @@ private:
     QComboBox *m_colorMode = nullptr;
 
     QSlider *m_size = nullptr;
-    QSlider *m_faceSpin = nullptr;
+    QSlider *m_faceSpin = nullptr;  // speed only; the direction is the pair below
+    QRadioButton *m_spinForward = nullptr;
+    QRadioButton *m_spinBackward = nullptr;
     QSlider *m_handScale = nullptr;
     QSlider *m_markScale = nullptr;
     QSlider *m_markPosition = nullptr;

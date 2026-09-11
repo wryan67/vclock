@@ -903,12 +903,11 @@ to choose its colours is no help to anybody.
 
 ### Spin
 
-At the foot of the Face tab is **Spin**. The scale runs from minus a hundred to
-plus a hundred with zero in the middle: zero leaves the face still, which is
-what it has always done, and either end carries it round five times a second.
-Everything in between is proportional. It is the last row on the page because
-it is the only thing there about what the face does rather than what it looks
-like.
+At the foot of the Face tab is **Spin**. The scale runs from zero to a hundred:
+zero leaves the face still, which is what it has always done, and full carries it
+round five times a second. Everything in between is proportional. It is the last
+row on the page because it is the only thing there about what the face does
+rather than what it looks like.
 
 The number is a percentage of the top speed rather than of a turn a second, so
 that the ends of the slider are the ends of the scale and every number in
@@ -921,12 +920,27 @@ faster than anyone sensibly wants, so that what you do want is somewhere inside
 it. The useful settings are low -- single figures give a slow drift, and twenty
 is already brisk.
 
-The sign is the direction. Positive turns the face the way the hands go and
-negative turns it against them, because once a face is moving at all neither way
-round is the more natural one -- a dial meant to unwind is as reasonable a thing
-to want as a dial meant to wind up. Zero is marked on the scale as well as being
-its midpoint, since it is the default rather than an end of the range and would
-otherwise be the one value on the slider with nothing to aim at.
+Under the slider is the direction, as a pair of buttons: **Clockwise** turns the
+face the way the hands go and **Counter-clockwise** turns it against them.
+Neither way round is the more natural one once a face is moving at all -- a dial
+meant to unwind is as reasonable a thing to want as a dial meant to wind up -- so
+clockwise is merely the default rather than the correct answer.
+
+Direction is a separate control because it is a separate question. The slider
+once ran from minus a hundred through zero to plus a hundred, which spent half
+its travel on a choice between two things and left too little for the speeds near
+the bottom. Those are exactly where a notch matters most: a face creeping round
+once in several seconds is a quite different object from one going twice that,
+while ninety and a hundred are both just a blur. Splitting the two apart doubles
+what the low end gets without giving anything up, since a speed and a direction
+were never really one number to begin with.
+
+They are still stored as one, as a signed percentage, and that is not a
+leftover. A face that is not turning has no direction to remember, which is
+precisely what a signed magnitude says: the sign of zero means nothing because
+there is nothing for it to mean. So the settings window shows clockwise for a
+still face, and an old configuration written when the scale ran both ways loads
+as the speed and direction it always meant.
 
 Only the artwork turns. The hands stay where they were and the marks stay where
 they were, because they are how the clock is read, and a clock that is spinning

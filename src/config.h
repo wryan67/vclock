@@ -58,16 +58,24 @@ inline constexpr int kMarkScaleMin = 0, kMarkScaleMax = 200;  // 0 hides the ind
 inline constexpr int kOpacityMin = 0, kOpacityMax = 100;
 
 // How fast the face turns, as a percentage of the fastest it will go, which is
-// five full turns a second.  Zero is what it has always done, and the range
-// runs either side of it: a face can turn the way the hands do or against
-// them, and neither is more natural than the other once the face is moving at
-// all.
+// five full turns a second.  Zero leaves it still.
 //
 // The percentage is of the top speed rather than of one turn a second, so that
-// the ends of the slider are the ends of the scale and the numbers in between
+// the ends of the scale are the ends of the scale and the numbers in between
 // are the fraction of it you asked for.  Five turns a second is past the point
 // where a face reads as a picture at all, which is the point: the top of a
 // speed control should be faster than anyone sensibly wants.
+//
+// The sign is the direction -- positive turns the way the hands do, negative
+// against them -- so the stored range runs either side of zero.  The settings
+// window does not present it that way: it offers a speed from nothing to full
+// and a separate pair of buttons for the direction, because a slider spanning
+// both directions spends half its travel on a choice between two things and
+// leaves too little of it for the speeds near the bottom, where the difference
+// between one notch and the next is most visible.  Speed and direction are
+// independent of each other and are easier to set as two controls; they are
+// only folded back into one number here because a speed of zero has no
+// direction to remember, which is exactly what a signed magnitude expresses.
 inline constexpr int kSpinMin = -100, kSpinMax = 100;
 
 // Turns a second at the top of that range.
@@ -106,11 +114,12 @@ struct Config
     bool minuteSameAsHour = false;
     bool smoothSweep = false;                              // sweep the hands instead of stepping them
     bool reverseTime = false;                              // run the hands anticlockwise
-    // Turn the face artwork about the hands' pivot, as a percentage of one full
-    // turn a second.  0 leaves it still; positive goes the way the hands go and
-    // negative goes against them.  The hands and the marks do not turn with it:
-    // they are how the clock is read, and a clock that is spinning is still
-    // meant to be telling the time.
+    // Turn the face artwork about the hands' pivot, as a percentage of the top
+    // speed (see kSpinMaxTurns).  0 leaves it still; positive goes the way the
+    // hands go and negative goes against them.  The settings window splits the
+    // two apart into a speed and a direction; see kSpinMin.  The hands and the
+    // marks do not turn with it: they are how the clock is read, and a clock
+    // that is spinning is still meant to be telling the time.
     int faceSpin = 0;
     // Recolour maps the artwork's brightness onto the wire/face colours, which
     // only makes sense for line art. A full-colour drawing has to be left alone.

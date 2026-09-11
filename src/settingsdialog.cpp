@@ -6,6 +6,7 @@
 #include "render.h"
 #include "icons.h"
 
+#include <QButtonGroup>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDialogButtonBox>
@@ -36,6 +37,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <limits>
 
 namespace {
@@ -345,8 +347,39 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
     // Spin closes the page.  It is the only thing here that is about what the
     // face does rather than what it looks like, so it sits below the look of
     // it rather than interrupting it.
-    m_faceSpin = addSlider(chooserGrid, crow++, QStringLiteral("Spin (%)"), cfg.faceSpin,
-                           kSpinMin, kSpinMax, false);
+    //
+    // The slider carries the speed alone, from nothing to full, and the
+    // direction is a pair of buttons under it.  Running the slider from one
+    // direction through zero to the other spends half its travel choosing
+    // between two things, which leaves too little for the speeds near the
+    // bottom -- and those are where a notch matters most, a face creeping round
+    // once every several seconds being a quite different object from one going
+    // twice that.  Splitting them doubles what the low end gets.
+    m_faceSpin = addSlider(chooserGrid, crow++, QStringLiteral("Spin (%)"),
+                           std::abs(cfg.faceSpin), 0, kSpinMax, false);
+
+    addLabel(chooserGrid, QStringLiteral("Direction"), crow);
+    m_spinForward = new QRadioButton(QStringLiteral("Clockwise"), this);
+    m_spinBackward = new QRadioButton(QStringLiteral("Counter-clockwise"), this);
+    m_spinForward->setToolTip(QStringLiteral("Turn the face the way the hands go"));
+    m_spinBackward->setToolTip(QStringLiteral("Turn the face against the hands"));
+    // Zero has no direction stored with it, so a face that is not turning shows
+    // clockwise.  That is the honest answer rather than a lost setting: there
+    // is nothing to remember until the speed is off zero.
+    (cfg.faceSpin < 0 ? m_spinBackward : m_spinForward)->setChecked(true);
+    // Grouped explicitly.  Left to themselves the two would join every other
+    // radio button in the window and turn the whole page into one choice.
+    auto *spinDirection = new QButtonGroup(this);
+    spinDirection->addButton(m_spinForward);
+    spinDirection->addButton(m_spinBackward);
+    auto *spinRow = new QHBoxLayout;
+    spinRow->setContentsMargins(0, 0, 0, 0);
+    spinRow->setSpacing(12);
+    spinRow->addWidget(m_spinForward);
+    spinRow->addWidget(m_spinBackward);
+    spinRow->addStretch(1);
+    chooserGrid->addLayout(spinRow, crow, 1, 1, 3);
+    ++crow;
 
     chooserGrid->setColumnStretch(1, 1);
     chooserGrid->setRowStretch(crow, 1);
@@ -608,6 +641,9 @@ SettingsDialog::SettingsDialog(ClockWindow *clock)
         connect(box, &QCheckBox::toggled, this, [this] { onChanged(); });
     }
     connect(m_regenMinutes, &QSpinBox::valueChanged, this, [this] { onChanged(); });
+    // Only one of the pair needs watching: they are grouped, so a change is
+    // always a change to both, and connecting each would preview it twice.
+    connect(m_spinBackward, &QRadioButton::toggled, this, [this] { onChanged(); });
 
     // Ticking "random" is itself a request for a colour, so it rolls one
     // rather than only changing what the dialog will do next; Cycle then rolls
@@ -784,15 +820,6 @@ QSlider *SettingsDialog::addSlider(QGridLayout *grid, int row, const QString &ca
         marks->addWidget(smallLabel(QStringLiteral("100")));
         marks->addStretch(1);
     }
-    // A range that runs either side of zero gets zero marked, because zero is
-    // the default there rather than an end of the scale and would otherwise be
-    // the one value on the slider with nothing to aim at.  The stretches put
-    // the label at the middle, which is where zero is on a range as wide one
-    // way as the other -- the only shape this range takes.
-    if (low < 0 && high == -low) {
-        marks->addWidget(smallLabel(QStringLiteral("0")));
-        marks->addStretch(1);
-    }
     marks->addWidget(smallLabel(QString::number(high)));
 
     auto *column = new QVBoxLayout;
@@ -941,7 +968,8 @@ void SettingsDialog::applyValues(const Config &values, bool full)
         m_size->setValue(values.size);
         m_smoothSweep->setChecked(values.smoothSweep);
         m_reverseTime->setChecked(values.reverseTime);
-        m_faceSpin->setValue(values.faceSpin);
+        m_faceSpin->setValue(std::abs(values.faceSpin));
+        (values.faceSpin < 0 ? m_spinBackward : m_spinForward)->setChecked(true);
     }
 
     // A preset is a change of looks, so it leaves the clock's size alone; it
@@ -1155,7 +1183,7 @@ Config SettingsDialog::values() const
 {
     Config out = m_clock->cfg();  // size/stacking/placement stay the clock's
     out.size = m_size->value();
-    out.faceSpin = m_faceSpin->value();
+    out.faceSpin = m_spinBackward->isChecked() ? -m_faceSpin->value() : m_faceSpin->value();
     out.handScale = m_handScale->value();
     out.markScale = m_markScale->value();
     out.markPosition = m_markPosition->value();
