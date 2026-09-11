@@ -165,6 +165,53 @@ including the case where a target exits successfully but writes nothing, which
 counts as a failure. `--distro` exits non-zero if any build failed or if none
 ran, which is what a release script should be checking rather than the output.
 
+### What a package has to carry besides the program
+
+A package is more than a binary in an archive, and both Debian and RPM will say
+so if asked. `lintian` on the `.deb` reported three errors, and none of them was
+about the program: there was no copyright file, no changelog, and the maintainer
+address was `vclock@localhost`, which CPack invents when nothing tells it
+otherwise. A package that installs and runs can still be malformed, because what
+these tools check is whether the thing can be maintained by somebody other than
+the person who built it — who wrote it, under what terms, what changed, and
+where to send a bug.
+
+So the repository now has a `LICENSE`, which it wanted anyway: the rpm had been
+declaring MIT for some time with nothing in the tree to back the claim.
+`distro/deb/copyright` states the same terms in the machine-readable DEP-5 form
+Debian expects, `distro/deb/changelog` records the release, and the maintainer
+address is a real one that matches the declared homepage.
+
+There is a man page too, `distro/vclock.1`. It documents the two options vclock
+actually has rather than the ones a clock might be expected to have — writing it
+turned up a `--version` that does not exist, caught only by running
+`vclock --help` instead of trusting memory.
+
+Both the changelog and the man page must be installed gzipped, and CPack does
+not compress anything: it copies what it is handed. CMake does the compressing,
+with `gzip -9nc` — `-n` drops the timestamp from the archive, so two builds of
+the same source produce identical bytes rather than differing in a field nobody
+reads.
+
+The rpm wants the same files and gets them from the same install rules, but it
+must not claim to own `/usr/share/man` and `/usr/share/man/man1`. Those belong
+to the `filesystem` package, and a second owner is a conflict, which is why they
+join the icon and application directories already excluded from its file list.
+
+One thing that looks like a packaging fault and is not:
+
+```
+N: Download is performed unsandboxed as root as file
+   '/home/you/Downloads/vclock_1.0_arm64.deb' couldn't be accessed by user '_apt'
+```
+
+That is an `N:`, a note, and the install it appears in has already succeeded.
+apt drops to the unprivileged `_apt` user to handle files it has not verified,
+and a home directory is commonly `drwxr-x---`, which `_apt` cannot enter. The
+package has no say in the permissions of the directory it is sitting in;
+installing from somewhere world-traversable, `sudo apt install /tmp/vclock.deb`,
+is all it takes to silence it.
+
 ### Version numbers
 
 Every package takes its version from one place, the `project()` line in

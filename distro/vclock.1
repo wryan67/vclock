@@ -1,0 +1,52 @@
+.TH VCLOCK 1 "2026-09-10" "vclock 1.0" "User Commands"
+.SH NAME
+vclock \- transparent analog desktop clock
+.SH SYNOPSIS
+.B vclock
+.RI [ options ]
+.SH DESCRIPTION
+.B vclock
+draws an analog clock on the desktop with no window frame and a transparent
+background, so that only the clock face itself is visible.  Faces, colours,
+hands and marks are configurable for each clock, and any number of clocks can
+be shown at once.
+.PP
+The clock has no title bar.  Drag it with the left mouse button to move it,
+hold
+.B Ctrl
+and turn the mouse wheel to resize it, and click the right mouse button for a
+menu with Settings, the clock list, help and About on it.
+.SH OPTIONS
+.TP
+.BR \-c ", " \-\-config " " \fINAME\fR
+Read and write \fINAME\fR instead of the default configuration.  A bare name is
+a file in the configuration directory, so
+.B world
+means \fIworld.cfg\fR; anything with a
+.B /
+in it is a path of your own.  Repeat the option to run several clocks at once,
+one for each configuration.
+.TP
+.BR \-h ", " \-\-help
+Show a summary of the options and exit.
+.TP
+.B \-\-help\-all
+Show the same summary with the Qt options included.
+.SH FILES
+.TP
+.I ~/.config/vclock/
+Configuration directory.  Each clock is one \fI.cfg\fR file, and
+\fIvclocks.cfg\fR lists the clocks and which of them start automatically.
+.SH EXAMPLES
+.TP
+Run the default clock:
+.B vclock
+.TP
+Run two named clocks at once:
+.B vclock \-c desk \-c wall
+.SH SEE ALSO
+Full documentation at:
+.UR https://github.com/wryan/vclock
+.UE
+.SH AUTHOR
+wryan

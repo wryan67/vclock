@@ -9,9 +9,14 @@
 set(CPACK_PACKAGE_NAME "vclock")
 set(CPACK_PACKAGE_VENDOR "vclock")
 set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "A transparent analog desktop clock")
+# No leading article: this is a label in a package list rather than a sentence,
+# and Debian rejects one that starts with "A" or "The".
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Transparent analog desktop clock")
 set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/wryan/vclock")
-set(CPACK_PACKAGE_CONTACT "vclock <vclock@localhost>")
+# A real address, because "localhost" is not a host anyone can reach and both
+# package formats are checked for that.  The GitHub no-reply form matches the
+# homepage above and gives nothing away.
+set(CPACK_PACKAGE_CONTACT "wryan <wryan@users.noreply.github.com>")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "vclock")
 set(CPACK_STRIP_FILES ON)
 
@@ -61,6 +66,8 @@ set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION
   /usr/share/icons
   /usr/share/icons/hicolor
   /usr/share/icons/hicolor/scalable
-  /usr/share/icons/hicolor/scalable/apps)
+  /usr/share/icons/hicolor/scalable/apps
+  /usr/share/man
+  /usr/share/man/man1)
 
 include(CPack)

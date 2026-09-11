@@ -124,6 +124,53 @@ if(UNIX AND NOT APPLE)
   install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/distro/vclock.desktop
     DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/applications
   )
+
+  # A manual page, because /usr/bin is a place where "man vclock" is a
+  # reasonable thing to try and getting nothing back is a poor answer.
+
+  # Debian requires every package to state its licence in
+  # /usr/share/doc/<package>/copyright and to ship a changelog beside it, and
+  # counts a package without them as broken.  Both are installed for every
+  # Unix package rather than for the Debian one alone: RPM states the licence
+  # in its own header as well, but a copy on disk is no burden there and the
+  # alternative is a rule that has to know which generator is running, which is
+  # not something a CMake configure step can be told.
+  #
+  # The changelog and the manual page are both installed compressed, because
+  # Debian requires it of both and RPM would compress them itself anyway.  gzip
+  # is asked for the best compression it has and for no timestamp, so that the
+  # same source always produces byte-identical output; a package that differs
+  # from build to build cannot be checked against another copy of itself.
+  #
+  # CPack does not do this for us -- it copies what it is given -- so it is done
+  # here, once, in a rule each file goes through.
+  set(_vclock_compressed)
+  foreach(pair
+      "${CMAKE_CURRENT_SOURCE_DIR}/distro/deb/changelog|changelog.gz"
+      "${CMAKE_CURRENT_SOURCE_DIR}/distro/vclock.1|vclock.1.gz")
+    string(REPLACE "|" ";" pair "${pair}")
+    list(GET pair 0 src)
+    list(GET pair 1 gz)
+    add_custom_command(
+      OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${gz}
+      COMMAND ${CMAKE_COMMAND} -E env gzip -9nc ${src} > ${CMAKE_CURRENT_BINARY_DIR}/${gz}
+      DEPENDS ${src}
+      COMMENT "Compressing ${gz}"
+      VERBATIM
+    )
+    list(APPEND _vclock_compressed ${CMAKE_CURRENT_BINARY_DIR}/${gz})
+  endforeach()
+  add_custom_target(vclock-docs ALL DEPENDS ${_vclock_compressed})
+
+  install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/distro/deb/copyright
+    DESTINATION ${CMAKE_INSTALL_DOCDIR}
+  )
+  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/changelog.gz
+    DESTINATION ${CMAKE_INSTALL_DOCDIR}
+  )
+  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/vclock.1.gz
+    DESTINATION ${CMAKE_INSTALL_MANDIR}/man1
+  )
 endif()
 
 include(distro/packaging.cmake)
