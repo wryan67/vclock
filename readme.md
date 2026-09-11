@@ -991,6 +991,51 @@ corners would be no better than a plain rectangle. Recomputing the true outline
 sixty times a second is out of the question, and a mask that flickered in and
 out as the artwork swung by would be worse than either.
 
+#### Paying for the turn
+
+A turning clock is redrawn every frame, where a still one with stepping hands is
+redrawn about once a second. That is real work, and three things keep it in
+proportion.
+
+The frame rate is the screen's rather than a fixed sixty. A hard seventeen
+milliseconds is right only on a sixty hertz panel: on a faster one it throws
+away frames the screen was ready to show, and on a slower or an oddly-clocked
+one it computes frames nobody ever sees. Asking the screen what it does costs
+nothing and is right on all of them, and the answer is asked for again whenever
+the clock is dragged onto a different screen or that screen is re-clocked
+underneath it. It is held between a thirtieth and a hundred-and-forty-fourth of
+a second, so that a nonsense reading cannot turn into a nonsense frame rate.
+
+The smooth resampling of the face is dropped once it is turning faster than a
+full turn a second. Up to there the face is nearly still from one frame to the
+next and every soft edge is there to be examined; past it each frame lands
+somewhere quite different from the last, and the smear of the motion swamps
+anything the filter was doing. The test is on the angle rather than on how far
+the rim travels, because the rim is the fastest-moving part of the face and the
+least representative: a large clock turning gently moves its rim a good many
+pixels a frame while everything near the middle sits practically still, and it
+is the still part that would show the coarser sampling. It applies to the
+artwork alone -- the hands and the marks are drawn afresh at whatever angle they
+are on, never resampled, and stay crisp at any speed.
+
+A fast turn is also served from a ring of faces drawn in advance, one for each
+step of a coarse set of angles, so that a frame is a plain copy rather than a
+resampling of every pixel. The steps are cut four times finer than the distance
+the face covers in a frame, which puts the error below an eighth of what the eye
+is already accepting as motion; the ring fills as each angle first comes round,
+so the cost is spread over the first revolution instead of stalling on the way
+in.
+
+The ring is deliberately kept small. What it saves is roughly a fixed slice of
+the drawing whatever size the clock is, while what it costs grows with the area,
+so the bargain gets steadily worse the larger the face: at a full turn a second
+it saves about a quarter of the work on an eighty-pixel clock for almost no
+memory, a sixth at a hundred and sixty for six megabytes, and an eighth at three
+hundred for twenty-two -- which is no longer worth having. A budget of eight
+megabytes buys the sizes where the trade is good and declines the ones where it
+is not. A clock too large for it, or turning too slowly for coarse steps, simply
+turns its face live as it always did.
+
 ### The Settings window
 
 The controls sit on four tabs -- **Face**, **Hands**, **Marks**, **Opacity**.

@@ -45,7 +45,52 @@ namespace {
 // How often the hands are re-examined. Stepping, this only has to be short
 // enough that a new second shows up promptly; sweeping, it is the frame rate.
 constexpr int kSteppedIntervalMs = 200;
-constexpr int kSmoothIntervalMs = 17;  // ~60 fps
+
+// Bounds on the frame interval when the clock is animating.  The rate itself
+// comes from the screen the clock is on -- see smoothIntervalMs -- and these
+// only keep a nonsense reading from turning into a nonsense frame rate: no
+// slower than 30 a second, which is where smooth motion stops looking smooth,
+// and no faster than 144, beyond which the work is being done for nobody.
+constexpr int kSmoothIntervalMinMs = 7;
+constexpr int kSmoothIntervalMaxMs = 33;
+constexpr int kSmoothIntervalFallbackMs = 17;  // ~60 fps
+
+// How far round a turning face must get between two frames before the filtering
+// used to resample it stops being worth its cost.  Below this the face is
+// nearly still from frame to frame and every soft edge is there to be examined;
+// above it each frame lands somewhere quite different from the last and the
+// smear of the motion swamps anything a filter was doing.
+//
+// The test is on the angle rather than on how far the rim travels, because the
+// rim is the fastest-moving part of the face and the least representative one.
+// A large clock turning gently moves its rim a good many pixels a frame while
+// everything near the middle of it sits practically still, and it is the still
+// part that would show the coarser sampling.
+constexpr double kBlurStepDegrees = 6.0;
+
+// What the ring of pre-turned faces may occupy, and the most steps it may be
+// cut into.
+//
+// The budget is what makes this a small-clock trick, and it is deliberately
+// mean.  What a ring saves is roughly a fixed slice of the drawing however big
+// the clock is, while what it costs grows with the area, so the bargain gets
+// steadily worse the larger the face: measured at a full turn a second it saves
+// about a quarter of the work at eighty pixels for almost no memory, a sixth at
+// a hundred and sixty for six megabytes, and an eighth at three hundred for
+// twenty-two -- which is no longer worth having.  Eight megabytes buys the
+// sizes where the trade is good and declines the ones where it is not, and a
+// clock too big for it simply turns its face live as it always did.
+constexpr qint64 kSpinFrameBudgetBytes = 8 * 1024 * 1024;
+constexpr int kSpinFramesMax = 512;
+// Fewest steps worth keeping a ring for.  Below this the steps are so coarse
+// that the face would visibly jump between them whatever the speed.
+constexpr int kSpinFramesMin = 24;
+// How much finer the steps are than the distance the face covers in a frame.
+// The error a ring adds is at most half a step, so at a quarter of a frame's
+// travel the face is never more than an eighth of a frame's worth out of true
+// -- far less than the difference between one frame and the next, which is
+// motion the eye is already accepting.
+constexpr double kSpinFrameFineness = 4.0;
 
 // How long the pointer has to settle before the date bubble appears is a
 // program-wide setting, kept beside the clock list; see registry.h.
@@ -229,6 +274,28 @@ ClockWindow::ClockWindow(const QString &configPath)
             [this](QScreen *) { handleScreenRemoved(); });
 }
 
+// Follow one screen's refresh rate, dropping whatever was being followed
+// before.  A clock sits on one screen at a time, so one connection is enough.
+//
+// The frame rate is the screen's, so it has to be picked up again whenever the
+// clock is dragged onto a different one, or that screen is re-clocked
+// underneath it -- otherwise the rate would be right only where the clock
+// happened to start.  Moving and showing are where the first can happen and
+// the signal covers the second.
+void ClockWindow::watchScreen()
+{
+    QScreen *s = screen();
+    if (s == m_watchedScreen)
+        return;
+    if (m_refreshConn)
+        disconnect(m_refreshConn);
+    m_watchedScreen = s;
+    if (s)
+        m_refreshConn = connect(s, &QScreen::refreshRateChanged, this,
+                                [this](qreal) { applyTickRate(); });
+    applyTickRate();
+}
+
 ClockWindow::~ClockWindow() = default;
 
 // ------------------------------------------------------------------- config
@@ -276,6 +343,52 @@ double ClockWindow::spinRadius() const
     return m_spinReach * pixelSize().width() * drawScale();
 }
 
+// How fast the face is turning, in turns a second, signed so that the sign is
+// the direction.
+double ClockWindow::spinTurnsPerSecond() const
+{
+    if (!spinning())
+        return 0.0;
+    return kSpinMaxTurns * m_cfg.faceSpin / 100.0;
+}
+
+// How far round the face gets between one frame and the next, at whatever rate
+// the clock is currently ticking at.
+double ClockWindow::spinStepDegrees() const
+{
+    return std::abs(spinTurnsPerSecond()) * 360.0 * smoothIntervalMs() / 1000.0;
+}
+
+// Whether the turn is fast enough to hide its own resampling.  Six degrees a
+// frame is a full turn a second at sixty frames: by then no part of the face
+// beyond the very hub lands anywhere near where it was a frame ago, and the
+// eye is given a smear rather than a picture to examine.
+bool ClockWindow::spinBlurred() const
+{
+    if (!spinning())
+        return false;
+    return spinStepDegrees() > kBlurStepDegrees;
+}
+
+// The frame interval, taken from the screen the clock is sitting on.  A fixed
+// seventeen milliseconds is right only on a sixty hertz panel: on a faster one
+// it throws away frames the screen would have shown, and on a slower or an
+// oddly-clocked one it computes frames that are never seen, which is work done
+// for nobody.  Asking the screen costs nothing and is right on all of them.
+int ClockWindow::smoothIntervalMs() const
+{
+    const QScreen *s = screen();
+    if (!s)
+        s = QGuiApplication::primaryScreen();
+    if (!s)
+        return kSmoothIntervalFallbackMs;
+    const double hz = s->refreshRate();
+    if (hz <= 1.0)
+        return kSmoothIntervalFallbackMs;
+    const int ms = int(std::lround(1000.0 / hz));
+    return std::clamp(ms, kSmoothIntervalMinMs, kSmoothIntervalMaxMs);
+}
+
 // Where the drawing is centred.  Standing still that is the pivot the user
 // placed, which is the whole point of being able to place it.  Turning, it is
 // the middle of the window: what a spinning clock occupies is a disc about the
@@ -312,6 +425,107 @@ double ClockWindow::drawScale() const
     if (want <= room || want <= 0.0 || room <= 0.0)
         return 1.0;
     return room / want;
+}
+
+// How many steps to cut the turn into, or zero for no ring at all.
+//
+// Two things decide it.  The steps have to be fine enough that the face does
+// not visibly jump between them, which is a question of how fast it is going:
+// a face covering thirty degrees a frame can be served from steps that would
+// look like a slideshow on one creeping round. And the ring has to fit its
+// memory budget, which is a question of how big the clock is, since every step
+// costs the window's whole area. Where the two agree there is a ring; where the
+// speed wants more steps than the budget will hold there is none, and the face
+// is resampled live as it always was.
+int ClockWindow::spinFrameCount() const
+{
+    if (!spinning())
+        return 0;
+    const double step = spinStepDegrees();
+    if (step <= 0.0)
+        return 0;
+    const int wanted = int(std::ceil(360.0 * kSpinFrameFineness / step));
+    if (wanted < kSpinFramesMin || wanted > kSpinFramesMax)
+        return 0;
+    const QSize size = pixelSize();
+    const qreal dpr = devicePixelRatioF() > 0 ? devicePixelRatioF() : 1.0;
+    const qint64 perFrame = qint64(std::lround(size.width() * dpr))
+                            * qint64(std::lround(size.height() * dpr)) * 4;
+    if (perFrame <= 0 || qint64(wanted) * perFrame > kSpinFrameBudgetBytes)
+        return 0;
+    return wanted;
+}
+
+void ClockWindow::discardSpinFrames()
+{
+    m_spinFrames.clear();
+    m_spinFramesKey = 0;
+}
+
+// The face already drawn at the step nearest this angle, drawing it the first
+// time that step comes round.  Null means there is no ring and the caller must
+// resample the face itself.
+const QImage *ClockWindow::spinFrame(double angle)
+{
+    const int count = spinFrameCount();
+    if (count <= 0) {
+        if (!m_spinFrames.empty())
+            discardSpinFrames();
+        return nullptr;
+    }
+
+    // Everything the stored frames were drawn against.  If any of it has moved
+    // the frames are pictures of a clock that no longer exists.
+    const QSize size = pixelSize();
+    const double scale = drawScale();
+    const QPointF center = drawCenter();
+    const QPointF pivot = centerPixels();
+    const bool smooth = !spinBlurred();
+    const qint64 key = m_raster.cacheKey();
+    if (int(m_spinFrames.size()) != count || m_spinFramesKey != key
+        || m_spinFramesSize != size || m_spinFramesScale != scale
+        || m_spinFramesCenter != center || m_spinFramesPivot != pivot
+        || m_spinFramesSmooth != smooth) {
+        m_spinFrames.assign(count, QImage());
+        m_spinFramesKey = key;
+        m_spinFramesSize = size;
+        m_spinFramesScale = scale;
+        m_spinFramesCenter = center;
+        m_spinFramesPivot = pivot;
+        m_spinFramesSmooth = smooth;
+    }
+
+    const double stepDeg = 360.0 / count;
+    int slot = int(std::lround(angle / stepDeg)) % count;
+    if (slot < 0)
+        slot += count;
+
+    QImage &frame = m_spinFrames[size_t(slot)];
+    if (frame.isNull()) {
+        // At the device's resolution but tagged with its ratio, exactly as the
+        // raster is, so that painting into it and drawing it back out both
+        // work in the same logical coordinates the window itself uses.
+        const qreal dpr = m_raster.devicePixelRatio() > 0 ? m_raster.devicePixelRatio() : 1.0;
+        frame = QImage(QSize(int(std::lround(size.width() * dpr)),
+                             int(std::lround(size.height() * dpr))),
+                       QImage::Format_ARGB32_Premultiplied);
+        frame.setDevicePixelRatio(dpr);
+        frame.fill(Qt::transparent);
+        QPainter p(&frame);
+        p.setRenderHint(QPainter::Antialiasing, true);
+        p.setRenderHint(QPainter::SmoothPixmapTransform, smooth);
+        // The step's own angle, not the angle asked for: a frame is kept and
+        // handed back many times over, so it has to stand for its step rather
+        // than for whichever moment happened to prepare it.
+        p.translate(center);
+        p.rotate(slot * stepDeg);
+        if (scale != 1.0)
+            p.scale(scale, scale);
+        p.translate(-pivot);
+        p.drawImage(QRectF(0, 0, size.width(), size.height()), m_raster,
+                    QRectF(m_raster.rect()));
+    }
+    return &frame;
 }
 
 // Only the clock takes clicks.  The window has to be a rectangle and a clock is
@@ -485,6 +699,9 @@ void ClockWindow::rebuildRaster()
                              m_cfg.wireOpacity)
                    : art;
     m_raster.setDevicePixelRatio(dpr);
+    // Every frame in the ring is a picture of the face that has just been
+    // replaced.
+    discardSpinFrames();
 
     // Kept from the artwork as rendered, before any of the user's opacity is
     // applied: a face faded to nothing is still a clock, and must still be
@@ -805,6 +1022,7 @@ void ClockWindow::moveEvent(QMoveEvent *event)
     // out from under a drag in progress would be startling, so a per-monitor
     // size only takes effect when the clock opens there.
     rememberPlacement();
+    watchScreen();
 }
 
 // Refuse to be minimised, maximised or made full screen.
@@ -874,6 +1092,7 @@ void ClockWindow::showEvent(QShowEvent *event)
     // flag stops being the truth the moment the setting is changed on a clock
     // that is already up. Say it again once the mapping has gone through.
     QTimer::singleShot(0, this, [this] { windowgroup::setAlwaysOnTop(this, m_cfg.alwaysOnTop); });
+    watchScreen();
 }
 
 // Qt does not rebuild the native window while it is being asked to: the old
@@ -1507,18 +1726,35 @@ void ClockWindow::paintEvent(QPaintEvent *)
     const double radius = handRadius();
     if (!m_raster.isNull()) {
         const double angle = advanceSpin();
-        const double scale = drawScale();
-        const QPointF pivot = centerPixels();
-        painter.save();
-        painter.translate(center);
-        if (angle != 0.0)
-            painter.rotate(angle);
-        if (scale != 1.0)
-            painter.scale(scale, scale);
-        painter.translate(-pivot);
-        painter.drawImage(QRectF(0, 0, width(), height()), m_raster,
-                          QRectF(m_raster.rect()));
-        painter.restore();
+        // A face already drawn at this angle, if a ring of them is being kept.
+        // Blitting one costs a plain copy where turning the face afresh costs a
+        // resample of every pixel, which is the whole point of keeping them.
+        const QImage *ready = angle != 0.0 ? spinFrame(angle) : nullptr;
+        if (ready) {
+            painter.drawImage(QRectF(0, 0, width(), height()), *ready,
+                              QRectF(ready->rect()));
+        } else {
+            const double scale = drawScale();
+            const QPointF pivot = centerPixels();
+            painter.save();
+            // Resampling the face smoothly is worth its cost right up until
+            // the face is turning fast enough to smear itself, at which point
+            // it buys a softness nobody can hold still long enough to see.
+            // Confined to the artwork: the hands and the marks are drawn
+            // afresh at whatever angle they are on, never resampled, and stay
+            // crisp throughout.
+            if (spinBlurred())
+                painter.setRenderHint(QPainter::SmoothPixmapTransform, false);
+            painter.translate(center);
+            if (angle != 0.0)
+                painter.rotate(angle);
+            if (scale != 1.0)
+                painter.scale(scale, scale);
+            painter.translate(-pivot);
+            painter.drawImage(QRectF(0, 0, width(), height()), m_raster,
+                              QRectF(m_raster.rect()));
+            painter.restore();
+        }
     }
 
     drawMarks(painter, m_cfg, center.x(), center.y(), radius, width(), height());
@@ -1683,6 +1919,11 @@ double ClockWindow::advanceSpin()
         // face the way it was drawn rather than wherever it was left.
         m_spinAngle = 0.0;
         m_spinClock.invalidate();
+        // Nothing standing still has any use for a ring of turned faces, and
+        // holding megabytes of them against the chance of being started again
+        // would be paying for a feature that is switched off.
+        if (!m_spinFrames.empty())
+            discardSpinFrames();
         return 0.0;
     }
     if (!m_spinClock.isValid()) {
@@ -1704,7 +1945,7 @@ double ClockWindow::advanceSpin()
 // turning face has to be redrawn continuously whatever the hands are doing.
 void ClockWindow::applyTickRate()
 {
-    const int interval = (m_cfg.smoothSweep || spinning()) ? kSmoothIntervalMs
+    const int interval = (m_cfg.smoothSweep || spinning()) ? smoothIntervalMs()
                                                            : kSteppedIntervalMs;
     if (m_tick->interval() == interval)
         return;

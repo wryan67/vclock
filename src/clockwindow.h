@@ -13,6 +13,7 @@
 
 #include <memory>
 #include <optional>
+#include <vector>
 
 class Face;
 class QAction;
@@ -99,6 +100,25 @@ public:
     // be done while the artwork is moving and standing somewhere other than
     // where it really sits.
     bool spinning() const { return m_cfg.faceSpin != 0 && !m_picking; }
+    // Turns a second, signed; and how far round the face gets between two
+    // frames at the rate the clock is currently ticking at.
+    double spinTurnsPerSecond() const;
+    double spinStepDegrees() const;
+    // Whether the turn is fast enough that its own smear hides everything the
+    // resampling filter would have smoothed.
+    bool spinBlurred() const;
+    // The frame interval to animate at, taken from the screen the clock is on.
+    int smoothIntervalMs() const;
+    // Follow the refresh rate of whichever screen the clock is now on.
+    void watchScreen();
+    // How many steps the ring of pre-turned faces should have, or zero for no
+    // ring at all.  Drop whatever ring is there if it no longer matches.
+    int spinFrameCount() const;
+    void discardSpinFrames();
+    // The face already drawn at the nearest step to this angle, preparing it
+    // first if this is the first time that step has come round.  Null when
+    // there is no ring, in which case the caller resamples the face itself.
+    const QImage *spinFrame(double angle);
 
     QPointF centerPixels() const;
     double handRadius() const;      // as drawn, after any spin-fit shrink
@@ -230,6 +250,22 @@ private:
     // Farthest the artwork reaches from the pivot, as a fraction of the width;
     // the radius of the disc it sweeps when it turns.
     double m_spinReach = 0.5;
+
+    // Faces already drawn turned, one per step of a coarse ring of angles, so
+    // that a turning clock can blit a frame it prepared earlier instead of
+    // resampling the whole face afresh sixty times a second.  Entries are
+    // filled the first time each angle comes round rather than all at once,
+    // which spreads the cost over the first revolution instead of stalling on
+    // the way in.  Empty when the ring would not fit the memory budget.
+    std::vector<QImage> m_spinFrames;
+    // What the ring was built for.  Any of it changing makes every frame in it
+    // wrong, so the ring is thrown away and measured again.
+    QSize m_spinFramesSize;
+    double m_spinFramesScale = 0.0;
+    QPointF m_spinFramesCenter;
+    QPointF m_spinFramesPivot;
+    qint64 m_spinFramesKey = 0;
+    bool m_spinFramesSmooth = false;
     SettingsDialog *m_settings = nullptr;
     bool m_picking = false;
     // Set by hideClock() so closeEvent can tell the user putting this clock
@@ -289,4 +325,8 @@ private:
     double m_spinAngle = 0.0;
     QElapsedTimer m_spinClock;
     qint64 m_spinLastNs = 0;
+
+    // The screen whose refresh rate the frame timer is following.
+    QScreen *m_watchedScreen = nullptr;
+    QMetaObject::Connection m_refreshConn;
 };
