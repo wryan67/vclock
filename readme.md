@@ -213,10 +213,25 @@ N: Download is performed unsandboxed as root as file
 
 That is an `N:`, a note, and the install it appears in has already succeeded.
 apt drops to the unprivileged `_apt` user to handle files it has not verified,
-and a home directory is commonly `drwxr-x---`, which `_apt` cannot enter. The
-package has no say in the permissions of the directory it is sitting in;
-installing from somewhere world-traversable, `sudo apt install /tmp/vclock.deb`,
-is all it takes to silence it.
+and a home directory is commonly `drwxr-x---`, which `_apt` cannot enter. Note
+which directory the message names: usually it is the home directory in the
+middle of the path rather than the one the file is actually in, so moving the
+file to another folder under the same home changes nothing.
+
+The package has no say in the permissions of the directory it is sitting in, so
+every way round this is on the installing side. Copying the file somewhere
+world-traversable first, `sudo apt install /tmp/vclock.deb`, is the one that
+leaves nothing behind. Passing `-o APT::Sandbox::User=root` waives the sandbox
+for that one command. Or, to keep installing from the usual download folder,
+let `_apt` through the home directory and nothing else:
+
+```
+sudo setfacl -m u:_apt:x ~          # undo with: sudo setfacl -x u:_apt ~
+```
+
+That grants the traverse bit alone — `_apt` still cannot list the directory,
+only pass through it to files whose own permissions already allow it — and
+leaves `drwxr-x---` as it was for everybody else.
 
 ### Version numbers
 
