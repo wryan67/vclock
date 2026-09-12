@@ -1585,14 +1585,35 @@ looks for them; a file in `~/.local/share/applications` overrides one installed
 system-wide, so an old hand-written copy there has to be replaced rather than
 left beside the new one.
 
-Which menu you get is the desktop's decision, not vclock's, and left-clicking a
-pinned icon is its decision too: docks differ over whether a click starts a
-program or goes to the one already running. The right-click entries are the part
-that does not vary, because they name what they want outright instead of leaving
-it to be worked out. `QGuiApplication::setDesktopFileName()` tells the desktop
-which entry the program belongs to, which is the Linux end of the same question
-the AppUserModelID answers on Windows; Wayland matches windows to launchers that
-way, while X11 still goes by `WM_CLASS`.
+Left-clicking the icon opens Manage clocks, and getting that to work took going
+the other way from the paragraph this replaces.
+
+A dock decides what a click means by asking which windows belong to the
+launcher, and the desktop answers by matching a window's class against the name
+of the `.desktop` file. vclock's windows matched, so a click was read as "go to
+the window you already have" — and the window it went to was a clock: frameless,
+kept out of the taskbar, quite possibly beneath something else. Nothing appeared
+to happen. Worse, having decided the program was there to be reached, the dock
+never asked it to start, so nothing could happen.
+
+So the windows now call themselves `vclock-window`, which no `.desktop` file
+claims, and the launcher is left as a button that always runs the program. The
+copy already running takes the request and puts Manage clocks up. The clocks are
+deliberately outside the desktop's idea of a window, so being outside its idea
+of an application too is the honest position rather than a dodge.
+
+That name is set in two halves, because X11 keeps two. `RESOURCE_NAME` in the
+environment covers the instance, and has to be set before the application object
+exists, since Qt otherwise falls back to the name of the binary — which is
+exactly the name being avoided. `setApplicationName()` covers the class, and
+`setDesktopFileName()` covers the `app_id` a Wayland compositor matches on
+instead. The name people see is the display name, and the usage text comes from
+the command line, so neither moves with this. `StartupWMClass=` is left out of
+the entry on purpose: it exists to tie windows back to the launcher, which is
+the tie being cut.
+
+Right-clicking is simpler, because `Actions=` names what it wants outright
+instead of leaving it to be worked out from windows.
 
 ### Monitors
 

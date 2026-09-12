@@ -8,7 +8,11 @@ Exec=vclock
 Icon=vclock
 Terminal=false
 StartupNotify=false
-StartupWMClass=vclock
+# No StartupWMClass on purpose.  It exists to tell the desktop which windows
+# belong to this launcher, and vclock wants the opposite: its windows name
+# themselves something no .desktop file claims, so that clicking the icon
+# always runs the program -- which hands the request to the copy already
+# running -- instead of being answered with a frameless clock nobody can see.
 Categories=Utility;Clock;
 Keywords=clock;time;analog;desktop;
 

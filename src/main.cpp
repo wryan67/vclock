@@ -35,6 +35,11 @@ std::atomic_bool g_interrupted{false};
 const char *kManage = "manage";
 const char *kDaemon = "daemon";
 
+// What the windows call themselves to the desktop.  Deliberately not "vclock",
+// which is the name of the .desktop file; the two being different is the whole
+// point, and the reason is at the call site.
+const char *kWindowClass = "vclock-window";
+
 extern "C" void onInterrupt(int)
 {
     // Only async-signal-safe work here; the timer below does the rest.
@@ -45,23 +50,43 @@ extern "C" void onInterrupt(int)
 
 int main(int argc, char *argv[])
 {
+    // Half of the window class, and the half that cannot be set once the
+    // application exists: Qt reads it here, falling back to the name of the
+    // binary, which is exactly the name this has to stop being.  See the
+    // comment on setApplicationName below for what this is for.
+    qputenv("RESOURCE_NAME", kWindowClass);
+
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     QApplication::setAttribute(Qt::AA_EnableHighDpiScaling, true);
     QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps, true);
 #endif
     QApplication app(argc, argv);
-    app.setApplicationName(QStringLiteral("vclock"));
+    // The name the windows give the desktop, which is deliberately not the
+    // name of the .desktop file.  This is what keeps a pinned icon from going
+    // dead.  A dock decides what a click means by asking which windows belong
+    // to the launcher, and the desktop answers by matching the window class
+    // against the name of the .desktop file.  vclock's windows would match, so
+    // the dock takes a click as "go to the window you already have" and goes
+    // to a clock -- frameless, kept out of the taskbar, quite possibly
+    // underneath something.  Nothing appears to happen, and because the dock
+    // never asked the program to start, nothing can.
+    //
+    // Naming the windows something no .desktop file claims leaves the launcher
+    // a button that always runs the program, which hands the request to the
+    // copy already running and puts Manage clocks up.  The clocks are
+    // deliberately outside the desktop's idea of a window; being outside its
+    // idea of an application too is the honest position.
+    //
+    // The name shown to people is the display name below, and the usage text
+    // is drawn from the command line, so neither changes with this.
+    app.setApplicationName(QString::fromLatin1(kWindowClass));
     app.setApplicationDisplayName(QStringLiteral("vclock"));
     installGlyphStyle();
     installAccentColour();
     app.setOrganizationName(QStringLiteral("vclock"));
-    // Names the launcher this program belongs to, so a pinned icon in a dock
-    // and the program it started are treated as the same thing.  The same
-    // reasoning as the Windows AppUserModelID, and needed for the same reason:
-    // without it the desktop matches windows to launchers by guesswork, and a
-    // program whose only windows are frameless clocks gives it nothing to
-    // guess from.  Ignored on platforms that have no such notion.
-    QGuiApplication::setDesktopFileName(QStringLiteral("vclock"));
+    // What a Wayland compositor matches on, where there is no window class.
+    // Same name, same reason as above.
+    QGuiApplication::setDesktopFileName(QString::fromLatin1(kWindowClass));
     app.setWindowIcon(QIcon(QPixmap::fromImage(appIconImage(256))));
     // The clock closes itself (flushing its config first), and its dialogs must
     // not be able to end the program by being the last window shut.
