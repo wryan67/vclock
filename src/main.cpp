@@ -211,7 +211,11 @@ int main(int argc, char *argv[])
 
     // Ctrl+C in the launching terminal shuts down the same way the menu does,
     // so the config still gets flushed.  Polling a flag keeps the handler
-    // itself async-signal-safe and works on Windows too.
+    // itself async-signal-safe and works on Windows too.  Closing the clocks
+    // is not enough on its own: the program ends when the last one goes, so
+    // with none on screen -- the manage dialog open and every clock put away,
+    // or a session being logged out of -- there is nothing to end it, and the
+    // signal is ignored.  quitNow() says it outright, and is what Quit calls.
     std::signal(SIGINT, onInterrupt);
 #ifdef SIGTERM
     std::signal(SIGTERM, onInterrupt);
@@ -221,7 +225,7 @@ int main(int argc, char *argv[])
     QObject::connect(&interruptPoll, &QTimer::timeout, &app, [&manager] {
         if (!g_interrupted.load())
             return;
-        manager.closeAll();
+        manager.quitNow();
     });
     interruptPoll.start();
 
