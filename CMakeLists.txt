@@ -24,6 +24,7 @@ add_executable(vclock WIN32 MACOSX_BUNDLE
   src/registry.cpp
   src/autostart.cpp
   src/jumplist.cpp
+  src/trayicon.cpp
   src/singleinstance.cpp
   src/clockmanager.cpp
   src/manageclocksdialog.cpp
@@ -41,6 +42,7 @@ add_executable(vclock WIN32 MACOSX_BUNDLE
   src/registry.h
   src/autostart.h
   src/jumplist.h
+  src/trayicon.h
   src/singleinstance.h
   src/clockmanager.h
   src/manageclocksdialog.h
@@ -66,6 +68,12 @@ if(UNIX AND NOT APPLE)
   pkg_check_modules(XCB REQUIRED IMPORTED_TARGET xcb)
   target_link_libraries(vclock PRIVATE PkgConfig::XCB)
   target_compile_definitions(vclock PRIVATE VCLOCK_HAVE_XCB)
+  # And DBus, for the one question the tray icon has to ask before it says
+  # anything to Qt: whether this desktop has anywhere to put a tray icon.  Part
+  # of Qt Base like the rest, so it is a component rather than a dependency of
+  # its own.
+  find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS DBus)
+  target_link_libraries(vclock PRIVATE Qt${QT_VERSION_MAJOR}::DBus)
 endif()
 
 # The program draws its own icon and so ships no icon file -- except for the

@@ -8,6 +8,7 @@
 #include "manageclocksdialog.h"
 #include "render.h"
 #include "singleinstance.h"
+#include "trayicon.h"
 
 #include <QApplication>
 #include <QCommandLineOption>
@@ -208,6 +209,10 @@ int main(int argc, char *argv[])
     // differs, so a login start does not begin by opening a window.
     autostart::refresh();
     jumplist::install();
+    // After the clocks rather than before: the icon is drawn the same way they
+    // are, and a program that puts its tray icon up first would spend that
+    // work before there was anything on screen to show for it.
+    tray::install();
 
     // Ctrl+C in the launching terminal shuts down the same way the menu does,
     // so the config still gets flushed.  Polling a flag keeps the handler

@@ -105,10 +105,11 @@ would be worse than leaving it.
   built with `WIN32`, so it does not open a console window.
 
 Qt Network is needed as well as Widgets and Svg, for the local socket that
-hands a second launch to the copy already running. Nothing extra has to be
-installed for it: it is part of Qt Base everywhere in the list above, so it
-arrives with Widgets, which is why `--check-deps` still asks about only those
-two.
+hands a second launch to the copy already running, and on Linux Qt DBus as
+well, so the tray icon can find out whether the desktop has anywhere to put it.
+Nothing extra has to be installed for either: both are part of Qt Base
+everywhere in the list above, so they arrive with Widgets, which is why
+`--check-deps` still asks about only those two.
 
 ## Packaging
 
@@ -1381,7 +1382,9 @@ that locks everybody out.
 
 ## Managing clocks
 
-Right click &#9656; Manage clocks, or `Ctrl`+K, lists every clock you have. Each
+Right click &#9656; Manage clocks, or `Ctrl`+K, lists every clock you have.
+Clicking the tray icon opens the same list, which is the way in when no clock
+is to hand to right-click. Each
 row starts with a grip, then has a Show box and the clock's name, and then four
 narrow columns: Set opens that clock's settings, Top keeps it above other
 windows, Name renames it (or, on the Default clock, copies it), and Del deletes
@@ -1630,6 +1633,46 @@ the tie being cut.
 Right-clicking is simpler, because `Actions=` names what it wants outright
 instead of leaving it to be worked out from windows.
 
+### The tray icon
+
+vclock puts a clock in the notification area, and the menu behind it offers
+**Manage clocks** and **New clock**. Manage clocks is the default: a panel
+draws it in bold, and a plain left-click on the icon — no menu at all — opens
+it.
+
+It answers the same question the pinned launcher does, from the other side.
+The launcher is the desktop's handle on the program; the tray icon is the
+program's own, and it is there whatever the clocks are doing. That matters
+because Manage clocks is the way to every clock, including the ones that are
+not on screen to be right-clicked.
+
+The icon is drawn rather than loaded, at each of the sizes a panel might ask
+for, so it is a real vclock at 16 pixels in a Windows notification area and at
+64 on a scaled display, rather than one bitmap squeezed to fit. Hovering gives
+the program's name; what the icon *does* is the menu's business.
+
+Two things about it are not obvious.
+
+The first is that `QSystemTrayIcon::isSystemTrayAvailable()` cannot be used to
+decide whether to put the icon up. Qt answers that question by building the
+machinery it would send the icon through, and then keeps what it built. Ask it
+once while nothing is listening and the program gets no tray icon for the rest
+of its life, however many panels turn up later — and it fails silently: asked
+again it says a tray is there, the icon says it is visible, and the panel never
+hears of it. That is a real risk rather than a theoretical one, because the
+usual way to start vclock is at login, racing the panel that would hold the
+icon. So the question is asked directly instead: whether anything owns
+`org.kde.StatusNotifierWatcher` on the session bus, which is how every desktop
+that still has a tray does it, or failing that whether anyone owns the
+`_NET_SYSTEM_TRAY_S0` selection, which is how the lighter ones do. Only once
+the answer is yes is Qt told anything at all. If it is no, vclock looks again
+every second for a minute and then stops.
+
+The second is that the tray entry calls itself `vclock-window`, which is the
+application name, chosen for the reasons in the section above and not worth
+changing back for this. It is not the name on the tooltip, and the only place
+it shows through is what a screen reader announces.
+
 ### Monitors
 
 A clock that has never been sized -- a new one, or one whose settings have just
@@ -1688,6 +1731,7 @@ A few details worth knowing:
 | `src/autostart.*` | writing and removing the login startup entry |
 | `src/singleinstance.*` | handing a second launch to the copy already running |
 | `src/jumplist.*` | the right-click menu on the Windows taskbar button |
+| `src/trayicon.*` | the notification-area icon and its menu |
 | `src/clockwindow.*` | the translucent clock window itself |
 | `src/timetip.*` | the date and time bubble shown on hover |
 | `src/windowgroup.*` | keeping each clock's stacking its own, on X11 |
