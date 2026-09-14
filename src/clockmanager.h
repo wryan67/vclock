@@ -51,6 +51,14 @@ public:
     void closeClock(const QString &path);
     void closeAll();
 
+    // Put every clock away, as though each had been hidden from its own menu:
+    // they stop being marked as showing, so starting again brings none of them
+    // back until one is asked for.  That is the difference between this and
+    // Quit, which leaves the clocks on screen marked as showing and only stops
+    // the program.  With nothing holding the program open this ends it as
+    // well, there being nothing left to run for.
+    void hideAll();
+
     // End the program: close every clock and stop, whatever holds are out.
     // Hiding the last clock ends the program too, but only when nothing is
     // holding it open; Quit means it either way.

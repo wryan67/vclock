@@ -20,8 +20,8 @@ Keywords=clock;time;analog;desktop;
 # menu the Windows build puts on its taskbar button and for the same reason: a
 # clock has no frame and no taskbar entry of its own, so when one is hidden or
 # buried the launcher icon is the only thing left pointing at the program.
-# Both are forwarded to the copy already running.
-Actions=Manage;Show;
+# All three are forwarded to the copy already running.
+Actions=Manage;Show;HideAll;
 
 [Desktop Action Manage]
 Name=Manage clocks
@@ -30,3 +30,7 @@ Exec=vclock --manage
 [Desktop Action Show]
 Name=Show my clocks
 Exec=vclock --daemon
+
+[Desktop Action HideAll]
+Name=Hide all clocks
+Exec=vclock --hide-all

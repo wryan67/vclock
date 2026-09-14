@@ -1,6 +1,7 @@
 #include "trayicon.h"
 
 #include "manageclocksdialog.h"
+#include "clockmanager.h"
 #include "render.h"
 
 #include <QAction>
@@ -67,6 +68,19 @@ void build()
     QObject::connect(create, &QAction::triggered, s_menu,
                      [] { ManageClocksDialog::newClockIn(nullptr); });
 
+    s_menu->addSeparator();
+
+    // Clearing the screen without stopping the program, which is only a useful
+    // thing to offer because the icon stays behind to undo it.
+    QAction *hideAll = s_menu->addAction(QStringLiteral("Hide all clocks"));
+    QObject::connect(hideAll, &QAction::triggered, s_menu,
+                     [] { ClockManager::instance().hideAll(); });
+
+    // The way out, and the reason the hold below is safe to take.
+    QAction *quit = s_menu->addAction(QStringLiteral("Quit"));
+    QObject::connect(quit, &QAction::triggered, s_menu,
+                     [] { ClockManager::instance().quitNow(); });
+
     s_icon = new QSystemTrayIcon(qApp);
     s_icon->setIcon(trayIcon());
     // Shown on hover.  The program's name on its own: what the icon does is
@@ -96,6 +110,14 @@ void build()
     });
 
     s_icon->show();
+
+    // Held from here on, so that putting the last clock away no longer ends
+    // the program.  Until there was an icon that would have been a trap --
+    // nothing on screen, nothing in the taskbar, no way to say stop.  With the
+    // icon up there is a way back in and a Quit on it, and hiding every clock
+    // becomes a thing the user can mean.  Not taken when there is no tray:
+    // then the old rule still holds and the last clock still ends it.
+    ClockManager::instance().acquireHold();
 }
 
 #if defined(VCLOCK_HAVE_XCB)

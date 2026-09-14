@@ -111,6 +111,11 @@ void install()
                     tasks->AddObject(task);
                     task->Release();
                 }
+                if (IShellLinkW *task = makeTask(QStringLiteral("--hide-all"),
+                                                 QStringLiteral("Hide all clocks"))) {
+                    tasks->AddObject(task);
+                    task->Release();
+                }
                 list->AddUserTasks(tasks);
                 tasks->Release();
             }

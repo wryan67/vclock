@@ -512,7 +512,7 @@ than were asked for.
 | Left drag | move the clock |
 | Double click | settings |
 | Wheel | resize, while Settings is open (`Shift` for finer steps) |
-| Right click | menu (Always on top, Manage clocks, Settings, Move, Reset defaults, Help, About, Hide, Quit) |
+| Right click | menu (Always on top, Manage clocks, Settings, Move, Reset defaults, Help, About, Hide, Hide all clocks, Quit) |
 | `Ctrl`/`Cmd`+K | manage clocks |
 | `Ctrl`/`Cmd`+S | settings |
 | `Ctrl`/`Cmd`+M | move mode (see below) |
@@ -520,12 +520,26 @@ than were asked for.
 | `Ctrl`/`Cmd`+A | about |
 | `Ctrl`/`Cmd`+R | reset defaults |
 | `Ctrl`/`Cmd`+H | hide this clock |
+| `Ctrl`/`Cmd`+`Shift`+H | hide every clock |
 | `Esc`, `Alt`+F4 (`Cmd`+W on macOS) | hide it as well |
 | `Ctrl`/`Cmd`+Q | quit, closing every clock |
 
 Hide takes one clock off screen and leaves the others running; Manage clocks
-brings it back. Hiding the last one ends the program, since there is nothing
-left to run for.
+brings it back. Hide all clocks says the same of every clock at once, and is
+on the tray icon's menu and the taskbar icon's as well as this one, because
+those are the two that are still there when no clock is.
+
+Hiding the last clock ends the program, since there is nothing left to run for
+-- unless there is a tray icon up, which holds the program open on its own.
+That is what makes Hide all clocks worth offering: with the icon there to bring
+them back, and a Quit on it, an empty screen is something the user can mean
+rather than a way to lose the program. Where there is no tray the old rule
+stands and the last clock still ends it.
+
+Hide all clocks and Quit differ in what they leave behind. Hiding marks a clock
+as not showing, so hidden clocks stay away until they are asked for again;
+Quit leaves every clock on screen marked as showing, so starting again brings
+back exactly what was there.
 
 Hiding is the only thing that marks a clock as not showing. A close that comes
 from outside the program -- a session logging out, or the Windows installer
@@ -1557,20 +1571,24 @@ the agent behind — so the disk image carries `uninstall.sh`, which removes it.
 ### The taskbar button on Windows
 
 vclock can be pinned to the taskbar or the Start menu, and right-clicking what
-you pinned offers **Manage clocks** and **Show my clocks** above the usual
-Unpin.
+you pinned offers **Manage clocks**, **Show my clocks** and **Hide all clocks**
+above the usual Unpin.
 
 They are there because the program's own menu lives on the clock face, and a
 clock face is not always available to click. Every clock can be hidden, moved
 under another window, or made nearly transparent, and none of them appears in
 the taskbar or the window switcher — a frameless tool window is deliberately in
 neither. The pinned button is then the only thing on screen still pointing at
-the program, so the two things you would want from it belong on it: the list of
-clocks, and the clocks themselves back where they can be seen.
+the program, so the things you would want from it belong on it: the list of
+clocks, the clocks themselves back where they can be seen, and the screen
+cleared of them again.
 
-Both are ordinary launches — `vclock --manage` and `vclock --daemon` — and both
-are forwarded to the copy already running, which is what makes them act on the
-program you can see rather than starting another one beside it.
+All three are ordinary launches — `vclock --manage`, `vclock --daemon` and
+`vclock --hide-all` — and all three are forwarded to the copy already running,
+which is what makes them act on the program you can see rather than starting
+another one beside it. `--hide-all` is the one that does nothing when no copy
+is running: there are no clocks up to put away, and starting a set only to hide
+them would leave a program running with nothing to show for itself.
 
 Windows calls this a Jump List, and attaches one to a taskbar button by
 AppUserModelID. vclock deliberately does not set an explicit one. A program
@@ -1587,7 +1605,7 @@ links, and a title property on each. Everywhere other than Windows it does
 nothing, so nothing that calls it has to ask what platform it is on.
 
 Linux has the same menu under a different name. Right-clicking vclock in a dock
-or launcher offers the same two entries, which come from `Actions=` in
+or launcher offers the same three entries, which come from `Actions=` in
 `distro/vclock.desktop` rather than from any code — the desktop reads them out
 of the installed entry, so they are there whether vclock is running or not. The
 reason for them is the reason for the Windows ones, and a package install is all
@@ -1636,15 +1654,22 @@ instead of leaving it to be worked out from windows.
 ### The tray icon
 
 vclock puts a clock in the notification area, and the menu behind it offers
-**Manage clocks** and **New clock**. Manage clocks is the default: a panel
-draws it in bold, and a plain left-click on the icon — no menu at all — opens
-it.
+**Manage clocks**, **New clock**, **Hide all clocks** and **Quit**. Manage
+clocks is the default: a panel draws it in bold, and a plain left-click on the
+icon — no menu at all — opens it.
 
 It answers the same question the pinned launcher does, from the other side.
 The launcher is the desktop's handle on the program; the tray icon is the
 program's own, and it is there whatever the clocks are doing. That matters
 because Manage clocks is the way to every clock, including the ones that are
 not on screen to be right-clicked.
+
+The icon also changes what the program's life depends on. While it is up it
+holds the program open, so putting the last clock away no longer ends it. That
+would have been a trap before there was an icon — nothing on screen, nothing in
+the taskbar, and no way left to say stop — which is why Hide all clocks and
+Quit arrived together with it, and why the hold is not taken on a desktop with
+no tray. There the old rule stands: the last clock still ends the program.
 
 The icon is drawn rather than loaded, at each of the sizes a panel might ask
 for, so it is a real vclock at 16 pixels in a Windows notification area and at
@@ -1672,6 +1697,14 @@ The second is that the tray entry calls itself `vclock-window`, which is the
 application name, chosen for the reasons in the section above and not worth
 changing back for this. It is not the name on the tooltip, and the only place
 it shows through is what a screen reader announces.
+
+One thing is worth knowing about the older XEmbed trays. Some of them keep the
+right-click for themselves — GNOME's `trayIconsReloaded` is one, and there the
+icon's menu never opens, though a plain left-click still reaches Manage clocks
+and everything else is reachable from there. That is the host's decision and
+nothing the program can overrule, and it is the reason Hide all clocks is on
+the clock's own menu and the launcher's as well as this one rather than only
+here.
 
 ### Monitors
 

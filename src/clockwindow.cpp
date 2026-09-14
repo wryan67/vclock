@@ -1537,7 +1537,12 @@ void ClockWindow::keyPressEvent(QKeyEvent *event)
             startMoveMode();
             return;
         case Qt::Key_H:
-            hideClock();
+            // Shift makes it every clock rather than this one, which is the
+            // same pairing the menu shows.
+            if (mods.testFlag(Qt::ShiftModifier))
+                ClockManager::instance().hideAll();
+            else
+                hideClock();
             return;
         case Qt::Key_A:
             showAbout();
@@ -1904,6 +1909,13 @@ void ClockWindow::buildMenu()
     // window has always done.
     QAction *hide = m_menu->addAction(menuHotkey(QStringLiteral("Hide"), "H"));
     connect(hide, &QAction::triggered, this, [this] { hideClock(); });
+
+    // The same thing said of every clock at once: the screen cleared, with the
+    // program still running if there is a tray icon holding it open, and the
+    // manage dialog the way to bring any of them back.
+    QAction *hideAll = m_menu->addAction(menuHotkey(QStringLiteral("Hide all clocks"), "Shift+H"));
+    connect(hideAll, &QAction::triggered, this,
+            [] { ClockManager::instance().hideAll(); });
 
     // Quit ends the program whatever else is open.  That is the difference
     // between it and Hide, which is only ever about this window.

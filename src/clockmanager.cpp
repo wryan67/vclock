@@ -229,6 +229,17 @@ void ClockManager::closeAll()
         clock->close();
 }
 
+void ClockManager::hideAll()
+{
+    // Each hide deletes its window and calls back into forget(), so iterate a
+    // copy rather than the hash being emptied underneath us.  Not closeAll():
+    // that is the teardown path and says the program is stopping, which is
+    // exactly what this is not.
+    const QList<ClockWindow *> clocks = m_clocks.values();
+    for (ClockWindow *clock : clocks)
+        clock->hideClock();
+}
+
 // Quit leaves everything as it stands: the clocks on screen stay marked as
 // showing, so starting again brings back what was there.  Only the windows go.
 void ClockManager::quitNow()

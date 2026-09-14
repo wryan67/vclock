@@ -35,6 +35,7 @@ std::atomic_bool g_interrupted{false};
 // sends the running one.
 const char *kManage = "manage";
 const char *kDaemon = "daemon";
+const char *kHideAll = "hide-all";
 
 // What the windows call themselves to the desktop.  Deliberately not "vclock",
 // which is the name of the .desktop file; the two being different is the whole
@@ -121,6 +122,12 @@ int main(int argc, char *argv[])
                        "so this is only needed to say so explicitly -- the Windows taskbar "
                        "menu uses it."));
     parser.addOption(manageOption);
+    QCommandLineOption hideAllOption(
+        QStringLiteral("hide-all"),
+        QStringLiteral("Put every clock away and leave the program running, which is what "
+                       "the taskbar menu's Hide all clocks does. With no copy already "
+                       "running there is nothing to hide, and this does nothing."));
+    parser.addOption(hideAllOption);
     parser.process(app);
 
     // Saying both asks for two different things. Refused rather than resolved:
@@ -131,6 +138,13 @@ int main(int argc, char *argv[])
                "give one or neither\n";
         return 2;
     }
+    if (parser.isSet(hideAllOption) && (parser.isSet(daemonOption) || parser.isSet(manageOption))) {
+        QTextStream(stderr)
+            << "vclock: --hide-all puts the clocks away; asking for them at the "
+               "same time does not make sense\n";
+        return 2;
+    }
+    const bool hideAll = parser.isSet(hideAllOption);
     // Started by hand, the program should show what it can do: the clocks, and
     // the list they are kept in.  Started at login it should show the clocks
     // and get out of the way, which is what --daemon is for, and what the
@@ -160,7 +174,7 @@ int main(int argc, char *argv[])
     SingleInstance instance(SingleInstance::keyForConfigDir(configDir()));
     if (!instance.isPrimary()) {
         QStringList request;
-        request << QString::fromLatin1(manage ? kManage : kDaemon);
+        request << QString::fromLatin1(hideAll ? kHideAll : (manage ? kManage : kDaemon));
         for (const QString &path : paths)
             request << path;
         // Delivered means done.  If it could not be delivered the instance we
@@ -169,6 +183,13 @@ int main(int argc, char *argv[])
         if (instance.send(request))
             return 0;
     }
+
+    // Nothing was listening, so there are no clocks on screen and the ask has
+    // already been granted by whatever stopped the last copy.  Starting a set
+    // of clocks here only to put them away again would leave a program running
+    // with nothing to show for itself, which is not what was asked for.
+    if (hideAll)
+        return 0;
 
     // Wired up before the clocks are built rather than after.  The socket
     // starts listening in the constructor above, and building the clocks means
@@ -179,6 +200,12 @@ int main(int argc, char *argv[])
                      [](const QStringList &request) {
         if (request.isEmpty())
             return;
+        // Asking for the clocks to go is the one request that does not begin
+        // by putting any up, so it is answered before the rest is read.
+        if (request.first() == QLatin1String(kHideAll)) {
+            ClockManager::instance().hideAll();
+            return;
+        }
         const QStringList wanted = request.mid(1);
         if (wanted.isEmpty()) {
             // No configs named, so the ask is "put my clocks where I can see
