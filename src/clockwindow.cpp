@@ -3,6 +3,7 @@
 #include "clockmanager.h"
 #include "embedded.h"
 #include "face.h"
+#include "icons.h"
 #include "manageclocksdialog.h"
 #include "render.h"
 #include "settingsdialog.h"
@@ -15,6 +16,7 @@
 #include <QCloseEvent>
 #include <QCursor>
 #include <QDesktopServices>
+#include <QFontDatabase>
 #include <QGuiApplication>
 #include <QIcon>
 #include <QKeyEvent>
@@ -2353,6 +2355,13 @@ void ClockWindow::showAbout()
 
 void ClockWindow::showAboutDialog(QWidget *parent)
 {
+    // Changa One ships inside the program. Registering it once makes the face
+    // available to the rich text below; the name has to stay "Changa One".
+    static const int changa = QFontDatabase::addApplicationFont(
+        QStringLiteral(":/fonts/ChangaOne-Regular.ttf"));
+    if (changa < 0)
+        qWarning("WARNING: could not load Changa One");
+
     auto *box = new QMessageBox(parent);
     box->setAttribute(Qt::WA_DeleteOnClose, true);
     box->setWindowTitle(QStringLiteral("About vclock"));
@@ -2364,19 +2373,44 @@ void ClockWindow::showAboutDialog(QWidget *parent)
     // away, so the breaks have to be said as tags.
     QString body = QString::fromUtf8(aboutText()).toHtmlEscaped();
     body.replace(QLatin1Char('\n'), QStringLiteral("<br>"));
-    body += QStringLiteral("<br><br>Written by Wade Ryan<br>September, 2026"
-                           "<br><br><a href=\"https://buymeacoffee.com/wryan67\">Buy me a coffee</a>");
+    // White on a dark desktop, black on a light one. The message box follows
+    // the same theme, so the line is read against that background. The mug is
+    // drawn here rather than taken from Buy Me a Coffee: that cup is their logo.
+    const bool dark = darkTheme();
+    const QString ink = dark ? QStringLiteral("#ffffff") : QStringLiteral("#000000");
+    const QColor mugColor = dark ? QColor(0xff, 0xcc, 0x00) : QColor(0x55, 0x00, 0x00);
+    const QPixmap mug = glyphPixmap(Glyph::MugHot, mugColor, 18, dpr);
+    body += QStringLiteral(
+                "<br><br>Written by Wade Ryan<br>September, 2026<br><br>"
+                "<a href=\"https://buymeacoffee.com/wryan67\">"
+                "<img src=\"mug-hot\" width=\"18\" height=\"18\"/>"
+                "&nbsp;&nbsp;<font face=\"Changa One\" color=\"%1\">Buy me a coffee</font></a>")
+                .arg(ink);
     box->setInformativeText(body);
     // The message box paints the words but does not follow a link unless the
     // label is told to. Opening external links hands the address to the
-    // desktop, which opens it in the user's browser.
-    const auto armLinks = [box] {
+    // desktop, which opens it in the user's browser. The mug is a picture the
+    // label has to be handed, because rich text cannot draw a glyph itself.
+    const auto armLinks = [box, mug] {
         const auto labels = box->findChildren<QLabel *>();
         for (QLabel *label : labels) {
             if (!label->text().contains(QLatin1String("buymeacoffee.com")))
                 continue;
             label->setTextInteractionFlags(Qt::TextBrowserInteraction);
             label->setOpenExternalLinks(true);
+            const QColor ink = darkTheme() ? Qt::white : Qt::black;
+            QPalette pal = label->palette();
+            pal.setColor(QPalette::Link, ink);
+            pal.setColor(QPalette::LinkVisited, ink);
+            label->setPalette(pal);
+            label->setResourceProvider([mug](const QUrl &name) {
+                if (name.toString().contains(QLatin1String("mug-hot")))
+                    return QVariant(mug);
+                return QVariant();
+            });
+            const QString html = label->text();
+            label->clear();
+            label->setText(html);
         }
     };
     armLinks();

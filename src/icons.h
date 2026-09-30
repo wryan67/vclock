@@ -10,6 +10,7 @@
 
 #include <QColor>
 #include <QIcon>
+#include <QPixmap>
 
 enum class Glyph {
     Cancel,  // fa-solid fa-square-xmark
@@ -25,6 +26,7 @@ enum class Glyph {
     Clone,     // fa-regular fa-clone
     Grip,      // fa-solid fa-grip-vertical
     Info,      // fa-solid fa-circle-info
+    MugHot,    // fa-solid fa-mug-hot
 };
 
 // What an icon means, rather than what colour it is.  The colour is settled at
@@ -40,6 +42,10 @@ enum class GlyphRole {
 };
 
 QIcon glyphIcon(Glyph glyph, GlyphRole role);
+
+// The same glyph in one chosen colour, at a logical pixel size. Used where the
+// icon is part of a sentence rather than a themed button.
+QPixmap glyphPixmap(Glyph glyph, const QColor &color, int logicalSize, qreal devicePixelRatio);
 
 // A tick when on and an empty box when off, in one icon: Qt asks the engine for
 // QIcon::On or QIcon::Off, so a checkable button swaps the two by itself.

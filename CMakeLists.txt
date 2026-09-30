@@ -4,6 +4,7 @@ project(vclock VERSION 1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -50,6 +51,7 @@ add_executable(vclock WIN32 MACOSX_BUNDLE
   src/clockwindow.h
   src/timetip.h
   src/windowgroup.h
+  fonts/fonts.qrc
 )
 
 target_link_libraries(vclock PRIVATE

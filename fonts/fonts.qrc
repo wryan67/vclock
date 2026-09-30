@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/fonts">
+        <file>ChangaOne-Regular.ttf</file>
+        <file>OFL.txt</file>
+    </qresource>
+</RCC>

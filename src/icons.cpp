@@ -152,6 +152,18 @@ GlyphData glyphData(Glyph glyph)
                 "10.7 24 24l0 88 8 0c13.3 0 24 10.7 24 24s-10.7 24-24 24l-80 "
                 "0c-13.3 0-24-10.7-24-24s10.7-24 24-24zm40-208a32 32 0 1 1 0 64 "
                 "32 32 0 1 1 0-64z"};
+    case Glyph::MugHot:  // solid/mug-hot
+        return {512,
+                "M88 0C74.7 0 64 10.7 64 24c0 38.9 23.4 59.4 39.1 73.1l1.1 1C120.5 "
+                "112.3 128 119.9 128 136c0 13.3 10.7 24 24 24s24-10.7 24-24c0-38.9"
+                "-23.4-59.4-39.1-73.1l-1.1-1C119.5 47.7 112 40.1 112 24c0-13.3-10.7"
+                "-24-24-24zM32 192c-17.7 0-32 14.3-32 32L0 416c0 53 43 96 96 96l192 "
+                "0c53 0 96-43 96-96l16 0c61.9 0 112-50.1 112-112s-50.1-112-112-112"
+                "l-48 0L32 192zm352 64l16 0c26.5 0 48 21.5 48 48s-21.5 48-48 48l-16 "
+                "0 0-96zM224 24c0-13.3-10.7-24-24-24s-24 10.7-24 24c0 38.9 23.4 59.4 "
+                "39.1 73.1l1.1 1C232.5 112.3 240 119.9 240 136c0 13.3 10.7 24 24 "
+                "24s24-10.7 24-24c0-38.9-23.4-59.4-39.1-73.1l-1.1-1C231.5 47.7 224 "
+                "40.1 224 24z"};
     }
     return {512, ""};
 }
@@ -243,6 +255,40 @@ private:
 };
 
 }  // namespace
+
+QPixmap glyphPixmap(Glyph glyph, const QColor &color, int logicalSize, qreal devicePixelRatio)
+{
+    const GlyphData data = glyphData(glyph);
+    if (!data.path[0] || logicalSize <= 0)
+        return QPixmap();
+    const qreal dpr = devicePixelRatio > 0 ? devicePixelRatio : 1.0;
+    const int px = qMax(1, qRound(logicalSize * dpr));
+
+    QByteArray svg;
+    svg += "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 ";
+    svg += QByteArray::number(data.width);
+    svg += " 512\"><path fill=\"";
+    svg += color.name(QColor::HexRgb).toLatin1();
+    svg += "\" d=\"";
+    svg += data.path;
+    svg += "\"/></svg>";
+    QSvgRenderer renderer(svg);
+    if (!renderer.isValid())
+        return QPixmap();
+
+    QImage image(px, px, QImage::Format_ARGB32_Premultiplied);
+    image.setDevicePixelRatio(dpr);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    const double avail = px * (1.0 - 2.0 * kInset);
+    const double scale = std::min(avail / double(data.width), avail / 512.0);
+    const QSizeF drawn(data.width * scale, 512.0 * scale);
+    renderer.render(&painter, QRectF((px - drawn.width()) / 2.0, (px - drawn.height()) / 2.0,
+                                     drawn.width(), drawn.height()));
+    painter.end();
+    return QPixmap::fromImage(image);
+}
 
 bool darkTheme()
 {

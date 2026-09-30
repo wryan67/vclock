@@ -477,5 +477,7 @@ inline const char *aboutText()
            "Toolbar icons are from Font Awesome Free 6.7.2 by @fontawesome "
            "(https://fontawesome.com), used under CC BY 4.0 "
            "(https://creativecommons.org/licenses/by/4.0/) and recolored to "
-           "match the dialogs they appear in.";
+           "match the dialogs they appear in.\n\n"
+           "Changa One by Eduardo Tunni is used under the SIL Open Font "
+           "License 1.1, with Reserved Font Name \"Changa\".";
 }
