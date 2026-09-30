@@ -18,6 +18,7 @@
 #include <QGuiApplication>
 #include <QIcon>
 #include <QKeyEvent>
+#include <QLabel>
 #include <QMenu>
 #include <QMessageBox>
 #include <QMouseEvent>
@@ -2358,8 +2359,28 @@ void ClockWindow::showAboutDialog(QWidget *parent)
     const qreal dpr = parent && parent->devicePixelRatioF() > 0 ? parent->devicePixelRatioF() : 1.0;
     box->setIconPixmap(appIconPixmap(96, dpr));
     box->setText(QStringLiteral("<b>vclock</b>"));
-    box->setInformativeText(QString::fromUtf8(aboutText())
-                            + QStringLiteral("\n\nWritten by Wade Ryan\nSeptember, 2026"));
+    // The body is plain text with line breaks. Once it carries a link the
+    // whole paragraph is rich text, and a raw newline in rich text is thrown
+    // away, so the breaks have to be said as tags.
+    QString body = QString::fromUtf8(aboutText()).toHtmlEscaped();
+    body.replace(QLatin1Char('\n'), QStringLiteral("<br>"));
+    body += QStringLiteral("<br><br>Written by Wade Ryan<br>September, 2026"
+                           "<br><br><a href=\"https://buymeacoffee.com/wryan67\">Buy me a coffee</a>");
+    box->setInformativeText(body);
+    // The message box paints the words but does not follow a link unless the
+    // label is told to. Opening external links hands the address to the
+    // desktop, which opens it in the user's browser.
+    const auto armLinks = [box] {
+        const auto labels = box->findChildren<QLabel *>();
+        for (QLabel *label : labels) {
+            if (!label->text().contains(QLatin1String("buymeacoffee.com")))
+                continue;
+            label->setTextInteractionFlags(Qt::TextBrowserInteraction);
+            label->setOpenExternalLinks(true);
+        }
+    };
+    armLinks();
+    QTimer::singleShot(0, box, armLinks);
     box->setStandardButtons(QMessageBox::Ok);
     box->setDefaultButton(QMessageBox::Ok);
     box->show();
