@@ -96,6 +96,38 @@ struct DisplayState
     int size = 0;  // 0 = never recorded; fall back to the global size
 };
 
+// Every placement recorded for one physical panel.
+//
+// Three levels, most specific first. `layouts` is the position for one set of
+// attached panels — each panel's identity, its pixel size, its scale and where
+// it sits on the desktop — at one mode of this panel. `modes` is the last
+// position at that mode of this panel, whatever else was attached. `any` is
+// the last position on this panel with no regard to mode or company, which is
+// also the only record a config written before those distinctions has.
+//
+// A mode key is "<width>x<height>@<scale>", where scale is the device pixel
+// ratio in hundredths: @100 is unscaled, @150 is one and a half. A layout key
+// is those mode keys joined with every attached panel's identity and origin;
+// it is opaque and only ever compared whole.
+struct PanelPlacements
+{
+    bool hasAny = false;
+    DisplayState any;
+    QMap<QString, DisplayState> modes;
+    QMap<QString, QMap<QString, DisplayState>> layouts;
+};
+
+// The record to open with: this arrangement and mode, else this mode in any
+// arrangement, else the panel's last position at any mode.
+std::optional<DisplayState> findPlacement(const PanelPlacements &panel, const QString &layout,
+                                         const QString &mode);
+
+// Remember `state` for this arrangement and mode, and refresh the coarser
+// records so an arrangement that has never been seen inherits the last place
+// this panel was put at this resolution. Returns whether anything changed.
+bool storePlacement(PanelPlacements &panel, const QString &layout, const QString &mode,
+                    const DisplayState &state);
+
 struct Config
 {
     int size = 0;  // widget width in px; 0 = never chosen, work it out from the screen
@@ -164,8 +196,13 @@ struct Config
 
     // Per-monitor placement, keyed by a stable display identity (see
     // displayKey()).  QMap rather than QHash so the config file keeps a stable,
-    // readable ordering.
-    QMap<QString, DisplayState> displays;
+    // readable ordering.  Each panel holds one record per arrangement and
+    // resolution it has actually been used in; see PanelPlacements.
+    QMap<QString, PanelPlacements> displays;
+    // Which panel the clock was on for a given arrangement (a layout key, see
+    // PanelPlacements). An arrangement that has been seen before reopens on
+    // that panel; one that has not stays on whichever panel the clock is on.
+    QMap<QString, QString> layoutScreen;
     QString lastDisplay;  // the monitor the clock was on when it last exited
 
     // The face file to load, or an empty string for the embedded default.

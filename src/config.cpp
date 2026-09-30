@@ -62,7 +62,88 @@ int readPercent(const QJsonObject &o, const char *key, int low, int high, int fa
     return fallback;
 }
 
+// A placement object. Missing or non-numeric coordinates are not a placement;
+// a missing size is "never recorded" and the global size stands in for it.
+std::optional<DisplayState> readDisplayState(const QJsonObject &entry)
+{
+    if (!entry.value(QLatin1String("x")).isDouble()
+        || !entry.value(QLatin1String("y")).isDouble()) {
+        return std::nullopt;
+    }
+    DisplayState state;
+    state.x = static_cast<int>(entry.value(QLatin1String("x")).toDouble());
+    state.y = static_cast<int>(entry.value(QLatin1String("y")).toDouble());
+    if (entry.value(QLatin1String("size")).isDouble()) {
+        state.size = qMax(kSizeMin,
+                          static_cast<int>(entry.value(QLatin1String("size")).toDouble()));
+    }
+    return state;
+}
+
+void writeDisplayState(QJsonObject &entry, const DisplayState &state)
+{
+    entry.insert(QStringLiteral("x"), state.x);
+    entry.insert(QStringLiteral("y"), state.y);
+    if (state.size > 0)
+        entry.insert(QStringLiteral("size"), state.size);
+}
+
+bool sameSpot(const DisplayState &a, const DisplayState &b)
+{
+    return a.x == b.x && a.y == b.y && a.size == b.size;
+}
+
 }  // namespace
+
+std::optional<DisplayState> findPlacement(const PanelPlacements &panel, const QString &layout,
+                                         const QString &mode)
+{
+    if (!layout.isEmpty() && !mode.isEmpty()) {
+        const auto lay = panel.layouts.constFind(layout);
+        if (lay != panel.layouts.constEnd()) {
+            const auto it = lay->constFind(mode);
+            if (it != lay->constEnd())
+                return *it;
+        }
+    }
+    if (!mode.isEmpty()) {
+        const auto it = panel.modes.constFind(mode);
+        if (it != panel.modes.constEnd())
+            return *it;
+    }
+    if (panel.hasAny)
+        return panel.any;
+    return std::nullopt;
+}
+
+bool storePlacement(PanelPlacements &panel, const QString &layout, const QString &mode,
+                    const DisplayState &state)
+{
+    bool changed = false;
+    auto assign = [&](QMap<QString, DisplayState> &bucket, const QString &key) {
+        const auto it = bucket.constFind(key);
+        if (it != bucket.constEnd() && sameSpot(*it, state))
+            return;
+        bucket.insert(key, state);
+        changed = true;
+    };
+
+    if (!mode.isEmpty()) {
+        assign(panel.modes, mode);
+        if (!layout.isEmpty()) {
+            auto lay = panel.layouts.find(layout);
+            if (lay == panel.layouts.end())
+                lay = panel.layouts.insert(layout, QMap<QString, DisplayState>());
+            assign(*lay, mode);
+        }
+    }
+    if (!panel.hasAny || !sameSpot(panel.any, state)) {
+        panel.any = state;
+        panel.hasAny = true;
+        changed = true;
+    }
+    return changed;
+}
 
 int clampPercent(double value, int low, int high, int fallback)
 {
@@ -287,19 +368,43 @@ Config loadConfig(const QString &requested)
         if (it.key().isEmpty() || !it.value().isObject())
             continue;
         const QJsonObject entry = it.value().toObject();
-        // A record without a position carries no information worth keeping.
-        if (!entry.value(QLatin1String("x")).isDouble()
-            || !entry.value(QLatin1String("y")).isDouble()) {
+        PanelPlacements panel;
+        if (const std::optional<DisplayState> any = readDisplayState(entry)) {
+            panel.any = *any;
+            panel.hasAny = true;
+        }
+        const QJsonObject modes = entry.value(QLatin1String("modes")).toObject();
+        for (auto mode = modes.begin(); mode != modes.end(); ++mode) {
+            if (mode.key().isEmpty() || !mode.value().isObject())
+                continue;
+            if (const std::optional<DisplayState> state = readDisplayState(mode.value().toObject()))
+                panel.modes.insert(mode.key(), *state);
+        }
+        const QJsonObject layouts = entry.value(QLatin1String("layouts")).toObject();
+        for (auto layout = layouts.begin(); layout != layouts.end(); ++layout) {
+            if (layout.key().isEmpty() || !layout.value().isObject())
+                continue;
+            QMap<QString, DisplayState> byMode;
+            const QJsonObject layoutModes = layout.value().toObject();
+            for (auto mode = layoutModes.begin(); mode != layoutModes.end(); ++mode) {
+                if (mode.key().isEmpty() || !mode.value().isObject())
+                    continue;
+                if (const std::optional<DisplayState> state = readDisplayState(mode.value().toObject()))
+                    byMode.insert(mode.key(), *state);
+            }
+            if (!byMode.isEmpty())
+                panel.layouts.insert(layout.key(), byMode);
+        }
+        // A record without a position at any level carries nothing worth keeping.
+        if (!panel.hasAny && panel.modes.isEmpty() && panel.layouts.isEmpty())
             continue;
-        }
-        DisplayState state;
-        state.x = static_cast<int>(entry.value(QLatin1String("x")).toDouble());
-        state.y = static_cast<int>(entry.value(QLatin1String("y")).toDouble());
-        if (entry.value(QLatin1String("size")).isDouble()) {
-            state.size = qMax(kSizeMin,
-                              static_cast<int>(entry.value(QLatin1String("size")).toDouble()));
-        }
-        cfg.displays.insert(it.key(), state);
+        cfg.displays.insert(it.key(), panel);
+    }
+    const QJsonObject layoutScreen = o.value(QLatin1String("layout_screen")).toObject();
+    for (auto it = layoutScreen.begin(); it != layoutScreen.end(); ++it) {
+        if (it.key().isEmpty() || !it.value().isString() || it.value().toString().isEmpty())
+            continue;
+        cfg.layoutScreen.insert(it.key(), it.value().toString());
     }
     cfg.lastDisplay = readString(o, "last_display", QString());
 
@@ -359,13 +464,45 @@ void saveConfig(const Config &cfg, const QString &requested)
     QJsonObject displays;
     for (auto it = cfg.displays.begin(); it != cfg.displays.end(); ++it) {
         QJsonObject entry;
-        entry.insert(QStringLiteral("x"), it->x);
-        entry.insert(QStringLiteral("y"), it->y);
-        if (it->size > 0)
-            entry.insert(QStringLiteral("size"), it->size);
+        // The bare x/y is what a build from before per-mode records reads, and
+        // it is this panel's last position when nothing more specific matches.
+        if (it->hasAny)
+            writeDisplayState(entry, it->any);
+        if (!it->modes.isEmpty()) {
+            QJsonObject modes;
+            for (auto mode = it->modes.begin(); mode != it->modes.end(); ++mode) {
+                QJsonObject state;
+                writeDisplayState(state, *mode);
+                modes.insert(mode.key(), state);
+            }
+            entry.insert(QStringLiteral("modes"), modes);
+        }
+        if (!it->layouts.isEmpty()) {
+            QJsonObject layouts;
+            for (auto layout = it->layouts.begin(); layout != it->layouts.end(); ++layout) {
+                QJsonObject layoutModes;
+                for (auto mode = layout->begin(); mode != layout->end(); ++mode) {
+                    QJsonObject state;
+                    writeDisplayState(state, *mode);
+                    layoutModes.insert(mode.key(), state);
+                }
+                if (!layoutModes.isEmpty())
+                    layouts.insert(layout.key(), layoutModes);
+            }
+            if (!layouts.isEmpty())
+                entry.insert(QStringLiteral("layouts"), layouts);
+        }
+        if (entry.isEmpty())
+            continue;
         displays.insert(it.key(), entry);
     }
     o.insert(QStringLiteral("displays"), displays);
+    QJsonObject layoutScreen;
+    for (auto it = cfg.layoutScreen.begin(); it != cfg.layoutScreen.end(); ++it) {
+        if (!it.key().isEmpty() && !it.value().isEmpty())
+            layoutScreen.insert(it.key(), it.value());
+    }
+    o.insert(QStringLiteral("layout_screen"), layoutScreen);
     o.insert(QStringLiteral("last_display"), cfg.lastDisplay);
 
     const QString dir = QFileInfo(path).absolutePath();

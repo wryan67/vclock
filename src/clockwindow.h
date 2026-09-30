@@ -146,6 +146,9 @@ public:
     void openSettings();
     void showHelp();
     void showAbout();
+    // The About box. Manage clocks has no clock of its own to hang it off, so
+    // the same box is opened from there with the dialog as its parent.
+    static void showAboutDialog(QWidget *parent);
     void confirmReset();
 
     // Put the "are you sure?" question without acting on the answer, so the
@@ -207,8 +210,15 @@ private:
     int defaultSizeOn(const QScreen *screen) const;  // for a config that has no size yet
     QPoint defaultPositionOn(const QScreen *screen) const;
     QPoint clampToScreen(const QPoint &topLeft, const QScreen *screen) const;
-    void rememberPlacement();         // record position/size against the current monitor
-    void handleScreenRemoved();
+    // Record position and size against `screen`, or the monitor the clock is
+    // on when no screen is given.
+    void rememberPlacement(QScreen *screen = nullptr);
+    // Follow every attached screen, not only the one the clock is on: a
+    // resolution or arrangement change on another panel is a different layout.
+    void watchDesktop();
+    // The screen set has changed. Wait until it stops changing, then place.
+    void schedulePlacement();
+    void applySettledPlacement();
     void centerOnCursor();
 
     void rebuildRaster();
@@ -332,4 +342,18 @@ private:
     // The screen whose refresh rate the frame timer is following.
     QScreen *m_watchedScreen = nullptr;
     QMetaObject::Connection m_refreshConn;
+
+    // One connection per attached screen's mode, dropped and remade when a
+    // screen is added or removed.
+    std::vector<QMetaObject::Connection> m_desktopConns;
+    QTimer *m_settleTimer = nullptr;
+    // Set while the set of screens, or a screen's resolution, is still
+    // changing. Placement is not written in that window: a dock connects one
+    // panel at a time, and an intermediate arrangement is not one the user
+    // chose. A move that arrives then would otherwise overwrite the record
+    // for the arrangement it briefly resembled.
+    bool m_settling = false;
+    // The layout key placement was last applied or restored for. A screen
+    // signal that leaves this unchanged is not a new arrangement.
+    QString m_settledLayout;
 };

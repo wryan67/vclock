@@ -11,7 +11,6 @@
 
 #include <QAbstractItemDelegate>
 #include <QCheckBox>
-#include <QDialogButtonBox>
 #include <QDoubleSpinBox>
 #include <QApplication>
 #include <QFrame>
@@ -235,19 +234,22 @@ ManageClocksDialog::ManageClocksDialog(QWidget *parent) : QDialog(nullptr)
     create->setContext(Qt::WidgetWithChildrenShortcut);
     connect(create, &QShortcut::activated, this, &ManageClocksDialog::newClock);
 
-    auto *buttons = new QDialogButtonBox(this);
-    buttons->addButton(m_newButton, QDialogButtonBox::ActionRole);
-    auto *close = buttons->addButton(QDialogButtonBox::Close);
-    close->setIcon(glyphIcon(Glyph::Cancel, GlyphRole::Neutral));
+    auto *about = new QPushButton(glyphIcon(Glyph::Info, GlyphRole::Info), QStringLiteral("About"));
+    about->setIconSize(QSize(18, 18));
+    connect(about, &QPushButton::clicked, this, [this] { ClockWindow::showAboutDialog(this); });
+
+    auto *close = new QPushButton(glyphIcon(Glyph::Cancel, GlyphRole::Neutral),
+                                  QStringLiteral("Close"));
     close->setIconSize(QSize(18, 18));
-    // Neither button answers to Enter.  A dialog hands Enter to the first
+    connect(close, &QPushButton::clicked, this, &QDialog::close);
+
+    // None of the buttons answers to Enter.  A dialog hands Enter to the first
     // button willing to be the default one, and this dialog is a list rather
     // than a question: Enter belongs to the row that is highlighted.
-    m_newButton->setAutoDefault(false);
-    m_newButton->setDefault(false);
-    close->setAutoDefault(false);
-    close->setDefault(false);
-    connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::close);
+    for (QPushButton *button : {about, m_newButton, close}) {
+        button->setAutoDefault(false);
+        button->setDefault(false);
+    }
 
     // Whether the desktop starts vclock at login.  It belongs here rather than
     // in a clock's own settings because it is about the program, not a clock:
@@ -287,11 +289,20 @@ ManageClocksDialog::ManageClocksDialog(QWidget *parent) : QDialog(nullptr)
     connect(m_hoverDelay, &QDoubleSpinBox::valueChanged, this,
             &ManageClocksDialog::setHoverDelay);
 
-    bottom->addSpacing(12);
+    bottom->addStretch(1);
     bottom->addWidget(hoverLabel);
     bottom->addWidget(m_hoverDelay);
-    bottom->addWidget(buttons, 1);
+
+    // A row of its own, so the options above can sit at the two ends without
+    // the buttons crowding them. About at the left, the actions at the right.
+    auto *commands = new QHBoxLayout;
+    commands->addWidget(about);
+    commands->addStretch(1);
+    commands->addWidget(m_newButton);
+    commands->addWidget(close);
+
     layout->addLayout(bottom);
+    layout->addLayout(commands);
 
     connect(&ClockManager::instance(), &ClockManager::changed, this, [this] {
         // A clock closed from its own menu changes the Show column, but not
@@ -301,7 +312,7 @@ ManageClocksDialog::ManageClocksDialog(QWidget *parent) : QDialog(nullptr)
     });
 
     rebuild();
-    resize(520, 320);
+    resize(520, 360);
 
     // No parent means no automatic placement, so it is put over the clock it
     // was opened from rather than wherever the window manager fancies.

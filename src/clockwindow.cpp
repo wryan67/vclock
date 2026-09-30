@@ -205,6 +205,67 @@ QString displayKey(const QScreen *screen)
     return id;
 }
 
+// The panel's current mode: its logical pixel size and its scale in
+// hundredths of a device pixel (@100 is unscaled, @150 is one and a half).
+// The logical size is what window positions are measured in, and both a mode
+// switch and a scale change alter it. The working area is deliberately not
+// part of the key — a panel or dock reserving a strip does not make this a
+// different screen.
+QString modeKey(const QScreen *screen)
+{
+    if (!screen)
+        return QString();
+    const QSize geo = screen->geometry().size();
+    const int scale = qRound(screen->devicePixelRatio() * 100.0);
+    return QStringLiteral("%1x%2@%3").arg(geo.width()).arg(geo.height()).arg(scale);
+}
+
+// One attached panel, as it contributes to a layout key: which panel, at
+// which mode, and where on the virtual desktop. The origin is what makes
+// "swapped left and right" a different arrangement from the same two panels
+// in their previous order.
+QString layoutMember(const QScreen *screen)
+{
+    if (!screen)
+        return QString();
+    const QString id = displayKey(screen);
+    if (id.isEmpty())
+        return QString();
+    const QPoint origin = screen->geometry().topLeft();
+    return id + QLatin1Char(' ') + modeKey(screen) + QLatin1Char(' ')
+           + QString::number(origin.x()) + QLatin1Char(',') + QString::number(origin.y());
+}
+
+// The whole set of attached panels, in a stable order. screens() itself is
+// not stable across sessions, so the members are sorted before joining.
+// Compared whole; nothing parses it back apart.
+QString layoutKey()
+{
+    QStringList members;
+    for (const QScreen *screen : QGuiApplication::screens()) {
+        const QString member = layoutMember(screen);
+        if (!member.isEmpty())
+            members << member;
+    }
+    members.sort();
+    return members.join(QStringLiteral(" | "));
+}
+
+// The panel an arrangement was last used on, if that panel is attached now.
+QScreen *screenForLayout(const QMap<QString, QString> &layoutScreen, const QString &layout)
+{
+    if (layout.isEmpty())
+        return nullptr;
+    const auto wanted = layoutScreen.constFind(layout);
+    if (wanted == layoutScreen.constEnd() || wanted->isEmpty())
+        return nullptr;
+    for (QScreen *screen : QGuiApplication::screens()) {
+        if (displayKey(screen) == *wanted)
+            return screen;
+    }
+    return nullptr;
+}
+
 }  // namespace
 
 ClockWindow::ClockWindow(const QString &configPath)
@@ -296,8 +357,27 @@ ClockWindow::ClockWindow(const QString &configPath)
         regenerateFace();
     syncRegenTimer();
 
-    connect(qApp, &QGuiApplication::screenRemoved, this,
-            [this](QScreen *) { handleScreenRemoved(); });
+    m_settleTimer = new QTimer(this);
+    m_settleTimer->setSingleShot(true);
+    // A dock reports panels one at a time and then slides them into place.
+    // Writing a record for each intermediate set would pin the clock to a
+    // layout the user never had, so the placement waits until the set has
+    // stopped changing.
+    m_settleTimer->setInterval(400);
+    connect(m_settleTimer, &QTimer::timeout, this, &ClockWindow::applySettledPlacement);
+
+    connect(qApp, &QGuiApplication::screenAdded, this, [this](QScreen *) {
+        watchDesktop();
+        schedulePlacement();
+    });
+    connect(qApp, &QGuiApplication::screenRemoved, this, [this](QScreen *) {
+        watchDesktop();
+        schedulePlacement();
+    });
+    watchDesktop();
+    // The arrangement currently attached is already settled. A later signal
+    // that describes this same set is not a change of layout.
+    m_settledLayout = layoutKey();
 }
 
 // Follow one screen's refresh rate, dropping whatever was being followed
@@ -873,10 +953,14 @@ QScreen *ClockWindow::currentScreen() const
     return QGuiApplication::primaryScreen();
 }
 
-// The monitor to open on: the one the clock was last used on if it is still
-// attached, otherwise wherever the pointer is.
+// The monitor to open on. An arrangement that has been used before reopens on
+// the panel the clock occupied in that arrangement. Otherwise the panel it was
+// last used on, if that is still attached, and failing that wherever the
+// pointer is.
 QScreen *ClockWindow::startupScreen() const
 {
+    if (QScreen *screen = screenForLayout(m_cfg.layoutScreen, layoutKey()))
+        return screen;
     if (!m_cfg.lastDisplay.isEmpty()) {
         for (QScreen *screen : QGuiApplication::screens()) {
             if (displayKey(screen) == m_cfg.lastDisplay)
@@ -939,10 +1023,17 @@ void ClockWindow::placeOnScreen(QScreen *screen)
     if (!screen)
         return;
 
+    // Most specific record that matches this arrangement and this panel's
+    // mode, then this mode in any arrangement, then the panel's last position
+    // at any mode. A config from before those distinctions has only the last.
     const auto saved = m_cfg.displays.constFind(displayKey(screen));
-    if (saved != m_cfg.displays.constEnd()) {
-        if (saved->size > 0) {
-            const int size = std::min(saved->size, maxSizeFor(screen));
+    const std::optional<DisplayState> state =
+        saved == m_cfg.displays.constEnd()
+            ? std::optional<DisplayState>()
+            : findPlacement(*saved, layoutKey(), modeKey(screen));
+    if (state.has_value()) {
+        if (state->size > 0) {
+            const int size = std::min(state->size, maxSizeFor(screen));
             if (size != m_cfg.size) {
                 m_cfg.size = size;
                 applySize();
@@ -952,7 +1043,7 @@ void ClockWindow::placeOnScreen(QScreen *screen)
         // Stored relative to the working area, so the clock lands on the same
         // part of this panel however the monitors are arranged today.
         const QPoint want = screen->availableGeometry().topLeft()
-                            + QPoint(saved->x, saved->y);
+                            + QPoint(state->x, state->y);
         move(clampToScreen(want, screen));
     } else {
         const int size = std::min(m_cfg.size, maxSizeFor(screen));
@@ -964,12 +1055,23 @@ void ClockWindow::placeOnScreen(QScreen *screen)
         move(defaultPositionOn(screen));
     }
     update();
+    // Pin this spot to the panel we actually placed on. move() reports the
+    // change through moveEvent, but a window that was already there does not,
+    // and before the window is mapped the screen under the pointer is not a
+    // reliable stand-in for the panel just chosen.
+    rememberPlacement(screen);
 }
 
 // Record where the clock is, and how big, against the monitor it is on.
-void ClockWindow::rememberPlacement()
+void ClockWindow::rememberPlacement(QScreen *screen)
 {
-    QScreen *screen = currentScreen();
+    // A dock's intermediate arrangements are not written down. The placement
+    // applied once the set has settled is the one that belongs to it.
+    if (m_settling)
+        return;
+
+    if (!screen)
+        screen = currentScreen();
     if (!screen)
         return;
     const QString key = displayKey(screen);
@@ -982,36 +1084,83 @@ void ClockWindow::rememberPlacement()
     state.y = pos().y() - available.y();
     state.size = m_cfg.size;
 
-    const auto existing = m_cfg.displays.constFind(key);
-    if (existing != m_cfg.displays.constEnd() && existing->x == state.x
-        && existing->y == state.y && existing->size == state.size
-        && m_cfg.lastDisplay == key) {
-        return;
+    const QString layout = layoutKey();
+    const bool changed = storePlacement(m_cfg.displays[key], layout, modeKey(screen), state);
+    bool screenChanged = false;
+    if (!layout.isEmpty()) {
+        const auto recorded = m_cfg.layoutScreen.constFind(layout);
+        if (recorded == m_cfg.layoutScreen.constEnd() || *recorded != key) {
+            m_cfg.layoutScreen.insert(layout, key);
+            screenChanged = true;
+        }
     }
+    if (!changed && !screenChanged && m_cfg.lastDisplay == key)
+        return;
 
-    m_cfg.displays.insert(key, state);
     m_cfg.lastDisplay = key;
     queueSave();
 }
 
-// A monitor being unplugged can leave the clock on coordinates that no longer
-// exist, which -- for a frameless window with no taskbar entry -- is
-// indistinguishable from the program having quit. Bring it back onto a screen
-// that is still attached.
-void ClockWindow::handleScreenRemoved()
+// Keep a connection to every attached screen's mode. The clock's own screen
+// is not enough: another panel changing resolution, or the two swapping
+// sides, is a different arrangement even when this panel did not move.
+void ClockWindow::watchDesktop()
 {
+    for (const QMetaObject::Connection &conn : m_desktopConns)
+        disconnect(conn);
+    m_desktopConns.clear();
+    for (QScreen *screen : QGuiApplication::screens()) {
+        m_desktopConns.push_back(
+            connect(screen, &QScreen::geometryChanged, this, [this](const QRect &) {
+                schedulePlacement();
+            }));
+        m_desktopConns.push_back(connect(screen, &QScreen::logicalDotsPerInchChanged, this,
+                                          [this](qreal) { schedulePlacement(); }));
+    }
+}
+
+void ClockWindow::schedulePlacement()
+{
+    // The same arrangement announcing itself again — a scale signal that did
+    // not change the mode — is not a reason to pick the clock up and put it
+    // back down, nor to hold off writing a position the user just set.
+    if (layoutKey() == m_settledLayout)
+        return;
+    m_settling = true;
+    m_settleTimer->start();
+}
+
+// The screen set has stopped changing. Put the clock back on whichever panel
+// still holds it, at the position remembered for the arrangement now
+// attached. A panel going away can leave the window on coordinates that no
+// longer exist, which — for a frameless window with no taskbar entry — is
+// indistinguishable from the program having quit, so a clock left on nothing
+// comes back to the primary screen.
+void ClockWindow::applySettledPlacement()
+{
+    if (m_dragging || m_moveMode || m_dragArmed || m_zooming || m_picking) {
+        m_settleTimer->start();
+        return;
+    }
+    m_settling = false;
     if (!isVisible())
         return;
-    // Deferred: the window manager does its own reshuffling when a screen goes
-    // away, and moving the window before that settles just fights it.
-    QTimer::singleShot(0, this, [this] {
-        if (!isVisible())
-            return;
-        if (QGuiApplication::screenAt(frameGeometry().center()))
-            return;  // still somewhere valid
-        if (QScreen *screen = QGuiApplication::primaryScreen())
-            placeOnScreen(screen);
-    });
+
+    // A known arrangement puts the clock back on the panel it occupied then,
+    // which may not be the panel it was left on. An arrangement being seen
+    // for the first time keeps the clock where it is.
+    const QString layout = layoutKey();
+    QScreen *screen = screenForLayout(m_cfg.layoutScreen, layout);
+    if (!screen)
+        screen = QGuiApplication::screenAt(frameGeometry().center());
+    if (!screen)
+        screen = QGuiApplication::primaryScreen();
+    if (screen)
+        placeOnScreen(screen);
+    // The panel under the clock may have gone. The refresh-rate follow is
+    // tied to one QScreen, so pick up whichever panel the clock landed on.
+    watchScreen();
+    m_settledLayout = layoutKey();
 }
 
 // Place the window for this session.
@@ -1021,13 +1170,21 @@ void ClockWindow::handleScreenRemoved()
 // which on a busy desktop tends to mean the top-left corner underneath whatever
 // is already open -- and since this is a frameless tool window that skips the
 // taskbar and the pager, a clock parked behind another window is effectively
-// invisible and unreachable. Centring it on the target screen keeps a first run
-// on any monitor visible.
+// invisible and unreachable. The top left of the working area keeps a first
+// run on any monitor visible, and clear of the panels.
 void ClockWindow::restorePosition()
 {
+    // Opening places the clock itself. A screen signal that arrived while the
+    // window was being built must not apply a second time a moment later, nor
+    // suppress the migration of a legacy absolute position below.
+    m_settleTimer->stop();
+    m_settling = false;
+
     QScreen *screen = startupScreen();
-    if (!screen)
+    if (!screen) {
+        m_settledLayout = layoutKey();
         return;
+    }
 
     // A config written before per-display records existed keeps its absolute
     // position, as long as that still lands on a monitor that is attached. The
@@ -1038,11 +1195,15 @@ void ClockWindow::restorePosition()
         const QRect want(QPoint(*m_cfg.x, *m_cfg.y), size());
         if (QGuiApplication::screenAt(want.center())) {
             move(want.topLeft());
+            m_settledLayout = layoutKey();
             return;
         }
     }
 
     placeOnScreen(screen);
+    // So a mode signal that merely repeats the arrangement we just opened
+    // into does not pick the clock up again a moment later.
+    m_settledLayout = layoutKey();
 }
 
 // ------------------------------------------------------------------- events
@@ -1050,6 +1211,12 @@ void ClockWindow::restorePosition()
 void ClockWindow::moveEvent(QMoveEvent *event)
 {
     QWidget::moveEvent(event);
+    // While a dock is still settling, the window manager shuffles the clock
+    // through coordinates that belong to no arrangement the user chose.
+    // Writing those down would replace the record for whichever layout they
+    // happened to resemble. The placement is applied once that stops.
+    if (m_settling)
+        return;
     const QPoint pos = this->pos();
     if (m_cfg.x != std::optional<int>(pos.x()) || m_cfg.y != std::optional<int>(pos.y())) {
         m_cfg.x = pos.x();
@@ -2180,10 +2347,16 @@ void ClockWindow::showHelp()
 
 void ClockWindow::showAbout()
 {
-    auto *box = new QMessageBox(this);
+    showAboutDialog(this);
+}
+
+void ClockWindow::showAboutDialog(QWidget *parent)
+{
+    auto *box = new QMessageBox(parent);
     box->setAttribute(Qt::WA_DeleteOnClose, true);
     box->setWindowTitle(QStringLiteral("About vclock"));
-    box->setIconPixmap(appIconPixmap(96, devicePixelRatioF()));
+    const qreal dpr = parent && parent->devicePixelRatioF() > 0 ? parent->devicePixelRatioF() : 1.0;
+    box->setIconPixmap(appIconPixmap(96, dpr));
     box->setText(QStringLiteral("<b>vclock</b>"));
     box->setInformativeText(QString::fromUtf8(aboutText())
                             + QStringLiteral("\n\nWritten by Wade Ryan\nSeptember, 2026"));

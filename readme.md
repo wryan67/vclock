@@ -1412,7 +1412,7 @@ opens that clock's settings, putting it on screen first if it was hidden, since
 there is nothing to change the look of otherwise. `Enter` used to make a new
 clock, because a dialog gives it to the first button that will be the default
 one and New clock was that button -- an answer to a question the highlight was
-not asking. Neither button takes it now. `Delete`
+not asking. None of the buttons takes it now. `Delete`
 hides it too rather than deleting it: deleting erases a config file for good,
 and a key that does that on one press, with nothing but a highlight to say
 which row it means, is a key that will one day be pressed by mistake. Hiding is
@@ -1431,6 +1431,10 @@ Drag a row by its grip to put the list in whatever order you want; a line shows
 where the row will land, and the order is kept between runs. The Default clock
 stays at the top and cannot be dragged, and nothing can be dropped above it: it
 is the clock the program falls back on, so it is always in the same place.
+
+The foot of the dialog is two rows. The first has *Start at login* at the left
+and *Date on hover after* at the right. The second is the buttons: **About** at
+the left, **New clock** and **Close** at the right.
 
 **New clock** adds a row and waits for a name. Once you have named it the clock
 comes up on screen with its settings already open, since making a clock is the
@@ -1712,18 +1716,33 @@ A clock that has never been sized -- a new one, or one whose settings have just
 been reset -- opens at a fifteenth of its screen's height, in the top left
 corner of the working area. A fixed pixel count
 cannot suit every panel: what sits neatly in the corner of a 1080 screen is a
-stamp on a 4K one. Any size you set yourself is kept as it is, per monitor, and
-never second-guessed. The top left corner is used because it is the one place
-that is free of the taskbar on every platform, and because a new clock landing
-in the middle of the screen covers whatever you were looking at.
+stamp on a 4K one. Any size you set yourself is kept as it is, per monitor,
+per resolution and per arrangement, and never second-guessed. The top left
+corner is used because it is the one place that is free of the taskbar on every
+platform, and because a new clock landing in the middle of the screen covers
+whatever you were looking at.
 
 The clock remembers a position and a size for each monitor it has been used on,
-under the `displays` key, along with the monitor it was last on in
-`last_display`:
+and a separate one for each resolution of that monitor and each set of monitors
+that was attached at the time, under the `displays` key. `last_display` is the
+monitor it was last on:
 
 ```json
 "displays": {
-  "Dell Inc. U2720Q 4M8YJ63": { "x": 568, "y": 199, "size": 400 }
+  "Dell Inc. U2720Q 4M8YJ63": {
+    "x": 568,
+    "y": 199,
+    "size": 400,
+    "modes": {
+      "2560x1440@100": { "x": 568, "y": 199, "size": 400 },
+      "3840x2160@150": { "x": 40, "y": 40, "size": 640 }
+    },
+    "layouts": {
+      "Dell Inc. U2720Q 4M8YJ63 2560x1440@100 0,0": {
+        "2560x1440@100": { "x": 568, "y": 199, "size": 400 }
+      }
+    }
+  }
 },
 "last_display": "Dell Inc. U2720Q 4M8YJ63"
 ```
@@ -1734,17 +1753,29 @@ A few details worth knowing:
   the connector they are plugged into, so moving a cable between ports keeps
   the monitor's settings. Two panels reporting identical EDID are told apart by
   appending the connector name.
-* Positions are stored relative to the monitor's own working area, not to the
-  desktop as a whole, so rearranging monitors leaves the clock on the same part
-  of the same physical screen.
-* The clock opens on the monitor it was last used on. If that monitor is not
-  attached it opens on the monitor holding the pointer, and if it has never
-  been used there it is centred rather than left wherever the window manager
-  would put it. Records for absent monitors are kept, so plugging one back in
-  restores its placement.
+* A mode key is the panel's logical width and height and its scale in
+  hundredths (`@100` is unscaled, `@150` is one and a half). A layout key is
+  every attached panel's identity, mode and position on the desktop, sorted and
+  joined. Only arrangements you have actually used are stored.
+* The bare `x` and `y` are the panel's last position, which is what a build
+  from before per-mode records reads, and what is used when this panel shows up
+  at a resolution or in an arrangement it has no record for. Failing that, the
+  last position at this resolution in any arrangement is used. Positions are
+  stored relative to the monitor's own working area, not to the desktop as a
+  whole.
+* `layout_screen` records which monitor the clock occupied in each
+  arrangement. The clock opens on that monitor when the same arrangement is
+  attached again. An arrangement it has never seen keeps the clock on the
+  monitor it is already on, and a monitor that is not attached falls through
+  to the monitor the clock was last used on, then to the one holding the
+  pointer. A monitor it has never been used on gets the top left of the
+  working area. Records for absent monitors are kept. Changing which monitors
+  are attached, or a monitor's resolution, waits until the set stops changing
+  and then restores the position remembered for the resulting arrangement.
 * Dragging the clock to another monitor records its position there, but its
   remembered size for that monitor is only applied when the clock *opens* on
-  it — resizing the window mid-drag would be jarring.
+  it, or when the arrangement changes — resizing the window mid-drag would be
+  jarring.
 * Unplugging a monitor that the clock was on moves it back onto an attached
   screen. Without this, a frameless window that keeps out of the taskbar and
   the window switcher would be left stranded on coordinates that no longer
